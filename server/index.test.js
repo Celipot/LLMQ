@@ -4,6 +4,7 @@ const http = require('node:http');
 const app = require('./index');
 const songs = require('./songs');
 const multiplayerGames = require('./multiplayerGames');
+const wsServer = require('./wsServer');
 
 let server;
 let baseUrl;
@@ -318,6 +319,25 @@ test('POST /games/:id/start returns 404 for an unknown gameId', async () => {
     body: JSON.stringify({ hostToken: 'whatever' }),
   });
   assert.equal(res.status, 404);
+});
+
+test('POST /games/:id/start schedules a stage timeout for stage 1', async () => {
+  const { gameId, hostToken } = await createLobbyWithTwoPlayers();
+  const original = wsServer.scheduleStageTimeout;
+  const calls = [];
+  wsServer.scheduleStageTimeout = (...args) => calls.push(args);
+  try {
+    await fetch(`${baseUrl}/games/${gameId}/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hostToken }),
+    });
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0][0], gameId);
+    assert.equal(calls[0][1], 1);
+  } finally {
+    wsServer.scheduleStageTimeout = original;
+  }
 });
 
 test('GET /games/:id/audio returns 404 before the game has started', async () => {

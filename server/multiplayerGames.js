@@ -115,6 +115,22 @@ function forfeitStage(gameId, playerId) {
   return { stage: game.stage };
 }
 
+function timeoutStage(gameId, stage) {
+  const game = games.get(gameId);
+  if (!game || game.status !== 'in_progress' || game.stage !== stage) {
+    return [];
+  }
+  const timedOutPlayerIds = [];
+  for (const player of game.players) {
+    if (player.status === 'active') {
+      player.status = 'forfeited';
+      player.forfeitReason = 'timeout';
+      timedOutPlayerIds.push(player.playerId);
+    }
+  }
+  return timedOutPlayerIds;
+}
+
 module.exports = {
   createGame,
   getGame,
@@ -123,4 +139,5 @@ module.exports = {
   startGame,
   submitAnswer,
   forfeitStage,
+  timeoutStage,
 };

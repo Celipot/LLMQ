@@ -5,7 +5,7 @@ const WebSocket = require('ws');
 const app = require('./index');
 const multiplayerGames = require('./multiplayerGames');
 const songs = require('./songs');
-const { attachWebSocketServer } = require('./wsServer');
+const { attachWebSocketServer, scheduleStageTimeout } = require('./wsServer');
 
 let server;
 let wss;
@@ -307,5 +307,84 @@ test('stage:forfeit is rejected once the player has already found the answer', a
   assert.equal(forfeitError.error, 'ALREADY_ANSWERED');
 
   aliceSocket.close();
+  bobSocket.close();
+});
+
+test('scheduleStageTimeout forfeits still-active players and broadcasts player:status with reason timeout', async () => {
+  const { aliceId, aliceSocket, bobSocket } = await createStartedGameWithSockets();
+
+  const aliceTimeoutPromise = aliceSocket.nextMessage();
+  const bobTimeoutPromise = bobSocket.nextMessage();
+  scheduleStageTimeout(aliceSocket.url.match(/gameId=([^&]+)/)[1], 1, 20);
+
+  const aliceTimeout = await aliceTimeoutPromise;
+  const bobTimeout = await bobTimeoutPromise;
+
+  for (const status of [aliceTimeout, bobTimeout]) {
+    assert.equal(status.type, 'player:status');
+    assert.equal(status.playerId, aliceId);
+    assert.equal(status.status, 'forfeited');
+    assert.equal(status.reason, 'timeout');
+  }
+
+  aliceSocket.close();
+  bobSocket.close();
+});
+
+test('scheduleStageTimeout does not forfeit a player who already answered before it fires', async () => {
+  const { gameId, aliceId, aliceSocket, bobSocket, correctTitle } = await createStartedGameWithSockets();
+
+  const aliceResultPromise = aliceSocket.nextMessage();
+  const bobFoundStatusPromise = bobSocket.nextMessage(); // player:status for Alice's correct answer
+  aliceSocket.send(JSON.stringify({ type: 'answer:submit', value: correctTitle }));
+  await aliceResultPromise;
+  await bobFoundStatusPromise;
+
+  const bobTimeoutPromise = bobSocket.nextMessage();
+  scheduleStageTimeout(gameId, 1, 20);
+  const bobTimeout = await bobTimeoutPromise;
+
+  assert.equal(bobTimeout.type, 'player:status');
+  assert.notEqual(bobTimeout.playerId, aliceId);
+
+  const alice = multiplayerGames.getGame(gameId).players.find((p) => p.playerId === aliceId);
+  assert.equal(alice.status, 'found');
+
+  aliceSocket.close();
+  bobSocket.close();
+});
+
+test('a disconnect once the game is in progress does not remove the player nor broadcast player:left', async () => {
+  const { gameId, aliceId, aliceSocket, bobSocket } = await createStartedGameWithSockets();
+
+  let bobReceivedPlayerLeft = false;
+  bobSocket.onmessage = () => {
+    bobReceivedPlayerLeft = true;
+  };
+  aliceSocket.close();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+
+  assert.equal(bobReceivedPlayerLeft, false);
+  const game = multiplayerGames.getGame(gameId);
+  assert.ok(game.players.some((p) => p.playerId === aliceId));
+
+  bobSocket.close();
+});
+
+test('reconnecting with the same playerId after a timeout keeps the forfeited status', async () => {
+  const { gameId, aliceId, aliceSocket, bobSocket } = await createStartedGameWithSockets();
+
+  const timeoutPromise = aliceSocket.nextMessage();
+  scheduleStageTimeout(gameId, 1, 20);
+  await timeoutPromise;
+  aliceSocket.close();
+
+  const reconnectedSocket = await openSocket(gameId, aliceId);
+  const snapshot = await reconnectedSocket.nextMessage();
+  const alice = snapshot.players.find((p) => p.playerId === aliceId);
+  assert.equal(alice.status, 'forfeited');
+  assert.equal(alice.forfeitReason, 'timeout');
+
+  reconnectedSocket.close();
   bobSocket.close();
 });

@@ -178,3 +178,33 @@ test('forfeitStage throws PLAYER_NOT_FOUND for an unknown playerId', () => {
   const game = startedGameWithTwoPlayers();
   assert.throws(() => multiplayerGames.forfeitStage(game.gameId, 'unknown-player'), /PLAYER_NOT_FOUND/);
 });
+
+test('timeoutStage forfeits every still-active player and returns their ids', () => {
+  const game = startedGameWithTwoPlayers();
+  const [alice, bob] = multiplayerGames.getGame(game.gameId).players;
+  const timedOut = multiplayerGames.timeoutStage(game.gameId, 1);
+  assert.deepEqual(timedOut.sort(), [alice.playerId, bob.playerId].sort());
+  assert.equal(alice.status, 'forfeited');
+  assert.equal(alice.forfeitReason, 'timeout');
+  assert.equal(bob.status, 'forfeited');
+});
+
+test('timeoutStage leaves players who already found or forfeited untouched', () => {
+  const game = startedGameWithTwoPlayers();
+  const [alice, bob] = multiplayerGames.getGame(game.gameId).players;
+  multiplayerGames.submitAnswer(game.gameId, alice.playerId, 'Correct Title', findSongByTitle);
+  const timedOut = multiplayerGames.timeoutStage(game.gameId, 1);
+  assert.deepEqual(timedOut, [bob.playerId]);
+  assert.equal(alice.status, 'found');
+  assert.equal(alice.forfeitReason, undefined);
+});
+
+test('timeoutStage is a no-op for a game that has not started', () => {
+  const game = createLobbyWithTwoPlayers();
+  assert.deepEqual(multiplayerGames.timeoutStage(game.gameId, 1), []);
+});
+
+test('timeoutStage is a no-op once the stage has already moved on', () => {
+  const game = startedGameWithTwoPlayers();
+  assert.deepEqual(multiplayerGames.timeoutStage(game.gameId, 2), []);
+});

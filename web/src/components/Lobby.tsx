@@ -39,7 +39,11 @@ export default function Lobby({ gameId, playerId }: LobbyProps) {
       if (message.type === 'lobby:state') {
         setPlayers(message.players);
       } else if (message.type === 'player:joined') {
-        setPlayers((prev) => [...prev, message.player]);
+        // A reconnect (same playerId, new socket) re-triggers this event —
+        // dedupe so the list never shows the same player twice.
+        setPlayers((prev) =>
+          prev.some((player) => player.playerId === message.player.playerId) ? prev : [...prev, message.player]
+        );
       } else if (message.type === 'player:left') {
         setPlayers((prev) => prev.filter((player) => player.playerId !== message.playerId));
       } else if (message.type === 'game:started') {

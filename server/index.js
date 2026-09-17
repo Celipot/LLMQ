@@ -5,7 +5,7 @@ const http = require('http');
 
 const gameState = require('./gameState');
 const multiplayerGames = require('./multiplayerGames');
-const { attachWebSocketServer, broadcastToGame } = require('./wsServer');
+const wsServer = require('./wsServer');
 const songs = require('./songs');
 const { truncateWavFile } = require('./wavTruncate');
 
@@ -202,13 +202,14 @@ app.post('/games/:id/start', (req, res) => {
 
   try {
     const game = multiplayerGames.startGame(req.params.id, hostToken, songs.pickRandomSongId);
-    broadcastToGame(game.gameId, { type: 'game:started' });
-    broadcastToGame(game.gameId, {
+    wsServer.broadcastToGame(game.gameId, { type: 'game:started' });
+    wsServer.broadcastToGame(game.gameId, {
       type: 'stage:start',
       stage: game.stage,
       durationSeconds: gameState.TIERS_SECONDS[0],
       serverTimestamp: Date.now(),
     });
+    wsServer.scheduleStageTimeout(game.gameId, game.stage);
     res.json({ status: game.status });
   } catch (err) {
     const status = START_ERROR_STATUS[err.code] || 500;
@@ -238,7 +239,7 @@ app.get('/games/:id/audio', async (req, res) => {
 
 if (require.main === module) {
   const server = http.createServer(app);
-  attachWebSocketServer(server);
+  wsServer.attachWebSocketServer(server);
   server.listen(PORT, () => {
     console.log(`LLMQ server listening on http://localhost:${PORT}`);
   });

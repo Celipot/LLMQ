@@ -70,6 +70,19 @@ describe('Lobby', () => {
     await waitFor(() => expect(screen.queryByText('Bob')).not.toBeInTheDocument());
   });
 
+  test('does not duplicate a player who reconnects (repeated player:joined for the same playerId)', async () => {
+    render(<Lobby gameId="g1" playerId="p1" />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
+    await screen.findByText('Alice');
+
+    socket.emit({ type: 'player:joined', player: { playerId: 'p2', nickname: 'Bob' } });
+    await screen.findByText('Bob');
+    socket.emit({ type: 'player:joined', player: { playerId: 'p2', nickname: 'Bob' } });
+
+    expect(await screen.findAllByText('Bob')).toHaveLength(1);
+  });
+
   test('does not show the launch button for a non-host player', async () => {
     render(<Lobby gameId="g1" playerId="p1" />);
     expect(screen.queryByText('Lancer la partie')).not.toBeInTheDocument();

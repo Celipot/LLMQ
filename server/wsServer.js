@@ -33,6 +33,23 @@ function broadcastToGame(gameId, message) {
   broadcast(gameId, message);
 }
 
+// "durée de l'étape + marge de timeout" (backlog MP-08) was superseded by a
+// fixed per-stage answer window (see prompt/user-stories-multiplayer.md
+// conversation log) once audio playback stopped being clock-synchronized.
+const STAGE_ANSWER_WINDOW_MS = 30000;
+
+function scheduleStageTimeout(gameId, stage, delayMs = STAGE_ANSWER_WINDOW_MS) {
+  // unref: this timer must never be the reason the process (or a test run)
+  // stays alive — it's a best-effort cleanup, not core work.
+  const timer = setTimeout(() => {
+    const timedOutPlayerIds = multiplayerGames.timeoutStage(gameId, stage);
+    for (const playerId of timedOutPlayerIds) {
+      broadcast(gameId, { type: 'player:status', playerId, status: 'forfeited', stage, reason: 'timeout' });
+    }
+  }, delayMs);
+  timer.unref();
+}
+
 function attachWebSocketServer(httpServer) {
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
 
@@ -82,12 +99,18 @@ function attachWebSocketServer(httpServer) {
 
     socket.on('close', () => {
       socketsFor(gameId).delete(socket);
-      multiplayerGames.removePlayer(gameId, playerId);
-      broadcast(gameId, { type: 'player:left', playerId });
+      // Once a game has started, a dropped connection must not erase the
+      // player's progress — they may reconnect with the same playerId and
+      // should find their status (active/found/forfeited) unchanged. Only
+      // the lobby waiting room treats a disconnect as leaving for good.
+      if (game.status === 'lobby') {
+        multiplayerGames.removePlayer(gameId, playerId);
+        broadcast(gameId, { type: 'player:left', playerId });
+      }
     });
   });
 
   return wss;
 }
 
-module.exports = { attachWebSocketServer, broadcastToGame };
+module.exports = { attachWebSocketServer, broadcastToGame, scheduleStageTimeout };
