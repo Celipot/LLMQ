@@ -257,7 +257,7 @@ describe('Lobby', () => {
     expect(screen.getByText('Alice — a trouvé')).toBeInTheDocument();
   });
 
-  test('shows a game-over message once game:ended is received', async () => {
+  test('renders GameResult once game:ended is received', async () => {
     render(<Lobby gameId="g1" playerId="p1" />);
     const socket = MockWebSocket.instances[0];
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice', status: 'active' }] });
@@ -268,9 +268,9 @@ describe('Lobby', () => {
     socket.emit({
       type: 'game:ended',
       song: { title: 'Some Song', artist: 'Some Artist', coverUrl: '/covers/x.png' },
-      players: [{ playerId: 'p1', nickname: 'Alice', foundStage: 1 }],
+      players: [{ playerId: 'p1', nickname: 'Alice', foundStage: 1, score: 6 }],
     });
 
-    expect(await screen.findByText('Partie terminée.')).toBeInTheDocument();
+    expect(await screen.findByText(/Some Song — Some Artist/)).toBeInTheDocument();
   });
 });

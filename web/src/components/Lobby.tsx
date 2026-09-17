@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { ApiError, startMultiplayerGame } from '../api';
-import type { AnswerFeedback, MultiplayerPlayer } from '../types';
+import type { AnswerFeedback, GameEndedPlayer, GameEndedSong, MultiplayerPlayer } from '../types';
 import GamePlay from './GamePlay';
+import GameResult from './GameResult';
 
 interface LobbyProps {
   gameId: string;
@@ -11,6 +12,11 @@ interface LobbyProps {
 interface StageInfo {
   stage: number;
   durationSeconds: number;
+}
+
+interface GameResultData {
+  song: GameEndedSong;
+  players: GameEndedPlayer[];
 }
 
 // "désactivé si moins de 1 autre joueur" (backlog MP-03) = host + at least
@@ -24,7 +30,7 @@ export default function Lobby({ gameId, playerId }: LobbyProps) {
   const [stageInfo, setStageInfo] = useState<StageInfo | null>(null);
   const [answerFeedback, setAnswerFeedback] = useState<AnswerFeedback | null>(null);
   const [forfeited, setForfeited] = useState(false);
-  const [ended, setEnded] = useState(false);
+  const [gameResult, setGameResult] = useState<GameResultData | null>(null);
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [launching, setLaunching] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
@@ -60,7 +66,7 @@ export default function Lobby({ gameId, playerId }: LobbyProps) {
           prev.map((player) => (player.status === 'forfeited' ? { ...player, status: 'active' } : player))
         );
       } else if (message.type === 'game:ended') {
-        setEnded(true);
+        setGameResult({ song: message.song, players: message.players });
       } else if (message.type === 'answer:result' && typeof message.correct === 'boolean') {
         setAnswerFeedback({ correct: message.correct });
         // The server excludes the sender from the "found" broadcast (they
@@ -113,9 +119,8 @@ export default function Lobby({ gameId, playerId }: LobbyProps) {
     }
   }
 
-  if (ended) {
-    // Full results screen (song reveal + ranking) is MP-12's scope.
-    return <p className="subtitle">Partie terminée.</p>;
+  if (gameResult) {
+    return <GameResult song={gameResult.song} players={gameResult.players} />;
   }
 
   if (stageInfo) {

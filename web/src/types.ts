@@ -70,3 +70,16 @@ export interface JoinGameResponse {
 export interface AnswerFeedback {
   correct: boolean;
 }
+
+export interface GameEndedSong {
+  title: string;
+  artist: string;
+  coverUrl: string;
+}
+
+export interface GameEndedPlayer {
+  playerId: string;
+  nickname: string;
+  foundStage: number | null;
+  score: number;
+}
