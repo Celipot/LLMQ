@@ -86,3 +86,59 @@ test('startGame throws NOT_ENOUGH_PLAYERS with fewer than 2 players', () => {
   multiplayerGames.joinGame(game.gameId, 'Alice');
   assert.throws(() => multiplayerGames.startGame(game.gameId, game.hostToken, () => 1), /NOT_ENOUGH_PLAYERS/);
 });
+
+const findSongByTitle = (title) => (title === 'Correct Title' ? { id: 42, title: 'Correct Title' } : null);
+
+function startedGameWithTwoPlayers() {
+  const game = createLobbyWithTwoPlayers();
+  multiplayerGames.startGame(game.gameId, game.hostToken, () => 42);
+  return game;
+}
+
+test('submitAnswer marks the player found and records the stage on a correct guess', () => {
+  const game = startedGameWithTwoPlayers();
+  const alicePlayerId = multiplayerGames.getGame(game.gameId).players[0].playerId;
+  const result = multiplayerGames.submitAnswer(game.gameId, alicePlayerId, 'Correct Title', findSongByTitle);
+  assert.equal(result.correct, true);
+  const alice = multiplayerGames.getGame(game.gameId).players[0];
+  assert.equal(alice.status, 'found');
+  assert.equal(alice.foundStage, 1);
+});
+
+test('submitAnswer leaves the player active and allows retrying on a wrong guess', () => {
+  const game = startedGameWithTwoPlayers();
+  const alicePlayerId = multiplayerGames.getGame(game.gameId).players[0].playerId;
+  const result = multiplayerGames.submitAnswer(game.gameId, alicePlayerId, 'Wrong Title', findSongByTitle);
+  assert.equal(result.correct, false);
+  const alice = multiplayerGames.getGame(game.gameId).players[0];
+  assert.equal(alice.status, 'active');
+  const second = multiplayerGames.submitAnswer(game.gameId, alicePlayerId, 'Correct Title', findSongByTitle);
+  assert.equal(second.correct, true);
+});
+
+test('submitAnswer throws ALREADY_ANSWERED once the player has already found the answer', () => {
+  const game = startedGameWithTwoPlayers();
+  const alicePlayerId = multiplayerGames.getGame(game.gameId).players[0].playerId;
+  multiplayerGames.submitAnswer(game.gameId, alicePlayerId, 'Correct Title', findSongByTitle);
+  assert.throws(
+    () => multiplayerGames.submitAnswer(game.gameId, alicePlayerId, 'Correct Title', findSongByTitle),
+    /ALREADY_ANSWERED/
+  );
+});
+
+test('submitAnswer throws GAME_NOT_IN_PROGRESS before the game has started', () => {
+  const game = createLobbyWithTwoPlayers();
+  const alicePlayerId = game.players[0].playerId;
+  assert.throws(
+    () => multiplayerGames.submitAnswer(game.gameId, alicePlayerId, 'Correct Title', findSongByTitle),
+    /GAME_NOT_IN_PROGRESS/
+  );
+});
+
+test('submitAnswer throws PLAYER_NOT_FOUND for an unknown playerId', () => {
+  const game = startedGameWithTwoPlayers();
+  assert.throws(
+    () => multiplayerGames.submitAnswer(game.gameId, 'unknown-player', 'Correct Title', findSongByTitle),
+    /PLAYER_NOT_FOUND/
+  );
+});

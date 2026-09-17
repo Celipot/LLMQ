@@ -10,6 +10,7 @@ vi.mock('../api', async () => {
   return {
     ...actual,
     startMultiplayerGame: vi.fn(),
+    fetchTitles: vi.fn(),
   };
 });
 
@@ -17,9 +18,14 @@ class MockWebSocket {
   static instances: MockWebSocket[] = [];
   onmessage: ((event: { data: string }) => void) | null = null;
   closed = false;
+  sent: string[] = [];
 
   constructor(public url: string) {
     MockWebSocket.instances.push(this);
+  }
+
+  send(data: string) {
+    this.sent.push(data);
   }
 
   close() {
@@ -35,6 +41,7 @@ beforeEach(() => {
   MockWebSocket.instances = [];
   vi.stubGlobal('WebSocket', MockWebSocket as unknown as typeof WebSocket);
   localStorage.clear();
+  vi.mocked(api.fetchTitles).mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -149,5 +156,24 @@ describe('Lobby', () => {
     socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now() });
 
     expect(await screen.findByText(/Étape 1/)).toBeInTheDocument();
+  });
+
+  test('sends answer:submit over the socket and shows the result once received', async () => {
+    render(<Lobby gameId="g1" playerId="p1" />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
+    await screen.findByText('Alice');
+    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now() });
+    await screen.findByText(/Étape 1/);
+
+    const input = await screen.findByRole('textbox');
+    await userEvent.type(input, 'Some Title');
+    await userEvent.click(screen.getByText('Valider'));
+
+    expect(socket.sent).toContainEqual(JSON.stringify({ type: 'answer:submit', value: 'Some Title' }));
+
+    socket.emit({ type: 'answer:result', correct: true });
+
+    expect(await screen.findByText('Bravo, tu as trouvé !')).toBeInTheDocument();
   });
 });

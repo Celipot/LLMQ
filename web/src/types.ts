@@ -63,3 +63,7 @@ export interface JoinGameResponse {
   playerId: string;
   players: MultiplayerPlayer[];
 }
+
+export interface AnswerFeedback {
+  correct: boolean;
+}

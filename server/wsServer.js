@@ -6,6 +6,7 @@
 const { WebSocketServer } = require('ws');
 const { URL } = require('url');
 const multiplayerGames = require('./multiplayerGames');
+const songs = require('./songs');
 
 // gameId -> Set<WebSocket>
 const socketsByGame = new Map();
@@ -50,6 +51,27 @@ function attachWebSocketServer(httpServer) {
     socketsFor(gameId).add(socket);
     socket.send(JSON.stringify({ type: 'lobby:state', players: game.players }));
     broadcast(gameId, { type: 'player:joined', player }, socket);
+
+    socket.on('message', (data) => {
+      let payload;
+      try {
+        payload = JSON.parse(data.toString());
+      } catch {
+        return;
+      }
+
+      if (payload.type === 'answer:submit') {
+        try {
+          const result = multiplayerGames.submitAnswer(gameId, playerId, payload.value, songs.findSongByTitle);
+          socket.send(JSON.stringify({ type: 'answer:result', correct: result.correct }));
+          if (result.correct) {
+            broadcast(gameId, { type: 'player:status', playerId, status: 'found', stage: result.stage }, socket);
+          }
+        } catch (err) {
+          socket.send(JSON.stringify({ type: 'answer:result', error: err.code || 'ANSWER_FAILED' }));
+        }
+      }
+    });
 
     socket.on('close', () => {
       socketsFor(gameId).delete(socket);

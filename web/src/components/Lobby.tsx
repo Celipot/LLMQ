@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ApiError, startMultiplayerGame } from '../api';
-import type { MultiplayerPlayer } from '../types';
+import type { AnswerFeedback, MultiplayerPlayer } from '../types';
 import GamePlay from './GamePlay';
 
 interface LobbyProps {
@@ -22,13 +22,16 @@ export default function Lobby({ gameId, playerId }: LobbyProps) {
   const [players, setPlayers] = useState<MultiplayerPlayer[]>([]);
   const [started, setStarted] = useState(false);
   const [stageInfo, setStageInfo] = useState<StageInfo | null>(null);
+  const [answerFeedback, setAnswerFeedback] = useState<AnswerFeedback | null>(null);
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [launching, setLaunching] = useState(false);
+  const socketRef = useRef<WebSocket | null>(null);
   const isHost = localStorage.getItem(`hostToken:${gameId}`) !== null;
 
   useEffect(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const socket = new WebSocket(`${protocol}//${window.location.host}/ws?gameId=${gameId}&playerId=${playerId}`);
+    socketRef.current = socket;
 
     socket.onmessage = (event) => {
       const message = JSON.parse(event.data as string);
@@ -42,11 +45,22 @@ export default function Lobby({ gameId, playerId }: LobbyProps) {
         setStarted(true);
       } else if (message.type === 'stage:start') {
         setStageInfo({ stage: message.stage, durationSeconds: message.durationSeconds });
+        setAnswerFeedback(null);
+      } else if (message.type === 'answer:result' && typeof message.correct === 'boolean') {
+        setAnswerFeedback({ correct: message.correct });
       }
     };
 
-    return () => socket.close();
+    return () => {
+      socket.close();
+      socketRef.current = null;
+    };
   }, [gameId, playerId]);
+
+  function submitAnswer(title: string) {
+    setAnswerFeedback(null);
+    socketRef.current?.send(JSON.stringify({ type: 'answer:submit', value: title }));
+  }
 
   async function handleLaunch() {
     const hostToken = localStorage.getItem(`hostToken:${gameId}`);
@@ -67,7 +81,15 @@ export default function Lobby({ gameId, playerId }: LobbyProps) {
   }
 
   if (stageInfo) {
-    return <GamePlay gameId={gameId} stage={stageInfo.stage} durationSeconds={stageInfo.durationSeconds} />;
+    return (
+      <GamePlay
+        gameId={gameId}
+        stage={stageInfo.stage}
+        durationSeconds={stageInfo.durationSeconds}
+        onSubmitAnswer={submitAnswer}
+        answerFeedback={answerFeedback}
+      />
+    );
   }
 
   if (started) {

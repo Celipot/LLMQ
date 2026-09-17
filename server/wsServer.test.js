@@ -4,6 +4,7 @@ const http = require('node:http');
 const WebSocket = require('ws');
 const app = require('./index');
 const multiplayerGames = require('./multiplayerGames');
+const songs = require('./songs');
 const { attachWebSocketServer } = require('./wsServer');
 
 let server;
@@ -175,6 +176,96 @@ test('starting the game broadcasts game:started then stage:start to connected so
   assert.equal(stageMessage.stage, 1);
   assert.equal(typeof stageMessage.durationSeconds, 'number');
   assert.equal(typeof stageMessage.serverTimestamp, 'number');
+
+  aliceSocket.close();
+  bobSocket.close();
+});
+
+async function createStartedGameWithSockets() {
+  const { gameId, playerId: aliceId } = await createGameWithPlayer('Alice');
+  const bob = await (
+    await fetch(`${baseUrl}/games/${gameId}/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nickname: 'Bob' }),
+    })
+  ).json();
+
+  const aliceSocket = await openSocket(gameId, aliceId);
+  await aliceSocket.nextMessage(); // lobby:state
+  const bobSocket = await openSocket(gameId, bob.playerId);
+  await aliceSocket.nextMessage(); // player:joined for Bob
+  await bobSocket.nextMessage(); // lobby:state
+
+  const { hostToken } = multiplayerGames.getGame(gameId);
+  const aliceStartedPromise = aliceSocket.nextMessage();
+  const bobStartedPromise = bobSocket.nextMessage();
+  await fetch(`${baseUrl}/games/${gameId}/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken }),
+  });
+  await aliceStartedPromise; // game:started
+  await aliceSocket.nextMessage(); // stage:start
+  await bobStartedPromise; // game:started
+  await bobSocket.nextMessage(); // stage:start
+
+  const game = multiplayerGames.getGame(gameId);
+  const correctTitle = songs.getSongById(game.songId).title;
+
+  return { gameId, aliceId, aliceSocket, bobId: bob.playerId, bobSocket, correctTitle };
+}
+
+test('a correct answer:submit marks the player found and broadcasts player:status to everyone', async () => {
+  const { aliceId, aliceSocket, bobSocket, correctTitle } = await createStartedGameWithSockets();
+
+  const bobStatusPromise = bobSocket.nextMessage();
+  const aliceResultPromise = aliceSocket.nextMessage();
+  aliceSocket.send(JSON.stringify({ type: 'answer:submit', value: correctTitle }));
+
+  const aliceResult = await aliceResultPromise;
+  assert.equal(aliceResult.type, 'answer:result');
+  assert.equal(aliceResult.correct, true);
+
+  const bobStatus = await bobStatusPromise;
+  assert.equal(bobStatus.type, 'player:status');
+  assert.equal(bobStatus.playerId, aliceId);
+  assert.equal(bobStatus.status, 'found');
+  assert.equal(bobStatus.stage, 1);
+
+  aliceSocket.close();
+  bobSocket.close();
+});
+
+test('a wrong answer:submit does not finish the stage and can be retried until correct', async () => {
+  const { aliceSocket, bobSocket, correctTitle } = await createStartedGameWithSockets();
+
+  const wrongResultPromise = aliceSocket.nextMessage();
+  aliceSocket.send(JSON.stringify({ type: 'answer:submit', value: 'Definitely Not The Title' }));
+  const wrongResult = await wrongResultPromise;
+  assert.equal(wrongResult.correct, false);
+
+  const retryResultPromise = aliceSocket.nextMessage();
+  aliceSocket.send(JSON.stringify({ type: 'answer:submit', value: correctTitle }));
+  const retryResult = await retryResultPromise;
+  assert.equal(retryResult.correct, true);
+
+  aliceSocket.close();
+  bobSocket.close();
+});
+
+test('submitting again after already finding the answer is rejected', async () => {
+  const { aliceSocket, bobSocket, correctTitle } = await createStartedGameWithSockets();
+
+  const firstResultPromise = aliceSocket.nextMessage();
+  aliceSocket.send(JSON.stringify({ type: 'answer:submit', value: correctTitle }));
+  await firstResultPromise;
+
+  const secondResultPromise = aliceSocket.nextMessage();
+  aliceSocket.send(JSON.stringify({ type: 'answer:submit', value: correctTitle }));
+  const secondResult = await secondResultPromise;
+  assert.equal(secondResult.type, 'answer:result');
+  assert.equal(secondResult.error, 'ALREADY_ANSWERED');
 
   aliceSocket.close();
   bobSocket.close();

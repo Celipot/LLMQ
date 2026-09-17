@@ -39,7 +39,7 @@ function joinGame(gameId, nickname) {
   if (game.players.some((player) => player.nickname === nickname)) {
     throw fail('NICKNAME_TAKEN');
   }
-  const player = { playerId: crypto.randomUUID(), nickname };
+  const player = { playerId: crypto.randomUUID(), nickname, status: 'active' };
   game.players.push(player);
   return { playerId: player.playerId, players: game.players };
 }
@@ -70,10 +70,36 @@ function startGame(gameId, hostToken, pickSongId) {
   return game;
 }
 
+function submitAnswer(gameId, playerId, title, findSongByTitle) {
+  const game = games.get(gameId);
+  if (!game) {
+    throw fail('GAME_NOT_FOUND');
+  }
+  if (game.status !== 'in_progress') {
+    throw fail('GAME_NOT_IN_PROGRESS');
+  }
+  const player = game.players.find((p) => p.playerId === playerId);
+  if (!player) {
+    throw fail('PLAYER_NOT_FOUND');
+  }
+  if (player.status !== 'active') {
+    throw fail('ALREADY_ANSWERED');
+  }
+
+  const matchedSong = findSongByTitle(title);
+  const isCorrect = !!matchedSong && matchedSong.id === game.songId;
+  if (isCorrect) {
+    player.status = 'found';
+    player.foundStage = game.stage;
+  }
+  return { correct: isCorrect, stage: game.stage };
+}
+
 module.exports = {
   createGame,
   getGame,
   joinGame,
   removePlayer,
   startGame,
+  submitAnswer,
 };
