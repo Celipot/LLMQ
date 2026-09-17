@@ -26,6 +26,7 @@ describe('GamePlay', () => {
         answerFeedback={null}
         forfeited={false}
         onForfeit={vi.fn()}
+        players={[]}
       />
     );
 
@@ -44,6 +45,7 @@ describe('GamePlay', () => {
         answerFeedback={null}
         forfeited={false}
         onForfeit={vi.fn()}
+        players={[]}
       />
     );
 
@@ -65,6 +67,7 @@ describe('GamePlay', () => {
         answerFeedback={null}
         forfeited={false}
         onForfeit={vi.fn()}
+        players={[]}
       />
     );
 
@@ -87,6 +90,7 @@ describe('GamePlay', () => {
         answerFeedback={{ correct: true }}
         forfeited={false}
         onForfeit={vi.fn()}
+        players={[]}
       />
     );
 
@@ -106,6 +110,7 @@ describe('GamePlay', () => {
         answerFeedback={{ correct: false }}
         forfeited={false}
         onForfeit={vi.fn()}
+        players={[]}
       />
     );
 
@@ -125,6 +130,7 @@ describe('GamePlay', () => {
         answerFeedback={null}
         forfeited={false}
         onForfeit={onForfeit}
+        players={[]}
       />
     );
 
@@ -144,6 +150,7 @@ describe('GamePlay', () => {
         answerFeedback={null}
         forfeited={true}
         onForfeit={vi.fn()}
+        players={[]}
       />
     );
 
@@ -151,5 +158,47 @@ describe('GamePlay', () => {
     expect(screen.getByRole('textbox')).toBeDisabled();
     expect(screen.getByText('Valider')).toBeDisabled();
     expect(screen.getByText('Abandonner cette étape')).toBeDisabled();
+  });
+
+  test('renders each player with their current status', async () => {
+    vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
+    render(
+      <GamePlay
+        gameId="g1"
+        stage={1}
+        durationSeconds={1}
+        onSubmitAnswer={vi.fn()}
+        answerFeedback={null}
+        forfeited={false}
+        onForfeit={vi.fn()}
+        players={[
+          { playerId: 'p1', nickname: 'Alice', status: 'active' },
+          { playerId: 'p2', nickname: 'Bob', status: 'found' },
+          { playerId: 'p3', nickname: 'Chris', status: 'forfeited' },
+        ]}
+      />
+    );
+
+    expect(screen.getByText('Alice — cherche encore')).toBeInTheDocument();
+    expect(screen.getByText('Bob — a trouvé')).toBeInTheDocument();
+    expect(screen.getByText('Chris — a abandonné')).toBeInTheDocument();
+  });
+
+  test('does not reveal the answer or song name in the player status list', async () => {
+    vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
+    render(
+      <GamePlay
+        gameId="g1"
+        stage={1}
+        durationSeconds={1}
+        onSubmitAnswer={vi.fn()}
+        answerFeedback={null}
+        forfeited={false}
+        onForfeit={vi.fn()}
+        players={[{ playerId: 'p1', nickname: 'Alice', status: 'found' }]}
+      />
+    );
+
+    expect(screen.queryByText(TITLES[0].title)).not.toBeInTheDocument();
   });
 });

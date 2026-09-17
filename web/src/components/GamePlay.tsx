@@ -3,7 +3,7 @@ import Player from './Player';
 import SearchAutocomplete from './SearchAutocomplete';
 import { useAudioPlayer } from '../hooks/useAudioPlayer';
 import { fetchTitles, multiplayerAudioTrackUrl } from '../api';
-import type { AnswerFeedback, PlayableSong } from '../types';
+import type { AnswerFeedback, MultiplayerPlayer, PlayerStageStatus, PlayableSong } from '../types';
 
 interface GamePlayProps {
   gameId: string;
@@ -13,7 +13,14 @@ interface GamePlayProps {
   answerFeedback: AnswerFeedback | null;
   forfeited: boolean;
   onForfeit: () => void;
+  players: MultiplayerPlayer[];
 }
+
+const STATUS_LABEL: Record<PlayerStageStatus, string> = {
+  active: 'cherche encore',
+  found: 'a trouvé',
+  forfeited: 'a abandonné',
+};
 
 export default function GamePlay({
   gameId,
@@ -23,6 +30,7 @@ export default function GamePlay({
   answerFeedback,
   forfeited,
   onForfeit,
+  players,
 }: GamePlayProps) {
   const [titles, setTitles] = useState<PlayableSong[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -88,6 +96,13 @@ export default function GamePlay({
           {found ? 'Bravo, tu as trouvé !' : "Ce n'est pas ça, retente ta chance."}
         </p>
       )}
+      <ul className="game-play-players">
+        {players.map((player) => (
+          <li key={player.playerId}>
+            {player.nickname} — {STATUS_LABEL[player.status ?? 'active']}
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

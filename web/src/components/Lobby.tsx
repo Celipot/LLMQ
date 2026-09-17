@@ -52,10 +52,23 @@ export default function Lobby({ gameId, playerId }: LobbyProps) {
         setStageInfo({ stage: message.stage, durationSeconds: message.durationSeconds });
         setAnswerFeedback(null);
         setForfeited(false);
+        setPlayers((prev) => prev.map((player) => ({ ...player, status: 'active' })));
       } else if (message.type === 'answer:result' && typeof message.correct === 'boolean') {
         setAnswerFeedback({ correct: message.correct });
-      } else if (message.type === 'player:status' && message.playerId === playerId && message.status === 'forfeited') {
-        setForfeited(true);
+        // The server excludes the sender from the "found" broadcast (they
+        // already have this ack) — reflect it in the shared list ourselves.
+        if (message.correct) {
+          setPlayers((prev) =>
+            prev.map((player) => (player.playerId === playerId ? { ...player, status: 'found' } : player))
+          );
+        }
+      } else if (message.type === 'player:status') {
+        setPlayers((prev) =>
+          prev.map((player) => (player.playerId === message.playerId ? { ...player, status: message.status } : player))
+        );
+        if (message.playerId === playerId && message.status === 'forfeited') {
+          setForfeited(true);
+        }
       }
     };
 
@@ -102,6 +115,7 @@ export default function Lobby({ gameId, playerId }: LobbyProps) {
         answerFeedback={answerFeedback}
         forfeited={forfeited}
         onForfeit={forfeitStage}
+        players={players}
       />
     );
   }

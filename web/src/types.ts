@@ -54,9 +54,12 @@ export interface GameSummary {
   status: MultiplayerGameStatus;
 }
 
+export type PlayerStageStatus = 'active' | 'found' | 'forfeited';
+
 export interface MultiplayerPlayer {
   playerId: string;
   nickname: string;
+  status?: PlayerStageStatus;
 }
 
 export interface JoinGameResponse {

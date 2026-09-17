@@ -206,4 +206,38 @@ describe('Lobby', () => {
 
     expect(await screen.findByText('Tu as abandonné cette étape.')).toBeInTheDocument();
   });
+
+  test('reflects another player found/forfeited status live during the stage', async () => {
+    render(<Lobby gameId="g1" playerId="p1" />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({
+      type: 'lobby:state',
+      players: [
+        { playerId: 'p1', nickname: 'Alice', status: 'active' },
+        { playerId: 'p2', nickname: 'Bob', status: 'active' },
+      ],
+    });
+    await screen.findByText('Alice');
+    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now() });
+    await screen.findByText(/Étape 1/);
+
+    expect(await screen.findByText('Bob — cherche encore')).toBeInTheDocument();
+
+    socket.emit({ type: 'player:status', playerId: 'p2', status: 'found', stage: 1 });
+
+    expect(await screen.findByText('Bob — a trouvé')).toBeInTheDocument();
+  });
+
+  test('reflects its own found status in the shared player list once answer:result arrives', async () => {
+    render(<Lobby gameId="g1" playerId="p1" />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice', status: 'active' }] });
+    await screen.findByText('Alice');
+    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now() });
+    await screen.findByText(/Étape 1/);
+
+    socket.emit({ type: 'answer:result', correct: true });
+
+    expect(await screen.findByText('Alice — a trouvé')).toBeInTheDocument();
+  });
 });
