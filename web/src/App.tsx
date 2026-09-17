@@ -5,22 +5,27 @@ import Pips from './components/Pips';
 import SearchAutocomplete from './components/SearchAutocomplete';
 import History from './components/History';
 import Result from './components/Result';
+import Home from './components/Home';
+import SongList from './components/SongList';
 import { useGameState } from './hooks/useGameState';
 import { useAudioPlayer } from './hooks/useAudioPlayer';
 import './App.css';
 
+type Screen = 'home' | 'random' | 'list';
+
 export default function App() {
-  const { state, titles, error, guess, skip, reset, clearError } = useGameState();
+  const [screen, setScreen] = useState<Screen>('home');
+  const { state, titles, activeSongId, error, guess, skip, reset, startRandom, selectSong, clearError } =
+    useGameState();
   const [inputValue, setInputValue] = useState('');
 
   const allowedSeconds = state?.allowedSeconds ?? 1;
-  const { audioRef, progress, playError, play, handleEnded, resetProgress } = useAudioPlayer(allowedSeconds);
+  const { audioRef, progress, playError, volume, play, handleEnded, resetProgress, setVolume } =
+    useAudioPlayer(allowedSeconds);
 
-  if (!state) {
-    return null;
-  }
-
-  const finished = state.status !== 'playing';
+  const showQuiz = screen === 'random' || (screen === 'list' && activeSongId !== null);
+  const finished = !!state && state.status !== 'playing';
+  const isLastAttempt = !!state && !finished && state.attemptsUsed === state.maxAttempts - 1;
 
   async function handleSubmit() {
     await guess(inputValue);
@@ -33,51 +38,91 @@ export default function App() {
     resetProgress();
   }
 
+  async function handleSelectRandom() {
+    setScreen('random');
+    setInputValue('');
+    resetProgress();
+    await startRandom();
+  }
+
+  async function handleSelectSong(id: number) {
+    setInputValue('');
+    resetProgress();
+    await selectSong(id);
+  }
+
   return (
     <main className="app">
-      <h1>
-        <ShinyText text="LLMQ" speed={3} />
-      </h1>
-      <p className="subtitle">Devine le titre à partir de l'intro</p>
-
-      <Player
-        audioRef={audioRef}
-        allowedSeconds={allowedSeconds}
-        progress={progress}
-        disabled={false}
-        onPlay={play}
-        onEnded={handleEnded}
-      />
-
-      <Pips maxAttempts={state.maxAttempts} guesses={state.guesses} />
-
-      <section className="search-section">
-        <SearchAutocomplete
-          titles={titles}
-          value={inputValue}
-          disabled={finished}
-          onChange={(v) => {
-            setInputValue(v);
-            clearError();
-          }}
-          onSubmit={handleSubmit}
-        />
-        <div className="actions">
-          <button type="button" id="guess-btn" disabled={finished} onClick={handleSubmit}>
-            Valider
+      <div className="app-header">
+        <h1>
+          <ShinyText text="LLMQ" speed={3} />
+        </h1>
+        {screen !== 'home' && (
+          <button type="button" className="secondary" onClick={() => setScreen('home')}>
+            Accueil
           </button>
-          <button type="button" className="secondary" disabled={finished} onClick={skip}>
-            Passer
-          </button>
+        )}
+      </div>
+
+      {screen === 'home' && <Home onSelectRandom={handleSelectRandom} onSelectList={() => setScreen('list')} />}
+
+      {screen !== 'home' && (
+        <div className={screen === 'list' ? 'game-layout' : undefined}>
+          {screen === 'list' && (
+            <SongList titles={titles} activeSongId={activeSongId} onSelect={handleSelectSong} />
+          )}
+
+          <div className="quiz-area">
+            {!showQuiz && <p className="subtitle">Choisis une chanson dans la liste pour commencer.</p>}
+            {showQuiz && state && (
+              <>
+                <p className="subtitle">Devine le titre à partir de l'intro</p>
+
+                <Player
+                  audioRef={audioRef}
+                  allowedSeconds={allowedSeconds}
+                  progress={progress}
+                  disabled={false}
+                  volume={volume}
+                  onPlay={play}
+                  onEnded={handleEnded}
+                  onVolumeChange={setVolume}
+                />
+
+                <Pips maxAttempts={state.maxAttempts} guesses={state.guesses} />
+
+                <section className="search-section">
+                  <SearchAutocomplete
+                    titles={titles}
+                    value={inputValue}
+                    disabled={finished}
+                    onChange={(v) => {
+                      setInputValue(v);
+                      clearError();
+                    }}
+                    onSubmit={handleSubmit}
+                  />
+                  <div className="actions">
+                    <button type="button" id="guess-btn" disabled={finished} onClick={handleSubmit}>
+                      Valider
+                    </button>
+                    <button type="button" className="secondary" disabled={finished} onClick={skip}>
+                      {isLastAttempt ? 'Abandonner' : 'Passer'}
+                    </button>
+                  </div>
+                  <p className="error-msg" role="alert">
+                    {error || playError}
+                  </p>
+                </section>
+
+                <History guesses={state.guesses} />
+
+                {finished && <Result state={state} onReset={screen === 'random' ? handleReset : undefined} />}
+              </>
+            )}
+          </div>
         </div>
-        <p className="error-msg" role="alert">
-          {error || playError}
-        </p>
-      </section>
-
-      <History guesses={state.guesses} />
-
-      {finished && <Result state={state} onReset={handleReset} />}
+      )}
     </main>
   );
 }

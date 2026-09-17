@@ -14,6 +14,8 @@ vi.mock('../api', async () => {
     submitGuess: vi.fn(),
     submitSkip: vi.fn(),
     resetGame: vi.fn(),
+    startRandomMode: vi.fn(),
+    selectSong: vi.fn(),
   };
 });
 
@@ -25,9 +27,11 @@ const initialState: GameState = {
   guesses: [],
 };
 
+const placeholderTitle = { id: 1, title: 'Placeholder Track', artist: 'LLMQ Dev', status: 'not_started' as const };
+
 beforeEach(() => {
   vi.mocked(api.fetchState).mockResolvedValue(initialState);
-  vi.mocked(api.fetchTitles).mockResolvedValue([{ title: 'Placeholder Track', artist: 'LLMQ Dev' }]);
+  vi.mocked(api.fetchTitles).mockResolvedValue([placeholderTitle]);
 });
 
 describe('useGameState', () => {
@@ -35,7 +39,7 @@ describe('useGameState', () => {
     const { result } = renderHook(() => useGameState());
     await waitFor(() => expect(result.current.state).not.toBeNull());
     expect(result.current.state).toEqual(initialState);
-    expect(result.current.titles).toEqual([{ title: 'Placeholder Track', artist: 'LLMQ Dev' }]);
+    expect(result.current.titles).toEqual([placeholderTitle]);
   });
 
   test('guess() with an empty title sets an error without calling the API', async () => {
@@ -109,5 +113,40 @@ describe('useGameState', () => {
 
     expect(result.current.state).toEqual(initialState);
     expect(result.current.error).toBeNull();
+  });
+
+  test('startRandom() replaces state and clears the active song id', async () => {
+    const randomState: GameState = { ...initialState, attemptsUsed: 2 };
+    vi.mocked(api.startRandomMode).mockResolvedValue(randomState);
+
+    const { result } = renderHook(() => useGameState());
+    await waitFor(() => expect(result.current.state).not.toBeNull());
+
+    await act(async () => {
+      await result.current.selectSong(1);
+    });
+    await act(async () => {
+      await result.current.startRandom();
+    });
+
+    expect(result.current.state).toEqual(randomState);
+    expect(result.current.activeSongId).toBeNull();
+  });
+
+  test('selectSong() replaces state, sets the active song id, and refreshes titles', async () => {
+    const listState: GameState = { ...initialState, attemptsUsed: 1 };
+    vi.mocked(api.selectSong).mockResolvedValue(listState);
+    vi.mocked(api.fetchTitles).mockResolvedValue([placeholderTitle]);
+
+    const { result } = renderHook(() => useGameState());
+    await waitFor(() => expect(result.current.state).not.toBeNull());
+
+    await act(async () => {
+      await result.current.selectSong(1);
+    });
+
+    expect(api.selectSong).toHaveBeenCalledWith(1);
+    expect(result.current.state).toEqual(listState);
+    expect(result.current.activeSongId).toBe(1);
   });
 });

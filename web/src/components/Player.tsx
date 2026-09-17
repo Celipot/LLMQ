@@ -5,8 +5,10 @@ interface PlayerProps {
   allowedSeconds: number;
   progress: number;
   disabled: boolean;
+  volume: number;
   onPlay: () => void;
   onEnded: () => void;
+  onVolumeChange: (volume: number) => void;
 }
 
 function formatSeconds(seconds: number): string {
@@ -14,7 +16,16 @@ function formatSeconds(seconds: number): string {
   return `0:${String(s).padStart(2, '0')}`;
 }
 
-export default function Player({ audioRef, allowedSeconds, progress, disabled, onPlay, onEnded }: PlayerProps) {
+export default function Player({
+  audioRef,
+  allowedSeconds,
+  progress,
+  disabled,
+  volume,
+  onPlay,
+  onEnded,
+  onVolumeChange,
+}: PlayerProps) {
   return (
     <section className="player">
       <button
@@ -30,6 +41,16 @@ export default function Player({ audioRef, allowedSeconds, progress, disabled, o
         <div className="progress-fill" style={{ width: `${progress}%` }} />
       </div>
       <span className="allowed-seconds">{formatSeconds(allowedSeconds)}</span>
+      <input
+        type="range"
+        className="volume-slider"
+        aria-label="Volume"
+        min={0}
+        max={1}
+        step={0.05}
+        value={volume}
+        onChange={(e) => onVolumeChange(Number(e.target.value))}
+      />
       <audio ref={audioRef} onEnded={onEnded} preload="none" />
     </section>
   );

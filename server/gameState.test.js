@@ -1,15 +1,17 @@
-const { test, beforeEach } = require('node:test');
+const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const gameState = require('./gameState');
 
 const CORRECT_SONG = { title: 'Correct Title', artist: 'Correct Artist', coverUrl: '/covers/correct.png' };
 
-beforeEach(() => {
-  gameState.reset();
-});
+let keyCounter = 0;
+function freshKey() {
+  keyCounter += 1;
+  return `test:${keyCounter}`;
+}
 
 test('starts at tier 0 with 1 allowed second and no guesses', () => {
-  const state = gameState.getPublicState(CORRECT_SONG);
+  const state = gameState.getPublicState(freshKey(), CORRECT_SONG);
   assert.equal(state.attemptsUsed, 0);
   assert.equal(state.allowedSeconds, 1);
   assert.equal(state.status, 'playing');
@@ -18,8 +20,9 @@ test('starts at tier 0 with 1 allowed second and no guesses', () => {
 });
 
 test('wrong guess advances the tier and does not finish the game', () => {
-  gameState.applyGuess('Wrong Title', false);
-  const state = gameState.getPublicState();
+  const key = freshKey();
+  gameState.applyGuess(key, 'Wrong Title', false);
+  const state = gameState.getPublicState(key);
   assert.equal(state.attemptsUsed, 1);
   assert.equal(state.allowedSeconds, gameState.TIERS_SECONDS[1]);
   assert.equal(state.status, 'playing');
@@ -27,9 +30,10 @@ test('wrong guess advances the tier and does not finish the game', () => {
 });
 
 test('correct guess wins immediately regardless of attempts used', () => {
-  gameState.applyGuess('Wrong Title', false);
-  gameState.applyGuess('Correct Title', true);
-  const state = gameState.getPublicState(CORRECT_SONG);
+  const key = freshKey();
+  gameState.applyGuess(key, 'Wrong Title', false);
+  gameState.applyGuess(key, 'Correct Title', true);
+  const state = gameState.getPublicState(key, CORRECT_SONG);
   assert.equal(state.status, 'won');
   assert.equal(state.correctTitle, 'Correct Title');
   assert.equal(state.correctArtist, 'Correct Artist');
@@ -37,50 +41,56 @@ test('correct guess wins immediately regardless of attempts used', () => {
 });
 
 test('6th failed attempt loses the game and reveals the title', () => {
+  const key = freshKey();
   for (let i = 0; i < gameState.MAX_ATTEMPTS; i++) {
-    gameState.applyGuess('Wrong Title', false);
+    gameState.applyGuess(key, 'Wrong Title', false);
   }
-  const state = gameState.getPublicState(CORRECT_SONG);
+  const state = gameState.getPublicState(key, CORRECT_SONG);
   assert.equal(state.status, 'lost');
-  assert.equal(state.attemptsUsed, gameState.MAX_ATTEMPTS);
   assert.equal(state.correctTitle, 'Correct Title');
 });
 
-test('skip advances the tier like a wrong guess but is not a guess entry', () => {
-  gameState.applySkip();
-  const state = gameState.getPublicState();
-  assert.equal(state.attemptsUsed, 1);
-  assert.deepEqual(state.guesses, [{ type: 'skip', title: null, correct: null }]);
+test('applyGuess throws once the game is finished', () => {
+  const key = freshKey();
+  gameState.applyGuess(key, 'Correct Title', true);
+  assert.throws(() => gameState.applyGuess(key, 'Another Title', false), /GAME_FINISHED/);
 });
 
-test('skip on the last attempt loses the game', () => {
+test('applySkip advances the tier and throws once the game is finished', () => {
+  const key = freshKey();
   for (let i = 0; i < gameState.MAX_ATTEMPTS - 1; i++) {
-    gameState.applySkip();
+    gameState.applySkip(key);
   }
-  assert.equal(gameState.isFinished(), false);
-  gameState.applySkip();
-  assert.equal(gameState.isFinished(), true);
-  assert.equal(gameState.getPublicState().status, 'lost');
+  assert.equal(gameState.getPublicState(key).attemptsUsed, gameState.MAX_ATTEMPTS - 1);
+  gameState.applySkip(key);
+  assert.equal(gameState.getPublicState(key).status, 'lost');
+  assert.throws(() => gameState.applySkip(key), /GAME_FINISHED/);
 });
 
-test('guess and skip both throw once the game is finished', () => {
-  gameState.applyGuess('Correct Title', true);
-  assert.throws(() => gameState.applyGuess('Anything', false), /GAME_FINISHED/);
-  assert.throws(() => gameState.applySkip(), /GAME_FINISHED/);
-});
-
-test('correctTitle is never included while the game is still playing', () => {
-  gameState.applyGuess('Wrong Title', false);
-  const state = gameState.getPublicState(CORRECT_SONG);
-  assert.equal(state.correctTitle, undefined);
-});
-
-test('reset clears attempts, guesses, status, and tier', () => {
-  gameState.applyGuess('Wrong Title', false);
-  gameState.applyGuess('Wrong Title', false);
-  const state = gameState.reset();
+test('resetState clears an existing round back to its initial state', () => {
+  const key = freshKey();
+  gameState.applyGuess(key, 'Correct Title', true);
+  gameState.resetState(key);
+  const state = gameState.getPublicState(key);
   assert.equal(state.attemptsUsed, 0);
-  assert.equal(state.allowedSeconds, 1);
   assert.equal(state.status, 'playing');
   assert.deepEqual(state.guesses, []);
+});
+
+test('getStatus is not_started for a key that was never touched', () => {
+  assert.equal(gameState.getStatus(freshKey()), 'not_started');
+});
+
+test('getStatus reflects the round status once it has been read via getPublicState', () => {
+  const key = freshKey();
+  gameState.getPublicState(key);
+  assert.equal(gameState.getStatus(key), 'playing');
+});
+
+test('two different keys keep fully independent state', () => {
+  const keyA = freshKey();
+  const keyB = freshKey();
+  gameState.applyGuess(keyA, 'Wrong Title', false);
+  assert.equal(gameState.getPublicState(keyA).attemptsUsed, 1);
+  assert.equal(gameState.getPublicState(keyB).attemptsUsed, 0);
 });

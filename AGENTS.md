@@ -87,5 +87,6 @@ pnpm run test:web
 ## Contraintes techniques notables
 
 - **Audio WAV PCM obligatoire** : la troncature par palier se fait par découpe d'octets dans le chunk `data` (`server/wavTruncate.js`), sans ré-encodage. Un format compressé (MP3, etc.) nécessiterait une étape de décodage avant de pouvoir réutiliser cette approche.
-- **Contrat API stable** : `GET /api/state`, `GET /api/titles`, `GET /audio/track`, `POST /api/guess`, `POST /api/skip`, `POST /api/reset` — le frontend `web/` en dépend directement via `src/api.ts`. Toute modification de forme de réponse doit être répercutée des deux côtés.
+- **Contrat API stable** : `GET /api/state`, `GET /api/titles` (inclut désormais `id` et `status` par titre), `GET /audio/track`, `POST /api/guess`, `POST /api/skip`, `POST /api/reset`, `POST /api/mode/random`, `POST /api/songs/:id/select` — le frontend `web/` en dépend directement via `src/api.ts`. Toute modification de forme de réponse doit être répercutée des deux côtés.
+- **État de partie par round, pas global** : `server/gameState.js` garde une `Map` par clé de round (`random:<songId>` ou `list:<songId>`, construites dans `server/index.js`), pas un seul état global. Les deux espaces de noms sont volontairement séparés : mélanger les états ferait fuiter en Mode Liste quelle chanson est en train d'être jouée en Mode Aléatoire (`en cours` révélerait la réponse).
 - **`/api/reset` non authentifié** : usage dev uniquement, limitation connue à traiter avant tout déploiement multi-utilisateur.

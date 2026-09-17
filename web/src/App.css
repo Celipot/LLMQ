@@ -21,10 +21,130 @@ body {
   padding: 2rem 1rem;
 }
 
+.app:has(.game-layout) {
+  max-width: 760px;
+}
+
+.app-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
 .app h1 {
   margin: 0;
   font-size: 2rem;
   letter-spacing: 0.05em;
+}
+
+.home {
+  text-align: center;
+}
+
+.mode-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.mode-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1.25rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.mode-card:hover {
+  border-color: var(--accent);
+}
+
+.mode-card-title {
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.mode-card-desc {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.game-layout {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+.quiz-area {
+  flex: 1;
+  min-width: 0;
+}
+
+.song-list {
+  flex: none;
+  width: 220px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.song-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.song-list-item {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.song-list-item.active {
+  border-color: var(--accent);
+  background: #22331f;
+}
+
+.song-list-title {
+  font-weight: 600;
+}
+
+.song-list-artist {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.song-list-badge {
+  margin-left: auto;
+  font-size: 0.75rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: #333;
+  color: var(--muted);
+}
+
+.song-list-badge.won,
+.song-list-badge.lost {
+  background: var(--accent);
+  color: #06210f;
 }
 
 .subtitle {
@@ -56,6 +176,13 @@ body {
 .play-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.volume-slider {
+  flex: none;
+  width: 5rem;
+  accent-color: var(--accent);
+  cursor: pointer;
 }
 
 .progress-track {

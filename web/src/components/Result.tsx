@@ -2,7 +2,7 @@ import type { GameState } from '../types';
 
 interface ResultProps {
   state: GameState;
-  onReset: () => void;
+  onReset?: () => void;
 }
 
 export default function Result({ state, onReset }: ResultProps) {
@@ -18,9 +18,11 @@ export default function Result({ state, onReset }: ResultProps) {
       <p>
         Essais utilisés : {state.attemptsUsed} / {state.maxAttempts}
       </p>
-      <button type="button" className="secondary" onClick={onReset}>
-        Rejouer (dev)
-      </button>
+      {onReset && (
+        <button type="button" className="secondary" onClick={onReset}>
+          Rejouer
+        </button>
+      )}
     </section>
   );
 }

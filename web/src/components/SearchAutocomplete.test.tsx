@@ -4,9 +4,9 @@ import { describe, expect, test, vi } from 'vitest';
 import SearchAutocomplete from './SearchAutocomplete';
 
 const TITLES = [
-  { title: 'Placeholder Track', artist: 'LLMQ Dev' },
-  { title: 'Été éternel', artist: 'Some Group' },
-  { title: 'Another Song', artist: 'Other Artist' },
+  { id: 1, title: 'Placeholder Track', artist: 'LLMQ Dev', status: 'not_started' as const },
+  { id: 2, title: 'Été éternel', artist: 'Some Group', status: 'not_started' as const },
+  { id: 3, title: 'Another Song', artist: 'Other Artist', status: 'not_started' as const },
 ];
 
 function setup(overrides: Partial<React.ComponentProps<typeof SearchAutocomplete>> = {}) {
@@ -69,8 +69,18 @@ describe('SearchAutocomplete', () => {
     // 30 songs all containing "ann" somewhere, split between titles that
     // start with it and titles that only contain it mid-string.
     const manyTitles = [
-      ...Array.from({ length: 15 }, (_, i) => ({ title: `Anniversary Song ${i}`, artist: 'Group A' })),
-      ...Array.from({ length: 15 }, (_, i) => ({ title: `Song With Ann in it ${i}`, artist: 'Group B' })),
+      ...Array.from({ length: 15 }, (_, i) => ({
+        id: i,
+        title: `Anniversary Song ${i}`,
+        artist: 'Group A',
+        status: 'not_started' as const,
+      })),
+      ...Array.from({ length: 15 }, (_, i) => ({
+        id: 15 + i,
+        title: `Song With Ann in it ${i}`,
+        artist: 'Group B',
+        status: 'not_started' as const,
+      })),
     ];
     setup({ titles: manyTitles, value: 'ann' });
     await user.type(screen.getByRole('textbox'), 'x');

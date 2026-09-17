@@ -6,6 +6,7 @@ export function useAudioPlayer(allowedSeconds: number) {
   const rafRef = useRef<number | null>(null);
   const [progress, setProgress] = useState(0);
   const [playError, setPlayError] = useState<string | null>(null);
+  const [volume, setVolumeState] = useState(1);
 
   const stopAnimation = useCallback(() => {
     if (rafRef.current !== null) {
@@ -35,6 +36,7 @@ export function useAudioPlayer(allowedSeconds: number) {
     // Always re-fetch: the server is the only source of truth for how much
     // audio is served, and the allowed duration may have changed.
     audio.src = audioTrackUrl();
+    audio.volume = volume;
     setProgress(0);
     try {
       await audio.play();
@@ -43,7 +45,7 @@ export function useAudioPlayer(allowedSeconds: number) {
     } catch {
       setPlayError("Impossible de lire l'audio.");
     }
-  }, [animate]);
+  }, [animate, volume]);
 
   const handleEnded = useCallback(() => {
     stopAnimation();
@@ -55,5 +57,11 @@ export function useAudioPlayer(allowedSeconds: number) {
     setProgress(0);
   }, [stopAnimation]);
 
-  return { audioRef, progress, playError, play, handleEnded, resetProgress };
+  const setVolume = useCallback((next: number) => {
+    const audio = audioRef.current;
+    if (audio) audio.volume = next;
+    setVolumeState(next);
+  }, []);
+
+  return { audioRef, progress, playError, volume, play, handleEnded, resetProgress, setVolume };
 }

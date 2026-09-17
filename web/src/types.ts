@@ -18,9 +18,13 @@ export interface GameState {
   correctCoverUrl?: string;
 }
 
+export type SongStatus = 'not_started' | 'playing' | 'won' | 'lost';
+
 export interface PlayableSong {
+  id: number;
   title: string;
   artist: string;
+  status: SongStatus;
 }
 
 export type ApiErrorCode = 'UNKNOWN_TITLE' | 'TITLE_REQUIRED' | 'GAME_FINISHED' | string;

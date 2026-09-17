@@ -40,6 +40,14 @@ export function resetGame(): Promise<GameState> {
   return fetch('/api/reset', { method: 'POST' }).then((res) => parseOrThrow<GameState>(res));
 }
 
+export function startRandomMode(): Promise<GameState> {
+  return fetch('/api/mode/random', { method: 'POST' }).then((res) => parseOrThrow<GameState>(res));
+}
+
+export function selectSong(id: number): Promise<GameState> {
+  return fetch(`/api/songs/${id}/select`, { method: 'POST' }).then((res) => parseOrThrow<GameState>(res));
+}
+
 export function audioTrackUrl(): string {
   // Cache-busted: the allowed duration may have changed since the last fetch,
   // and the server is the only source of truth for how much audio is served.

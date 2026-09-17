@@ -1,6 +1,4 @@
 // Loads the playable song library from data/songs.json.
-// MVP has a single fixed song, but everything here is shaped for a list
-// so multi-song support later doesn't require touching the API surface.
 const fs = require('fs');
 const path = require('path');
 
@@ -9,18 +7,12 @@ const AUDIO_DIR = path.join(__dirname, '..', 'data', 'audio');
 
 const songs = JSON.parse(fs.readFileSync(SONGS_PATH, 'utf8'));
 
-function pickRandomSong() {
-  return songs[Math.floor(Math.random() * songs.length)];
+function pickRandomSongId() {
+  return songs[Math.floor(Math.random() * songs.length)].id;
 }
 
-// Mutable so a new song can be picked per round (see selectNewSong below);
-// exposed through a getter so callers holding a reference to the `songs`
-// module always see the current pick, not the one at require() time.
-let currentSong = pickRandomSong();
-
-function selectNewSong() {
-  currentSong = pickRandomSong();
-  return currentSong;
+function getSongById(id) {
+  return songs.find((song) => song.id === id) || null;
 }
 
 function normalize(str) {
@@ -32,7 +24,7 @@ function normalize(str) {
 }
 
 function getPlayableTitles() {
-  return songs.map((song) => ({ title: song.title, artist: song.artist }));
+  return songs.map((song) => ({ id: song.id, title: song.title, artist: song.artist }));
 }
 
 function findSongByTitle(title) {
@@ -40,17 +32,16 @@ function findSongByTitle(title) {
   return songs.find((song) => normalize(song.title) === target) || null;
 }
 
-function getTodaysAudioPath() {
-  return path.join(AUDIO_DIR, currentSong.audioFile);
+function getAudioPath(id) {
+  const song = getSongById(id);
+  return path.join(AUDIO_DIR, song.audioFile);
 }
 
 module.exports = {
-  get randomSong() {
-    return currentSong;
-  },
-  selectNewSong,
+  pickRandomSongId,
+  getSongById,
   normalize,
   getPlayableTitles,
   findSongByTitle,
-  getTodaysAudioPath,
+  getAudioPath,
 };
