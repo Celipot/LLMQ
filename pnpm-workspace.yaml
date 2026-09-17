@@ -1,0 +1,9 @@
+packages:
+  - "web"
+
+# These deps were published very recently; pnpm's minimumReleaseAge supply-chain
+# guard blocks brand-new releases by default, so they need an explicit exclude.
+minimumReleaseAgeExclude:
+  - framer-motion@13.4.0
+  - jsdom@30.1.0
+  - motion@13.4.0

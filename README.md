@@ -6,13 +6,14 @@ Reproduction locale du mécanisme central d'un jeu type Heardle : le joueur éco
 
 ## Démarrer
 
+Le dépôt est un workspace pnpm (`pnpm-workspace.yaml` inclut `web/`) : `pnpm install` à la racine installe les dépendances du serveur **et** du frontend en une seule commande, avec un seul lockfile (`pnpm-lock.yaml`). npm reste utilisable (`npm install` + `npm --prefix web install`, deux installations séparées, `package-lock.json` dans chaque dossier) si pnpm n'est pas disponible.
+
 Développement (backend Express + frontend React/Vite avec hot-reload, en parallèle) :
 
 ```bash
-npm install
-npm --prefix web install
-npm run generate:placeholder-audio   # génère data/audio/placeholder.wav si absent
-npm run dev
+pnpm install
+pnpm run generate:placeholder-audio   # génère data/audio/placeholder.wav si absent
+pnpm run dev
 ```
 
 Puis ouvrir http://localhost:5173 (le serveur Vite proxie `/api` et `/audio` vers Express sur le port 3000).
@@ -20,8 +21,8 @@ Puis ouvrir http://localhost:5173 (le serveur Vite proxie `/api` et `/audio` ver
 Production (build React servi statiquement par Express) :
 
 ```bash
-npm run build     # compile web/ vers public/
-npm start
+pnpm run build     # compile web/ vers public/
+pnpm start
 ```
 
 Puis ouvrir http://localhost:3000.
@@ -29,9 +30,9 @@ Puis ouvrir http://localhost:3000.
 ## Tests
 
 ```bash
-npm test          # backend (node:test) + frontend (vitest)
-npm run test:server
-npm run test:web
+pnpm test          # backend (node:test) + frontend (vitest)
+pnpm run test:server
+pnpm run test:web
 ```
 
 ## Structure

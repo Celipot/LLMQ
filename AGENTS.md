@@ -27,8 +27,12 @@ data/            Données jouables
   audio/            Fichiers audio (WAV PCM requis, voir contraintes ci-dessous)
 
 scripts/         Utilitaires ponctuels (génération audio placeholder)
-public/          Généré par `npm run build` — ne pas éditer à la main
+public/          Généré par `pnpm run build` — ne pas éditer à la main
 us/, prompt/     Documentation produit (user stories, contexte projet)
+
+pnpm-workspace.yaml   Déclare web/ comme package du workspace — un seul `pnpm install`
+                      à la racine installe les deux (npm reste utilisable en parallèle,
+                      mais nécessite deux `install` séparés : racine et web/).
 ```
 
 ## Standards de code
@@ -53,9 +57,9 @@ us/, prompt/     Documentation produit (user stories, contexte projet)
 ## Standards de tests
 
 ```bash
-npm test          # backend (node:test) puis frontend (vitest)
-npm run test:server
-npm run test:web
+pnpm test          # backend (node:test) puis frontend (vitest)
+pnpm run test:server
+pnpm run test:web
 ```
 
 ### Backend (`server/`)
