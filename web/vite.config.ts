@@ -12,6 +12,7 @@ export default defineConfig({
     proxy: {
       '/api': 'http://localhost:3000',
       '/audio': 'http://localhost:3000',
+      '/covers': 'http://localhost:3000',
     },
   },
   build: {
