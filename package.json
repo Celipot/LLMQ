@@ -1,0 +1,14 @@
+{
+  "name": "llmq",
+  "version": "0.1.0",
+  "description": "LLMQ - Heardle-like daily song guessing game (MVP, single song)",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "generate:placeholder-audio": "node scripts/generate-placeholder-audio.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
