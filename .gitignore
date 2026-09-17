@@ -3,3 +3,6 @@ web/node_modules/
 public/
 .idea/
 *.iml
+
+data/audio/*.wav
+!data/audio/placeholder.wav
