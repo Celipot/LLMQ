@@ -70,6 +70,13 @@ function attachWebSocketServer(httpServer) {
         } catch (err) {
           socket.send(JSON.stringify({ type: 'answer:result', error: err.code || 'ANSWER_FAILED' }));
         }
+      } else if (payload.type === 'stage:forfeit') {
+        try {
+          const result = multiplayerGames.forfeitStage(gameId, playerId);
+          broadcast(gameId, { type: 'player:status', playerId, status: 'forfeited', stage: result.stage });
+        } catch (err) {
+          socket.send(JSON.stringify({ type: 'stage:forfeit:error', error: err.code || 'FORFEIT_FAILED' }));
+        }
       }
     });
 

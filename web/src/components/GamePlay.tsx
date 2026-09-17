@@ -11,12 +11,23 @@ interface GamePlayProps {
   durationSeconds: number;
   onSubmitAnswer: (title: string) => void;
   answerFeedback: AnswerFeedback | null;
+  forfeited: boolean;
+  onForfeit: () => void;
 }
 
-export default function GamePlay({ gameId, stage, durationSeconds, onSubmitAnswer, answerFeedback }: GamePlayProps) {
+export default function GamePlay({
+  gameId,
+  stage,
+  durationSeconds,
+  onSubmitAnswer,
+  answerFeedback,
+  forfeited,
+  onForfeit,
+}: GamePlayProps) {
   const [titles, setTitles] = useState<PlayableSong[]>([]);
   const [inputValue, setInputValue] = useState('');
   const found = answerFeedback?.correct === true;
+  const locked = found || forfeited;
 
   useEffect(() => {
     fetchTitles()
@@ -31,7 +42,7 @@ export default function GamePlay({ gameId, stage, durationSeconds, onSubmitAnswe
   );
 
   function handleSubmit() {
-    if (inputValue.trim() === '' || found) return;
+    if (inputValue.trim() === '' || locked) return;
     onSubmitAnswer(inputValue.trim());
     setInputValue('');
   }
@@ -50,10 +61,19 @@ export default function GamePlay({ gameId, stage, durationSeconds, onSubmitAnswe
         onVolumeChange={setVolume}
       />
       <section className="search-section">
-        <SearchAutocomplete titles={titles} value={inputValue} disabled={found} onChange={setInputValue} onSubmit={handleSubmit} />
+        <SearchAutocomplete
+          titles={titles}
+          value={inputValue}
+          disabled={locked}
+          onChange={setInputValue}
+          onSubmit={handleSubmit}
+        />
         <div className="actions">
-          <button type="button" disabled={found} onClick={handleSubmit}>
+          <button type="button" disabled={locked} onClick={handleSubmit}>
             Valider
+          </button>
+          <button type="button" className="secondary" disabled={locked} onClick={onForfeit}>
+            Abandonner cette étape
           </button>
         </div>
       </section>
@@ -62,7 +82,8 @@ export default function GamePlay({ gameId, stage, durationSeconds, onSubmitAnswe
           {playError}
         </p>
       )}
-      {answerFeedback && (
+      {forfeited && <p className="subtitle">Tu as abandonné cette étape.</p>}
+      {!forfeited && answerFeedback && (
         <p className={found ? 'success-msg' : 'error-msg'} role={found ? 'status' : 'alert'}>
           {found ? 'Bravo, tu as trouvé !' : "Ce n'est pas ça, retente ta chance."}
         </p>

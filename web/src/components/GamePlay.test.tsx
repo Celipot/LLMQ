@@ -17,7 +17,17 @@ const TITLES = [{ id: 1, title: 'Correct Title', artist: 'Some Artist', status: 
 describe('GamePlay', () => {
   test('renders the stage number and the bounded duration', () => {
     vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
-    render(<GamePlay gameId="g1" stage={2} durationSeconds={4} onSubmitAnswer={vi.fn()} answerFeedback={null} />);
+    render(
+      <GamePlay
+        gameId="g1"
+        stage={2}
+        durationSeconds={4}
+        onSubmitAnswer={vi.fn()}
+        answerFeedback={null}
+        forfeited={false}
+        onForfeit={vi.fn()}
+      />
+    );
 
     expect(screen.getByText(/Étape 2/)).toBeInTheDocument();
     expect(screen.getByText('0:04')).toBeInTheDocument();
@@ -25,7 +35,17 @@ describe('GamePlay', () => {
 
   test('points the audio element at the game-scoped multiplayer track once play is clicked', async () => {
     vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
-    render(<GamePlay gameId="g1" stage={1} durationSeconds={1} onSubmitAnswer={vi.fn()} answerFeedback={null} />);
+    render(
+      <GamePlay
+        gameId="g1"
+        stage={1}
+        durationSeconds={1}
+        onSubmitAnswer={vi.fn()}
+        answerFeedback={null}
+        forfeited={false}
+        onForfeit={vi.fn()}
+      />
+    );
 
     await userEvent.click(screen.getByRole('button', { name: 'Écouter' }));
 
@@ -36,7 +56,17 @@ describe('GamePlay', () => {
   test('submits the typed title and clears the input', async () => {
     vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
     const onSubmitAnswer = vi.fn();
-    render(<GamePlay gameId="g1" stage={1} durationSeconds={1} onSubmitAnswer={onSubmitAnswer} answerFeedback={null} />);
+    render(
+      <GamePlay
+        gameId="g1"
+        stage={1}
+        durationSeconds={1}
+        onSubmitAnswer={onSubmitAnswer}
+        answerFeedback={null}
+        forfeited={false}
+        onForfeit={vi.fn()}
+      />
+    );
 
     const input = await screen.findByRole('textbox');
     await userEvent.type(input, 'Correct Title');
@@ -55,6 +85,8 @@ describe('GamePlay', () => {
         durationSeconds={1}
         onSubmitAnswer={vi.fn()}
         answerFeedback={{ correct: true }}
+        forfeited={false}
+        onForfeit={vi.fn()}
       />
     );
 
@@ -72,10 +104,52 @@ describe('GamePlay', () => {
         durationSeconds={1}
         onSubmitAnswer={vi.fn()}
         answerFeedback={{ correct: false }}
+        forfeited={false}
+        onForfeit={vi.fn()}
       />
     );
 
     expect(await screen.findByRole('alert')).toHaveTextContent("Ce n'est pas ça");
     expect(screen.getByRole('textbox')).toBeEnabled();
+  });
+
+  test('clicking "Abandonner cette étape" calls onForfeit', async () => {
+    vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
+    const onForfeit = vi.fn();
+    render(
+      <GamePlay
+        gameId="g1"
+        stage={1}
+        durationSeconds={1}
+        onSubmitAnswer={vi.fn()}
+        answerFeedback={null}
+        forfeited={false}
+        onForfeit={onForfeit}
+      />
+    );
+
+    await userEvent.click(screen.getByText('Abandonner cette étape'));
+
+    expect(onForfeit).toHaveBeenCalledOnce();
+  });
+
+  test('shows the forfeited message and disables guessing once forfeited', async () => {
+    vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
+    render(
+      <GamePlay
+        gameId="g1"
+        stage={1}
+        durationSeconds={1}
+        onSubmitAnswer={vi.fn()}
+        answerFeedback={null}
+        forfeited={true}
+        onForfeit={vi.fn()}
+      />
+    );
+
+    expect(await screen.findByText('Tu as abandonné cette étape.')).toBeInTheDocument();
+    expect(screen.getByRole('textbox')).toBeDisabled();
+    expect(screen.getByText('Valider')).toBeDisabled();
+    expect(screen.getByText('Abandonner cette étape')).toBeDisabled();
   });
 });

@@ -176,4 +176,21 @@ describe('Lobby', () => {
 
     expect(await screen.findByText('Bravo, tu as trouvé !')).toBeInTheDocument();
   });
+
+  test('sends stage:forfeit over the socket and shows the forfeited message once acknowledged', async () => {
+    render(<Lobby gameId="g1" playerId="p1" />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
+    await screen.findByText('Alice');
+    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now() });
+    await screen.findByText(/Étape 1/);
+
+    await userEvent.click(screen.getByText('Abandonner cette étape'));
+
+    expect(socket.sent).toContainEqual(JSON.stringify({ type: 'stage:forfeit' }));
+
+    socket.emit({ type: 'player:status', playerId: 'p1', status: 'forfeited', stage: 1 });
+
+    expect(await screen.findByText('Tu as abandonné cette étape.')).toBeInTheDocument();
+  });
 });

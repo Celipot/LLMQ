@@ -142,3 +142,39 @@ test('submitAnswer throws PLAYER_NOT_FOUND for an unknown playerId', () => {
     /PLAYER_NOT_FOUND/
   );
 });
+
+test('forfeitStage marks the player forfeited for the current stage', () => {
+  const game = startedGameWithTwoPlayers();
+  const alicePlayerId = multiplayerGames.getGame(game.gameId).players[0].playerId;
+  const result = multiplayerGames.forfeitStage(game.gameId, alicePlayerId);
+  assert.equal(result.stage, 1);
+  const alice = multiplayerGames.getGame(game.gameId).players[0];
+  assert.equal(alice.status, 'forfeited');
+});
+
+test('forfeitStage throws ALREADY_ANSWERED once the player has already found the answer', () => {
+  const game = startedGameWithTwoPlayers();
+  const alicePlayerId = multiplayerGames.getGame(game.gameId).players[0].playerId;
+  multiplayerGames.submitAnswer(game.gameId, alicePlayerId, 'Correct Title', findSongByTitle);
+  assert.throws(() => multiplayerGames.forfeitStage(game.gameId, alicePlayerId), /ALREADY_ANSWERED/);
+});
+
+test('forfeitStage throws ALREADY_ANSWERED once the player has already forfeited', () => {
+  const game = startedGameWithTwoPlayers();
+  const alicePlayerId = multiplayerGames.getGame(game.gameId).players[0].playerId;
+  multiplayerGames.forfeitStage(game.gameId, alicePlayerId);
+  assert.throws(() => multiplayerGames.forfeitStage(game.gameId, alicePlayerId), /ALREADY_ANSWERED/);
+});
+
+test('forfeitStage throws GAME_NOT_IN_PROGRESS before the game has started', () => {
+  const game = createLobbyWithTwoPlayers();
+  assert.throws(
+    () => multiplayerGames.forfeitStage(game.gameId, game.players[0].playerId),
+    /GAME_NOT_IN_PROGRESS/
+  );
+});
+
+test('forfeitStage throws PLAYER_NOT_FOUND for an unknown playerId', () => {
+  const game = startedGameWithTwoPlayers();
+  assert.throws(() => multiplayerGames.forfeitStage(game.gameId, 'unknown-player'), /PLAYER_NOT_FOUND/);
+});

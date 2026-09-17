@@ -270,3 +270,42 @@ test('submitting again after already finding the answer is rejected', async () =
   aliceSocket.close();
   bobSocket.close();
 });
+
+test('stage:forfeit marks the player forfeited and broadcasts player:status to everyone including the sender', async () => {
+  const { aliceId, aliceSocket, bobSocket } = await createStartedGameWithSockets();
+
+  const aliceStatusPromise = aliceSocket.nextMessage();
+  const bobStatusPromise = bobSocket.nextMessage();
+  aliceSocket.send(JSON.stringify({ type: 'stage:forfeit' }));
+
+  const aliceStatus = await aliceStatusPromise;
+  const bobStatus = await bobStatusPromise;
+
+  for (const status of [aliceStatus, bobStatus]) {
+    assert.equal(status.type, 'player:status');
+    assert.equal(status.playerId, aliceId);
+    assert.equal(status.status, 'forfeited');
+    assert.equal(status.stage, 1);
+  }
+
+  aliceSocket.close();
+  bobSocket.close();
+});
+
+test('stage:forfeit is rejected once the player has already found the answer', async () => {
+  const { aliceSocket, bobSocket, correctTitle } = await createStartedGameWithSockets();
+
+  const foundResultPromise = aliceSocket.nextMessage();
+  aliceSocket.send(JSON.stringify({ type: 'answer:submit', value: correctTitle }));
+  await foundResultPromise;
+
+  const forfeitErrorPromise = aliceSocket.nextMessage();
+  aliceSocket.send(JSON.stringify({ type: 'stage:forfeit' }));
+  const forfeitError = await forfeitErrorPromise;
+
+  assert.equal(forfeitError.type, 'stage:forfeit:error');
+  assert.equal(forfeitError.error, 'ALREADY_ANSWERED');
+
+  aliceSocket.close();
+  bobSocket.close();
+});

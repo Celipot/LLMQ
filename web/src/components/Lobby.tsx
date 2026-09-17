@@ -23,6 +23,7 @@ export default function Lobby({ gameId, playerId }: LobbyProps) {
   const [started, setStarted] = useState(false);
   const [stageInfo, setStageInfo] = useState<StageInfo | null>(null);
   const [answerFeedback, setAnswerFeedback] = useState<AnswerFeedback | null>(null);
+  const [forfeited, setForfeited] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [launching, setLaunching] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
@@ -46,8 +47,11 @@ export default function Lobby({ gameId, playerId }: LobbyProps) {
       } else if (message.type === 'stage:start') {
         setStageInfo({ stage: message.stage, durationSeconds: message.durationSeconds });
         setAnswerFeedback(null);
+        setForfeited(false);
       } else if (message.type === 'answer:result' && typeof message.correct === 'boolean') {
         setAnswerFeedback({ correct: message.correct });
+      } else if (message.type === 'player:status' && message.playerId === playerId && message.status === 'forfeited') {
+        setForfeited(true);
       }
     };
 
@@ -60,6 +64,10 @@ export default function Lobby({ gameId, playerId }: LobbyProps) {
   function submitAnswer(title: string) {
     setAnswerFeedback(null);
     socketRef.current?.send(JSON.stringify({ type: 'answer:submit', value: title }));
+  }
+
+  function forfeitStage() {
+    socketRef.current?.send(JSON.stringify({ type: 'stage:forfeit' }));
   }
 
   async function handleLaunch() {
@@ -88,6 +96,8 @@ export default function Lobby({ gameId, playerId }: LobbyProps) {
         durationSeconds={stageInfo.durationSeconds}
         onSubmitAnswer={submitAnswer}
         answerFeedback={answerFeedback}
+        forfeited={forfeited}
+        onForfeit={forfeitStage}
       />
     );
   }

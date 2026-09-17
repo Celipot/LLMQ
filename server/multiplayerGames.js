@@ -95,6 +95,26 @@ function submitAnswer(gameId, playerId, title, findSongByTitle) {
   return { correct: isCorrect, stage: game.stage };
 }
 
+function forfeitStage(gameId, playerId) {
+  const game = games.get(gameId);
+  if (!game) {
+    throw fail('GAME_NOT_FOUND');
+  }
+  if (game.status !== 'in_progress') {
+    throw fail('GAME_NOT_IN_PROGRESS');
+  }
+  const player = game.players.find((p) => p.playerId === playerId);
+  if (!player) {
+    throw fail('PLAYER_NOT_FOUND');
+  }
+  if (player.status !== 'active') {
+    throw fail('ALREADY_ANSWERED');
+  }
+
+  player.status = 'forfeited';
+  return { stage: game.stage };
+}
+
 module.exports = {
   createGame,
   getGame,
@@ -102,4 +122,5 @@ module.exports = {
   removePlayer,
   startGame,
   submitAnswer,
+  forfeitStage,
 };
