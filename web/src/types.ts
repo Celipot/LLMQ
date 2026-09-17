@@ -41,3 +41,8 @@ export interface GuessResponse {
 export interface SkipResponse {
   state: GameState;
 }
+
+export interface CreateGameResponse {
+  gameId: string;
+  hostToken: string;
+}

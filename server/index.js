@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 
 const gameState = require('./gameState');
+const multiplayerGames = require('./multiplayerGames');
 const songs = require('./songs');
 const { truncateWavFile } = require('./wavTruncate');
 
@@ -147,6 +148,15 @@ app.post('/api/reset', (req, res) => {
   // forces a fresh Random-mode draw, matching its pre-existing "rejouer"
   // semantics from the MVP screen.
   res.json(forceNewRandomRound());
+});
+
+app.post('/games', (req, res) => {
+  try {
+    const game = multiplayerGames.createGame();
+    res.status(201).json({ gameId: game.gameId, hostToken: game.hostToken });
+  } catch (err) {
+    res.status(500).json({ error: 'GAME_CREATION_FAILED' });
+  }
 });
 
 if (require.main === module) {

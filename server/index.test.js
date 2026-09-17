@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const http = require('node:http');
 const app = require('./index');
 const songs = require('./songs');
+const multiplayerGames = require('./multiplayerGames');
 
 let server;
 let baseUrl;
@@ -130,6 +131,35 @@ test("POST /api/songs/:id/select resumes that song's round instead of restarting
   await fetch(`${baseUrl}/api/songs/${songB.id}/select`, { method: 'POST' });
   const resumed = await (await fetch(`${baseUrl}/api/songs/${songA.id}/select`, { method: 'POST' })).json();
   assert.equal(resumed.attemptsUsed, 1);
+});
+
+test('POST /games creates a new multiplayer game with a unique id and host token', async () => {
+  const res = await fetch(`${baseUrl}/games`, { method: 'POST' });
+  const body = await res.json();
+  assert.equal(res.status, 201);
+  assert.ok(typeof body.gameId === 'string' && body.gameId.length > 0);
+  assert.ok(typeof body.hostToken === 'string' && body.hostToken.length > 0);
+});
+
+test('POST /games returns a distinct gameId for each new game', async () => {
+  const first = await (await fetch(`${baseUrl}/games`, { method: 'POST' })).json();
+  const second = await (await fetch(`${baseUrl}/games`, { method: 'POST' })).json();
+  assert.notEqual(first.gameId, second.gameId);
+});
+
+test('POST /games reports an explicit error and creates nothing when creation fails server-side', async () => {
+  const original = multiplayerGames.createGame;
+  multiplayerGames.createGame = () => {
+    throw new Error('boom');
+  };
+  try {
+    const res = await fetch(`${baseUrl}/games`, { method: 'POST' });
+    const body = await res.json();
+    assert.equal(res.status, 500);
+    assert.equal(body.error, 'GAME_CREATION_FAILED');
+  } finally {
+    multiplayerGames.createGame = original;
+  }
 });
 
 test('List mode guesses never affect the concurrent Random mode round for the same song', async () => {
