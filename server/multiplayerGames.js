@@ -70,7 +70,7 @@ function startGame(gameId, hostToken, pickSongId) {
   return game;
 }
 
-function submitAnswer(gameId, playerId, title, findSongByTitle) {
+function submitAnswer(gameId, playerId, title, findSongByTitle, computeScore) {
   const game = games.get(gameId);
   if (!game) {
     throw fail('GAME_NOT_FOUND');
@@ -91,6 +91,7 @@ function submitAnswer(gameId, playerId, title, findSongByTitle) {
   if (isCorrect) {
     player.status = 'found';
     player.foundStage = game.stage;
+    player.score = computeScore(game.stage);
   }
   return { correct: isCorrect, stage: game.stage };
 }

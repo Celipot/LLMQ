@@ -93,6 +93,13 @@ function applySkip(key) {
   }
 }
 
+// Rewards a faster find: stage 1 (shortest clip) is worth the most points,
+// the last stage the fewest. Used by the multiplayer mode (server/wsServer.js)
+// to score each player once they find the song.
+function score(stage) {
+  return MAX_ATTEMPTS - stage + 1;
+}
+
 module.exports = {
   TIERS_SECONDS,
   MAX_ATTEMPTS,
@@ -103,4 +110,5 @@ module.exports = {
   getPublicState,
   applyGuess,
   applySkip,
+  score,
 };

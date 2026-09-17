@@ -94,3 +94,9 @@ test('two different keys keep fully independent state', () => {
   assert.equal(gameState.getPublicState(keyA).attemptsUsed, 1);
   assert.equal(gameState.getPublicState(keyB).attemptsUsed, 0);
 });
+
+test('score rewards an earlier stage with more points', () => {
+  assert.equal(gameState.score(1), 6);
+  assert.equal(gameState.score(2), 5);
+  assert.equal(gameState.score(gameState.MAX_ATTEMPTS), 1);
+});

@@ -5,6 +5,7 @@ const WebSocket = require('ws');
 const app = require('./index');
 const multiplayerGames = require('./multiplayerGames');
 const songs = require('./songs');
+const gameState = require('./gameState');
 const { attachWebSocketServer, scheduleStageTimeout } = require('./wsServer');
 
 let server;
@@ -444,6 +445,8 @@ test('ends the game and reveals the song once the last stage resolves', async ()
     const bobPlayer = message.players.find((p) => p.playerId === bobId);
     assert.equal(alicePlayer.foundStage, 6);
     assert.equal(bobPlayer.foundStage, null);
+    assert.equal(alicePlayer.score, gameState.score(6));
+    assert.equal(bobPlayer.score, 0);
   }
   assert.equal(multiplayerGames.getGame(gameId).status, 'ended');
 

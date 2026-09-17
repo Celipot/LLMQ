@@ -88,6 +88,7 @@ test('startGame throws NOT_ENOUGH_PLAYERS with fewer than 2 players', () => {
 });
 
 const findSongByTitle = (title) => (title === 'Correct Title' ? { id: 42, title: 'Correct Title' } : null);
+const computeScore = (stage) => 100 - stage;
 
 function startedGameWithTwoPlayers() {
   const game = createLobbyWithTwoPlayers();
@@ -98,30 +99,46 @@ function startedGameWithTwoPlayers() {
 test('submitAnswer marks the player found and records the stage on a correct guess', () => {
   const game = startedGameWithTwoPlayers();
   const alicePlayerId = multiplayerGames.getGame(game.gameId).players[0].playerId;
-  const result = multiplayerGames.submitAnswer(game.gameId, alicePlayerId, 'Correct Title', findSongByTitle);
+  const result = multiplayerGames.submitAnswer(game.gameId, alicePlayerId, 'Correct Title', findSongByTitle, computeScore);
   assert.equal(result.correct, true);
   const alice = multiplayerGames.getGame(game.gameId).players[0];
   assert.equal(alice.status, 'found');
   assert.equal(alice.foundStage, 1);
 });
 
+test('submitAnswer records the score computed for the stage found', () => {
+  const game = startedGameWithTwoPlayers();
+  const alicePlayerId = multiplayerGames.getGame(game.gameId).players[0].playerId;
+  multiplayerGames.submitAnswer(game.gameId, alicePlayerId, 'Correct Title', findSongByTitle, computeScore);
+  const alice = multiplayerGames.getGame(game.gameId).players[0];
+  assert.equal(alice.score, computeScore(1));
+});
+
+test('submitAnswer does not set a score on a wrong guess', () => {
+  const game = startedGameWithTwoPlayers();
+  const alicePlayerId = multiplayerGames.getGame(game.gameId).players[0].playerId;
+  multiplayerGames.submitAnswer(game.gameId, alicePlayerId, 'Wrong Title', findSongByTitle, computeScore);
+  const alice = multiplayerGames.getGame(game.gameId).players[0];
+  assert.equal(alice.score, undefined);
+});
+
 test('submitAnswer leaves the player active and allows retrying on a wrong guess', () => {
   const game = startedGameWithTwoPlayers();
   const alicePlayerId = multiplayerGames.getGame(game.gameId).players[0].playerId;
-  const result = multiplayerGames.submitAnswer(game.gameId, alicePlayerId, 'Wrong Title', findSongByTitle);
+  const result = multiplayerGames.submitAnswer(game.gameId, alicePlayerId, 'Wrong Title', findSongByTitle, computeScore);
   assert.equal(result.correct, false);
   const alice = multiplayerGames.getGame(game.gameId).players[0];
   assert.equal(alice.status, 'active');
-  const second = multiplayerGames.submitAnswer(game.gameId, alicePlayerId, 'Correct Title', findSongByTitle);
+  const second = multiplayerGames.submitAnswer(game.gameId, alicePlayerId, 'Correct Title', findSongByTitle, computeScore);
   assert.equal(second.correct, true);
 });
 
 test('submitAnswer throws ALREADY_ANSWERED once the player has already found the answer', () => {
   const game = startedGameWithTwoPlayers();
   const alicePlayerId = multiplayerGames.getGame(game.gameId).players[0].playerId;
-  multiplayerGames.submitAnswer(game.gameId, alicePlayerId, 'Correct Title', findSongByTitle);
+  multiplayerGames.submitAnswer(game.gameId, alicePlayerId, 'Correct Title', findSongByTitle, computeScore);
   assert.throws(
-    () => multiplayerGames.submitAnswer(game.gameId, alicePlayerId, 'Correct Title', findSongByTitle),
+    () => multiplayerGames.submitAnswer(game.gameId, alicePlayerId, 'Correct Title', findSongByTitle, computeScore),
     /ALREADY_ANSWERED/
   );
 });
@@ -130,7 +147,7 @@ test('submitAnswer throws GAME_NOT_IN_PROGRESS before the game has started', () 
   const game = createLobbyWithTwoPlayers();
   const alicePlayerId = game.players[0].playerId;
   assert.throws(
-    () => multiplayerGames.submitAnswer(game.gameId, alicePlayerId, 'Correct Title', findSongByTitle),
+    () => multiplayerGames.submitAnswer(game.gameId, alicePlayerId, 'Correct Title', findSongByTitle, computeScore),
     /GAME_NOT_IN_PROGRESS/
   );
 });
@@ -138,7 +155,7 @@ test('submitAnswer throws GAME_NOT_IN_PROGRESS before the game has started', () 
 test('submitAnswer throws PLAYER_NOT_FOUND for an unknown playerId', () => {
   const game = startedGameWithTwoPlayers();
   assert.throws(
-    () => multiplayerGames.submitAnswer(game.gameId, 'unknown-player', 'Correct Title', findSongByTitle),
+    () => multiplayerGames.submitAnswer(game.gameId, 'unknown-player', 'Correct Title', findSongByTitle, computeScore),
     /PLAYER_NOT_FOUND/
   );
 });
@@ -155,7 +172,7 @@ test('forfeitStage marks the player forfeited for the current stage', () => {
 test('forfeitStage throws ALREADY_ANSWERED once the player has already found the answer', () => {
   const game = startedGameWithTwoPlayers();
   const alicePlayerId = multiplayerGames.getGame(game.gameId).players[0].playerId;
-  multiplayerGames.submitAnswer(game.gameId, alicePlayerId, 'Correct Title', findSongByTitle);
+  multiplayerGames.submitAnswer(game.gameId, alicePlayerId, 'Correct Title', findSongByTitle, computeScore);
   assert.throws(() => multiplayerGames.forfeitStage(game.gameId, alicePlayerId), /ALREADY_ANSWERED/);
 });
 
@@ -192,7 +209,7 @@ test('timeoutStage forfeits every still-active player and returns their ids', ()
 test('timeoutStage leaves players who already found or forfeited untouched', () => {
   const game = startedGameWithTwoPlayers();
   const [alice, bob] = multiplayerGames.getGame(game.gameId).players;
-  multiplayerGames.submitAnswer(game.gameId, alice.playerId, 'Correct Title', findSongByTitle);
+  multiplayerGames.submitAnswer(game.gameId, alice.playerId, 'Correct Title', findSongByTitle, computeScore);
   const timedOut = multiplayerGames.timeoutStage(game.gameId, 1);
   assert.deepEqual(timedOut, [bob.playerId]);
   assert.equal(alice.status, 'found');
@@ -214,7 +231,7 @@ const durationForStage = (stage) => stage * 10;
 test('checkStageProgress is a no-op while a player is still active', () => {
   const game = startedGameWithTwoPlayers();
   const alicePlayerId = multiplayerGames.getGame(game.gameId).players[0].playerId;
-  multiplayerGames.submitAnswer(game.gameId, alicePlayerId, 'Correct Title', findSongByTitle);
+  multiplayerGames.submitAnswer(game.gameId, alicePlayerId, 'Correct Title', findSongByTitle, computeScore);
   const result = multiplayerGames.checkStageProgress(game.gameId, durationForStage, 6);
   assert.deepEqual(result, { type: 'none' });
   assert.equal(multiplayerGames.getGame(game.gameId).stage, 1);
@@ -223,7 +240,7 @@ test('checkStageProgress is a no-op while a player is still active', () => {
 test('checkStageProgress advances the stage once everyone resolved, resetting forfeited players but not found ones', () => {
   const game = startedGameWithTwoPlayers();
   const [alice, bob] = multiplayerGames.getGame(game.gameId).players;
-  multiplayerGames.submitAnswer(game.gameId, alice.playerId, 'Correct Title', findSongByTitle);
+  multiplayerGames.submitAnswer(game.gameId, alice.playerId, 'Correct Title', findSongByTitle, computeScore);
   multiplayerGames.forfeitStage(game.gameId, bob.playerId);
 
   const result = multiplayerGames.checkStageProgress(game.gameId, durationForStage, 6);
@@ -245,7 +262,7 @@ test('checkStageProgress ends the game once the last stage resolves', () => {
   const stored = multiplayerGames.getGame(game.gameId);
   stored.stage = 6; // last stage
   const [alice, bob] = stored.players;
-  multiplayerGames.submitAnswer(game.gameId, alice.playerId, 'Correct Title', findSongByTitle);
+  multiplayerGames.submitAnswer(game.gameId, alice.playerId, 'Correct Title', findSongByTitle, computeScore);
   multiplayerGames.forfeitStage(game.gameId, bob.playerId);
 
   const result = multiplayerGames.checkStageProgress(game.gameId, durationForStage, 6);

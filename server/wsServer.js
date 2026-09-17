@@ -81,6 +81,7 @@ function handleStageProgress(gameId) {
         playerId: player.playerId,
         nickname: player.nickname,
         foundStage: player.foundStage ?? null,
+        score: player.score ?? 0,
       })),
     });
   }
@@ -115,7 +116,13 @@ function attachWebSocketServer(httpServer) {
 
       if (payload.type === 'answer:submit') {
         try {
-          const result = multiplayerGames.submitAnswer(gameId, playerId, payload.value, songs.findSongByTitle);
+          const result = multiplayerGames.submitAnswer(
+            gameId,
+            playerId,
+            payload.value,
+            songs.findSongByTitle,
+            gameState.score
+          );
           socket.send(JSON.stringify({ type: 'answer:result', correct: result.correct }));
           if (result.correct) {
             broadcast(gameId, { type: 'player:status', playerId, status: 'found', stage: result.stage }, socket);
