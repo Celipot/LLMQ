@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { audioTrackUrl } from '../api';
 
-export function useAudioPlayer(allowedSeconds: number) {
+export function useAudioPlayer(allowedSeconds: number, getTrackUrl: () => string = audioTrackUrl) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const rafRef = useRef<number | null>(null);
   const [progress, setProgress] = useState(0);
@@ -35,7 +35,7 @@ export function useAudioPlayer(allowedSeconds: number) {
     if (!audio) return;
     // Always re-fetch: the server is the only source of truth for how much
     // audio is served, and the allowed duration may have changed.
-    audio.src = audioTrackUrl();
+    audio.src = getTrackUrl();
     audio.volume = volume;
     setProgress(0);
     try {
@@ -45,7 +45,7 @@ export function useAudioPlayer(allowedSeconds: number) {
     } catch {
       setPlayError("Impossible de lire l'audio.");
     }
-  }, [animate, volume]);
+  }, [animate, volume, getTrackUrl]);
 
   const handleEnded = useCallback(() => {
     stopAnimation();

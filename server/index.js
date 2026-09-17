@@ -216,6 +216,26 @@ app.post('/games/:id/start', (req, res) => {
   }
 });
 
+app.get('/games/:id/audio', async (req, res) => {
+  const game = multiplayerGames.getGame(req.params.id);
+  if (!game || game.songId == null || game.stage < 1) {
+    return res.status(404).json({ error: 'GAME_NOT_FOUND' });
+  }
+
+  const tierIndex = Math.min(game.stage - 1, gameState.TIERS_SECONDS.length - 1);
+  const seconds = gameState.TIERS_SECONDS[tierIndex];
+  const filePath = songs.getAudioPath(game.songId);
+  res.set('Content-Type', 'audio/wav');
+  res.set('Cache-Control', 'no-store');
+
+  try {
+    const wavBuffer = await truncateWavFile(filePath, seconds);
+    res.send(wavBuffer);
+  } catch (err) {
+    res.status(500).json({ error: 'AUDIO_UNAVAILABLE' });
+  }
+});
+
 if (require.main === module) {
   const server = http.createServer(app);
   attachWebSocketServer(server);

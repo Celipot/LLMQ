@@ -320,6 +320,32 @@ test('POST /games/:id/start returns 404 for an unknown gameId', async () => {
   assert.equal(res.status, 404);
 });
 
+test('GET /games/:id/audio returns 404 before the game has started', async () => {
+  const created = await (await fetch(`${baseUrl}/games`, { method: 'POST' })).json();
+  const res = await fetch(`${baseUrl}/games/${created.gameId}/audio`);
+  assert.equal(res.status, 404);
+});
+
+test('GET /games/:id/audio returns 404 for an unknown game', async () => {
+  const res = await fetch(`${baseUrl}/games/unknown-id/audio`);
+  assert.equal(res.status, 404);
+});
+
+test('GET /games/:id/audio serves audio truncated to stage 1 duration once the game has started', async () => {
+  const { gameId, hostToken } = await createLobbyWithTwoPlayers();
+  await fetch(`${baseUrl}/games/${gameId}/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken }),
+  });
+
+  const res = await fetch(`${baseUrl}/games/${gameId}/audio`);
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('content-type'), 'audio/wav');
+  const bytes = await res.arrayBuffer();
+  assert.ok(bytes.byteLength > 0);
+});
+
 test('List mode guesses never affect the concurrent Random mode round for the same song', async () => {
   await fetch(`${baseUrl}/api/mode/random`, { method: 'POST' });
   const beforeRandomState = await (await fetch(`${baseUrl}/api/state`)).json();

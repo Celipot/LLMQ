@@ -86,3 +86,7 @@ export function audioTrackUrl(): string {
   // and the server is the only source of truth for how much audio is served.
   return `/audio/track?ts=${Date.now()}`;
 }
+
+export function multiplayerAudioTrackUrl(gameId: string): string {
+  return `/games/${gameId}/audio?ts=${Date.now()}`;
+}

@@ -1,10 +1,16 @@
 import { useEffect, useState } from 'react';
 import { ApiError, startMultiplayerGame } from '../api';
 import type { MultiplayerPlayer } from '../types';
+import GamePlay from './GamePlay';
 
 interface LobbyProps {
   gameId: string;
   playerId: string;
+}
+
+interface StageInfo {
+  stage: number;
+  durationSeconds: number;
 }
 
 // "désactivé si moins de 1 autre joueur" (backlog MP-03) = host + at least
@@ -15,6 +21,7 @@ const MIN_PLAYERS_TO_START = 2;
 export default function Lobby({ gameId, playerId }: LobbyProps) {
   const [players, setPlayers] = useState<MultiplayerPlayer[]>([]);
   const [started, setStarted] = useState(false);
+  const [stageInfo, setStageInfo] = useState<StageInfo | null>(null);
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [launching, setLaunching] = useState(false);
   const isHost = localStorage.getItem(`hostToken:${gameId}`) !== null;
@@ -33,6 +40,8 @@ export default function Lobby({ gameId, playerId }: LobbyProps) {
         setPlayers((prev) => prev.filter((player) => player.playerId !== message.playerId));
       } else if (message.type === 'game:started') {
         setStarted(true);
+      } else if (message.type === 'stage:start') {
+        setStageInfo({ stage: message.stage, durationSeconds: message.durationSeconds });
       }
     };
 
@@ -55,6 +64,10 @@ export default function Lobby({ gameId, playerId }: LobbyProps) {
     } finally {
       setLaunching(false);
     }
+  }
+
+  if (stageInfo) {
+    return <GamePlay gameId={gameId} stage={stageInfo.stage} durationSeconds={stageInfo.durationSeconds} />;
   }
 
   if (started) {

@@ -138,4 +138,16 @@ describe('Lobby', () => {
 
     expect(await screen.findByText('La partie démarre...')).toBeInTheDocument();
   });
+
+  test('renders GamePlay once stage:start is received', async () => {
+    render(<Lobby gameId="g1" playerId="p1" />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
+    await screen.findByText('Alice');
+
+    socket.emit({ type: 'game:started' });
+    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now() });
+
+    expect(await screen.findByText(/Étape 1/)).toBeInTheDocument();
+  });
 });
