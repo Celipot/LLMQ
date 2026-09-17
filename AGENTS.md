@@ -75,6 +75,11 @@ npm run test:web
 - Un test doit échouer pour une seule raison identifiable ; éviter les tests qui vérifient plusieurs comportements indépendants à la fois.
 - Ne pas écrire de test pour un cas qui ne peut pas se produire (cohérent avec "pas de validation pour des scénarios impossibles").
 
+### TDD
+- Pour toute nouvelle fonctionnalité ou correction de bug, écrire le test qui décrit le comportement attendu avant d'écrire le code qui le satisfait : test rouge → implémentation minimale → test vert → refactor si besoin.
+- Le test doit échouer pour la bonne raison avant l'implémentation (vérifier qu'il échoue, pas juste supposer qu'il le ferait) ; un test qui passe déjà avant tout code n'a rien vérifié.
+- S'appuyer sur les user stories (`us/*.md`) pour dériver les cas de test avant d'écrire l'implémentation, plutôt que d'écrire les tests après coup pour calquer le code existant.
+
 ## Contraintes techniques notables
 
 - **Audio WAV PCM obligatoire** : la troncature par palier se fait par découpe d'octets dans le chunk `data` (`server/wavTruncate.js`), sans ré-encodage. Un format compressé (MP3, etc.) nécessiterait une étape de décodage avant de pouvoir réutiliser cette approche.
