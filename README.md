@@ -26,6 +26,14 @@ npm start
 
 Puis ouvrir http://localhost:3000.
 
+## Tests
+
+```bash
+npm test          # backend (node:test) + frontend (vitest)
+npm run test:server
+npm run test:web
+```
+
 ## Structure
 
 ```

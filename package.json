@@ -9,7 +9,10 @@
     "dev:web": "npm --prefix web run dev",
     "dev": "concurrently -n server,web -c green,cyan \"npm:dev:server\" \"npm:dev:web\"",
     "build": "npm --prefix web run build",
-    "generate:placeholder-audio": "node scripts/generate-placeholder-audio.js"
+    "generate:placeholder-audio": "node scripts/generate-placeholder-audio.js",
+    "test:server": "node --test server/*.test.js",
+    "test:web": "npm --prefix web run test",
+    "test": "npm run test:server && npm run test:web"
   },
   "dependencies": {
     "express": "^4.19.2"

@@ -81,6 +81,10 @@ app.post('/api/reset', (req, res) => {
   res.json(state);
 });
 
-app.listen(PORT, () => {
-  console.log(`LLMQ server listening on http://localhost:${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`LLMQ server listening on http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;

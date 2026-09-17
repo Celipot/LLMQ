@@ -52,19 +52,24 @@ us/, prompt/     Documentation produit (user stories, contexte projet)
 
 ## Standards de tests
 
-Aucun framework de test n'est encore en place dans le dépôt (`package.json` et `web/package.json` n'ont pas de script `test`). Quand des tests sont ajoutés, suivre ces conventions :
+```bash
+npm test          # backend (node:test) puis frontend (vitest)
+npm run test:server
+npm run test:web
+```
 
 ### Backend (`server/`)
-- `node:test` (module natif, aucune dépendance à ajouter) + `node:assert`.
-- Un fichier de test par module (`server/gameState.test.js`, `server/wavTruncate.test.js`, etc.), colocalisé avec le fichier testé.
-- Les routes s'testent via des appels HTTP réels sur une instance Express démarrée pour le test (pas de mock du framework), en appelant `POST /api/reset` avant chaque cas pour repartir d'un état propre — cohérent avec le fait que le serveur est la seule source de vérité (voir Standards de code).
-- Prioriser les cas couverts par `us/user-stories-mvp.md` (paliers audio, rejet de titre inconnu, fin de partie, etc.) plutôt que des tests unitaires déconnectés du comportement observable.
+- `node:test` (module natif, aucune dépendance ajoutée) + `node:assert/strict`.
+- Un fichier de test par module, colocalisé avec le fichier testé : `gameState.test.js`, `songs.test.js`, `wavTruncate.test.js` (logique pure) et `index.test.js` (routes).
+- `index.js` exporte l'app Express sans appeler `listen()` quand il est chargé via `require` (`require.main === module` guard) — c'est ce qui permet à `index.test.js` de démarrer une instance sur un port éphémère plutôt que de dépendre du port 3000.
+- Les routes se testent via de vrais appels HTTP (`fetch`) sur cette instance, jamais de mock du framework Express, en appelant `POST /api/reset` avant chaque cas (`beforeEach`) pour repartir d'un état propre — cohérent avec le fait que le serveur est la seule source de vérité.
+- Les cas couvrent le comportement décrit dans `us/user-stories-mvp.md` (paliers audio, rejet de titre inconnu sans consommer d'essai, fin de partie qui révèle la réponse, `/api/reset`) plutôt que des détails d'implémentation.
 
 ### Frontend (`web/`)
-- Vitest (intégration native avec Vite, pas de config séparée à maintenir) + React Testing Library pour les composants.
-- Un fichier de test à côté du composant/hook testé (`Player.test.tsx`, `useGameState.test.ts`).
+- Vitest (config dans `vite.config.ts`, bloc `test`, environnement `jsdom`) + React Testing Library + `@testing-library/user-event`. Setup global (`jest-dom` matchers) dans `src/test/setup.ts`.
+- Un fichier de test à côté du composant/hook testé : `Pips.test.tsx`, `History.test.tsx`, `SearchAutocomplete.test.tsx`, `useGameState.test.ts`.
 - Tester le comportement observable (rendu, interactions clavier/souris, appels à l'API mockée) plutôt que les détails d'implémentation internes des hooks.
-- Mocker uniquement la couche `api.ts` (fetch), jamais la logique métier elle-même.
+- Mocker uniquement la couche `api.ts` (`vi.mock('../api', ...)`), jamais la logique métier elle-même — voir `useGameState.test.ts` pour le pattern (mock partiel qui garde `ApiError` réel).
 
 ### Général
 - Un test doit échouer pour une seule raison identifiable ; éviter les tests qui vérifient plusieurs comportements indépendants à la fois.
