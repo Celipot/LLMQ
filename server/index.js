@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 
 const gameState = require('./gameState');
 const songs = require('./songs');
@@ -26,15 +27,23 @@ app.get('/api/titles', (req, res) => {
   res.json(songs.getPlayableTitles());
 });
 
-app.get('/audio/track', (req, res) => {
+app.get('/audio/track', async (req, res) => {
   const seconds = gameState.isFinished() ? Infinity : gameState.currentAllowedSeconds();
+  const filePath = songs.getTodaysAudioPath();
+  res.set('Content-Type', 'audio/wav');
+  res.set('Cache-Control', 'no-store');
+
+  if (!Number.isFinite(seconds)) {
+    // Full track once the round is finished: stream it rather than reading
+    // the whole (potentially tens-of-MB) file into memory first.
+    fs.createReadStream(filePath)
+      .on('error', () => res.status(500).json({ error: 'AUDIO_UNAVAILABLE' }))
+      .pipe(res);
+    return;
+  }
+
   try {
-    const filePath = songs.getTodaysAudioPath();
-    const wavBuffer = Number.isFinite(seconds)
-      ? truncateWavFile(filePath, seconds)
-      : require('fs').readFileSync(filePath);
-    res.set('Content-Type', 'audio/wav');
-    res.set('Cache-Control', 'no-store');
+    const wavBuffer = await truncateWavFile(filePath, seconds);
     res.send(wavBuffer);
   } catch (err) {
     res.status(500).json({ error: 'AUDIO_UNAVAILABLE' });

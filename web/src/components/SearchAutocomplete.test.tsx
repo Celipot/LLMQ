@@ -63,4 +63,20 @@ describe('SearchAutocomplete', () => {
     setup({ disabled: true });
     expect(screen.getByRole('textbox')).toBeDisabled();
   });
+
+  test('caps the suggestion list and ranks starts-with matches first', async () => {
+    const user = userEvent.setup();
+    // 30 songs all containing "ann" somewhere, split between titles that
+    // start with it and titles that only contain it mid-string.
+    const manyTitles = [
+      ...Array.from({ length: 15 }, (_, i) => ({ title: `Anniversary Song ${i}`, artist: 'Group A' })),
+      ...Array.from({ length: 15 }, (_, i) => ({ title: `Song With Ann in it ${i}`, artist: 'Group B' })),
+    ];
+    setup({ titles: manyTitles, value: 'ann' });
+    await user.type(screen.getByRole('textbox'), 'x');
+
+    const items = screen.getAllByRole('listitem');
+    expect(items.length).toBeLessThanOrEqual(8);
+    expect(items.every((li) => li.textContent?.startsWith('Anniversary Song'))).toBe(true);
+  });
 });
