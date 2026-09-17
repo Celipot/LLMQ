@@ -73,6 +73,14 @@ export function joinGame(gameId: string, nickname: string): Promise<JoinGameResp
   }).then((res) => parseOrThrow<JoinGameResponse>(res));
 }
 
+export function startMultiplayerGame(gameId: string, hostToken: string): Promise<{ status: string }> {
+  return fetch(`/games/${gameId}/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken }),
+  }).then((res) => parseOrThrow<{ status: string }>(res));
+}
+
 export function audioTrackUrl(): string {
   // Cache-busted: the allowed duration may have changed since the last fetch,
   // and the server is the only source of truth for how much audio is served.

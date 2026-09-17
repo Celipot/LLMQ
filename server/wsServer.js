@@ -26,6 +26,12 @@ function broadcast(gameId, message, exclude) {
   }
 }
 
+// Lets HTTP routes (e.g. POST /games/:id/start) push events to a game's
+// already-connected sockets without reaching into this module's internals.
+function broadcastToGame(gameId, message) {
+  broadcast(gameId, message);
+}
+
 function attachWebSocketServer(httpServer) {
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
 
@@ -55,4 +61,4 @@ function attachWebSocketServer(httpServer) {
   return wss;
 }
 
-module.exports = { attachWebSocketServer };
+module.exports = { attachWebSocketServer, broadcastToGame };

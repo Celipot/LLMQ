@@ -1,6 +1,17 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import Lobby from './Lobby';
+import * as api from '../api';
+import { ApiError } from '../api';
+
+vi.mock('../api', async () => {
+  const actual = await vi.importActual<typeof import('../api')>('../api');
+  return {
+    ...actual,
+    startMultiplayerGame: vi.fn(),
+  };
+});
 
 class MockWebSocket {
   static instances: MockWebSocket[] = [];
@@ -79,5 +90,52 @@ describe('Lobby', () => {
     });
 
     expect(await screen.findByText('Lancer la partie')).toBeEnabled();
+  });
+
+  test('clicking launch calls startMultiplayerGame with the stored hostToken', async () => {
+    localStorage.setItem('hostToken:g1', 'the-host-token');
+    vi.mocked(api.startMultiplayerGame).mockResolvedValue({ status: 'in_progress' });
+    render(<Lobby gameId="g1" playerId="p1" />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({
+      type: 'lobby:state',
+      players: [
+        { playerId: 'p1', nickname: 'Alice' },
+        { playerId: 'p2', nickname: 'Bob' },
+      ],
+    });
+
+    await userEvent.click(await screen.findByText('Lancer la partie'));
+
+    expect(api.startMultiplayerGame).toHaveBeenCalledWith('g1', 'the-host-token');
+  });
+
+  test('shows an error when launching fails because there are not enough players', async () => {
+    localStorage.setItem('hostToken:g1', 'the-host-token');
+    vi.mocked(api.startMultiplayerGame).mockRejectedValue(new ApiError('NOT_ENOUGH_PLAYERS'));
+    render(<Lobby gameId="g1" playerId="p1" />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({
+      type: 'lobby:state',
+      players: [
+        { playerId: 'p1', nickname: 'Alice' },
+        { playerId: 'p2', nickname: 'Bob' },
+      ],
+    });
+
+    await userEvent.click(await screen.findByText('Lancer la partie'));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('au moins un autre joueur');
+  });
+
+  test('shows the starting message once game:started is received', async () => {
+    render(<Lobby gameId="g1" playerId="p1" />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
+    await screen.findByText('Alice');
+
+    socket.emit({ type: 'game:started' });
+
+    expect(await screen.findByText('La partie démarre...')).toBeInTheDocument();
   });
 });

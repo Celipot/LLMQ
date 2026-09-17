@@ -238,6 +238,88 @@ test('POST /games/:id/join requires a non-empty nickname', async () => {
   assert.equal(res.status, 400);
 });
 
+async function createLobbyWithTwoPlayers() {
+  const created = await (await fetch(`${baseUrl}/games`, { method: 'POST' })).json();
+  await fetch(`${baseUrl}/games/${created.gameId}/join`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nickname: 'Alice' }),
+  });
+  await fetch(`${baseUrl}/games/${created.gameId}/join`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nickname: 'Bob' }),
+  });
+  return created;
+}
+
+test('POST /games/:id/start moves the game to in_progress with 2+ players and the correct hostToken', async () => {
+  const { gameId, hostToken } = await createLobbyWithTwoPlayers();
+  const res = await fetch(`${baseUrl}/games/${gameId}/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken }),
+  });
+  const body = await res.json();
+  assert.equal(res.status, 200);
+  assert.equal(body.status, 'in_progress');
+});
+
+test('POST /games/:id/start rejects a wrong hostToken', async () => {
+  const { gameId } = await createLobbyWithTwoPlayers();
+  const res = await fetch(`${baseUrl}/games/${gameId}/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken: 'wrong-token' }),
+  });
+  const body = await res.json();
+  assert.equal(res.status, 403);
+  assert.equal(body.error, 'NOT_HOST');
+});
+
+test('POST /games/:id/start rejects fewer than 2 players', async () => {
+  const created = await (await fetch(`${baseUrl}/games`, { method: 'POST' })).json();
+  await fetch(`${baseUrl}/games/${created.gameId}/join`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nickname: 'Alice' }),
+  });
+  const res = await fetch(`${baseUrl}/games/${created.gameId}/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken: created.hostToken }),
+  });
+  const body = await res.json();
+  assert.equal(res.status, 409);
+  assert.equal(body.error, 'NOT_ENOUGH_PLAYERS');
+});
+
+test('POST /games/:id/start rejects starting an already-started game', async () => {
+  const { gameId, hostToken } = await createLobbyWithTwoPlayers();
+  await fetch(`${baseUrl}/games/${gameId}/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken }),
+  });
+  const res = await fetch(`${baseUrl}/games/${gameId}/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken }),
+  });
+  const body = await res.json();
+  assert.equal(res.status, 409);
+  assert.equal(body.error, 'GAME_NOT_STARTABLE');
+});
+
+test('POST /games/:id/start returns 404 for an unknown gameId', async () => {
+  const res = await fetch(`${baseUrl}/games/unknown-id/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken: 'whatever' }),
+  });
+  assert.equal(res.status, 404);
+});
+
 test('List mode guesses never affect the concurrent Random mode round for the same song', async () => {
   await fetch(`${baseUrl}/api/mode/random`, { method: 'POST' });
   const beforeRandomState = await (await fetch(`${baseUrl}/api/state`)).json();

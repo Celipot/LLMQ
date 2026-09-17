@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ApiError, startMultiplayerGame } from '../api';
 import type { MultiplayerPlayer } from '../types';
 
 interface LobbyProps {
@@ -13,6 +14,9 @@ const MIN_PLAYERS_TO_START = 2;
 
 export default function Lobby({ gameId, playerId }: LobbyProps) {
   const [players, setPlayers] = useState<MultiplayerPlayer[]>([]);
+  const [started, setStarted] = useState(false);
+  const [launchError, setLaunchError] = useState<string | null>(null);
+  const [launching, setLaunching] = useState(false);
   const isHost = localStorage.getItem(`hostToken:${gameId}`) !== null;
 
   useEffect(() => {
@@ -27,11 +31,35 @@ export default function Lobby({ gameId, playerId }: LobbyProps) {
         setPlayers((prev) => [...prev, message.player]);
       } else if (message.type === 'player:left') {
         setPlayers((prev) => prev.filter((player) => player.playerId !== message.playerId));
+      } else if (message.type === 'game:started') {
+        setStarted(true);
       }
     };
 
     return () => socket.close();
   }, [gameId, playerId]);
+
+  async function handleLaunch() {
+    const hostToken = localStorage.getItem(`hostToken:${gameId}`);
+    if (!hostToken) return;
+    setLaunchError(null);
+    setLaunching(true);
+    try {
+      await startMultiplayerGame(gameId, hostToken);
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'NOT_ENOUGH_PLAYERS') {
+        setLaunchError('Il faut au moins un autre joueur pour lancer la partie.');
+      } else {
+        setLaunchError('Impossible de lancer la partie. Réessaie.');
+      }
+    } finally {
+      setLaunching(false);
+    }
+  }
+
+  if (started) {
+    return <p className="subtitle">La partie démarre...</p>;
+  }
 
   return (
     <section className="lobby">
@@ -42,9 +70,16 @@ export default function Lobby({ gameId, playerId }: LobbyProps) {
         ))}
       </ul>
       {isHost && (
-        <button type="button" disabled={players.length < MIN_PLAYERS_TO_START}>
-          Lancer la partie
-        </button>
+        <>
+          <button type="button" disabled={players.length < MIN_PLAYERS_TO_START || launching} onClick={handleLaunch}>
+            Lancer la partie
+          </button>
+          {launchError && (
+            <p className="error-msg" role="alert">
+              {launchError}
+            </p>
+          )}
+        </>
       )}
     </section>
   );

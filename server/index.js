@@ -5,7 +5,7 @@ const http = require('http');
 
 const gameState = require('./gameState');
 const multiplayerGames = require('./multiplayerGames');
-const { attachWebSocketServer } = require('./wsServer');
+const { attachWebSocketServer, broadcastToGame } = require('./wsServer');
 const songs = require('./songs');
 const { truncateWavFile } = require('./wavTruncate');
 
@@ -187,6 +187,32 @@ app.post('/games/:id/join', (req, res) => {
   } catch (err) {
     const status = JOIN_ERROR_STATUS[err.code] || 500;
     res.status(status).json({ error: err.code || 'JOIN_FAILED' });
+  }
+});
+
+const START_ERROR_STATUS = {
+  GAME_NOT_FOUND: 404,
+  NOT_HOST: 403,
+  GAME_NOT_STARTABLE: 409,
+  NOT_ENOUGH_PLAYERS: 409,
+};
+
+app.post('/games/:id/start', (req, res) => {
+  const { hostToken } = req.body || {};
+
+  try {
+    const game = multiplayerGames.startGame(req.params.id, hostToken, songs.pickRandomSongId);
+    broadcastToGame(game.gameId, { type: 'game:started' });
+    broadcastToGame(game.gameId, {
+      type: 'stage:start',
+      stage: game.stage,
+      durationSeconds: gameState.TIERS_SECONDS[0],
+      serverTimestamp: Date.now(),
+    });
+    res.json({ status: game.status });
+  } catch (err) {
+    const status = START_ERROR_STATUS[err.code] || 500;
+    res.status(status).json({ error: err.code || 'START_FAILED' });
   }
 });
 

@@ -50,3 +50,39 @@ test('joinGame throws GAME_NOT_JOINABLE once the game has left the lobby status'
   game.status = 'in_progress';
   assert.throws(() => multiplayerGames.joinGame(game.gameId, 'Alice'), /GAME_NOT_JOINABLE/);
 });
+
+function createLobbyWithTwoPlayers() {
+  const game = multiplayerGames.createGame();
+  multiplayerGames.joinGame(game.gameId, 'Alice');
+  multiplayerGames.joinGame(game.gameId, 'Bob');
+  return game;
+}
+
+test('startGame moves a lobby with 2+ players to in_progress, sets stage 1 and picks a song', () => {
+  const game = createLobbyWithTwoPlayers();
+  const started = multiplayerGames.startGame(game.gameId, game.hostToken, () => 42);
+  assert.equal(started.status, 'in_progress');
+  assert.equal(started.stage, 1);
+  assert.equal(started.songId, 42);
+});
+
+test('startGame throws GAME_NOT_FOUND for an unknown gameId', () => {
+  assert.throws(() => multiplayerGames.startGame('unknown-id', 'token', () => 1), /GAME_NOT_FOUND/);
+});
+
+test('startGame throws NOT_HOST when the token does not match', () => {
+  const game = createLobbyWithTwoPlayers();
+  assert.throws(() => multiplayerGames.startGame(game.gameId, 'wrong-token', () => 1), /NOT_HOST/);
+});
+
+test('startGame throws GAME_NOT_STARTABLE once the game has already started', () => {
+  const game = createLobbyWithTwoPlayers();
+  multiplayerGames.startGame(game.gameId, game.hostToken, () => 1);
+  assert.throws(() => multiplayerGames.startGame(game.gameId, game.hostToken, () => 1), /GAME_NOT_STARTABLE/);
+});
+
+test('startGame throws NOT_ENOUGH_PLAYERS with fewer than 2 players', () => {
+  const game = multiplayerGames.createGame();
+  multiplayerGames.joinGame(game.gameId, 'Alice');
+  assert.throws(() => multiplayerGames.startGame(game.gameId, game.hostToken, () => 1), /NOT_ENOUGH_PLAYERS/);
+});

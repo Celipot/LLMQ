@@ -50,9 +50,30 @@ function removePlayer(gameId, playerId) {
   game.players = game.players.filter((player) => player.playerId !== playerId);
 }
 
+function startGame(gameId, hostToken, pickSongId) {
+  const game = games.get(gameId);
+  if (!game) {
+    throw fail('GAME_NOT_FOUND');
+  }
+  if (game.hostToken !== hostToken) {
+    throw fail('NOT_HOST');
+  }
+  if (game.status !== 'lobby') {
+    throw fail('GAME_NOT_STARTABLE');
+  }
+  if (game.players.length < 2) {
+    throw fail('NOT_ENOUGH_PLAYERS');
+  }
+  game.status = 'in_progress';
+  game.stage = 1;
+  game.songId = pickSongId();
+  return game;
+}
+
 module.exports = {
   createGame,
   getGame,
   joinGame,
   removePlayer,
+  startGame,
 };

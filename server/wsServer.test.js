@@ -141,3 +141,41 @@ test('connecting with an unknown gameId or playerId closes the socket', async ()
   });
   assert.equal(closeCode, 4004);
 });
+
+test('starting the game broadcasts game:started then stage:start to connected sockets', async () => {
+  const { gameId, playerId: aliceId } = await createGameWithPlayer('Alice');
+  const bob = await (
+    await fetch(`${baseUrl}/games/${gameId}/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nickname: 'Bob' }),
+    })
+  ).json();
+
+  const aliceSocket = await openSocket(gameId, aliceId);
+  await aliceSocket.nextMessage(); // lobby:state snapshot
+  const bobSocket = await openSocket(gameId, bob.playerId);
+  await aliceSocket.nextMessage(); // player:joined for Bob
+
+  // hostToken isn't exposed by GET /games/:id; fetch it via the game store directly.
+  const { hostToken } = multiplayerGames.getGame(gameId);
+
+  const startedPromise = aliceSocket.nextMessage();
+  await fetch(`${baseUrl}/games/${gameId}/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken }),
+  });
+
+  const startedMessage = await startedPromise;
+  const stageMessage = await aliceSocket.nextMessage();
+
+  assert.equal(startedMessage.type, 'game:started');
+  assert.equal(stageMessage.type, 'stage:start');
+  assert.equal(stageMessage.stage, 1);
+  assert.equal(typeof stageMessage.durationSeconds, 'number');
+  assert.equal(typeof stageMessage.serverTimestamp, 'number');
+
+  aliceSocket.close();
+  bobSocket.close();
+});
