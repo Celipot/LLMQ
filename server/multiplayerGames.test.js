@@ -208,3 +208,56 @@ test('timeoutStage is a no-op once the stage has already moved on', () => {
   const game = startedGameWithTwoPlayers();
   assert.deepEqual(multiplayerGames.timeoutStage(game.gameId, 2), []);
 });
+
+const durationForStage = (stage) => stage * 10;
+
+test('checkStageProgress is a no-op while a player is still active', () => {
+  const game = startedGameWithTwoPlayers();
+  const alicePlayerId = multiplayerGames.getGame(game.gameId).players[0].playerId;
+  multiplayerGames.submitAnswer(game.gameId, alicePlayerId, 'Correct Title', findSongByTitle);
+  const result = multiplayerGames.checkStageProgress(game.gameId, durationForStage, 6);
+  assert.deepEqual(result, { type: 'none' });
+  assert.equal(multiplayerGames.getGame(game.gameId).stage, 1);
+});
+
+test('checkStageProgress advances the stage once everyone resolved, resetting forfeited players but not found ones', () => {
+  const game = startedGameWithTwoPlayers();
+  const [alice, bob] = multiplayerGames.getGame(game.gameId).players;
+  multiplayerGames.submitAnswer(game.gameId, alice.playerId, 'Correct Title', findSongByTitle);
+  multiplayerGames.forfeitStage(game.gameId, bob.playerId);
+
+  const result = multiplayerGames.checkStageProgress(game.gameId, durationForStage, 6);
+
+  assert.equal(result.type, 'advanced');
+  assert.equal(result.stage, 2);
+  assert.equal(result.durationSeconds, 20);
+  assert.equal(multiplayerGames.getGame(game.gameId).stage, 2);
+  assert.equal(alice.status, 'found', 'a found player must not be reset');
+  assert.equal(bob.status, 'active', 'a forfeited player gets another try next stage');
+  assert.equal(bob.forfeitReason, undefined);
+});
+
+test('checkStageProgress ends the game once the last stage resolves', () => {
+  const game = multiplayerGames.createGame();
+  multiplayerGames.joinGame(game.gameId, 'Alice');
+  multiplayerGames.joinGame(game.gameId, 'Bob');
+  multiplayerGames.startGame(game.gameId, game.hostToken, () => 42);
+  const stored = multiplayerGames.getGame(game.gameId);
+  stored.stage = 6; // last stage
+  const [alice, bob] = stored.players;
+  multiplayerGames.submitAnswer(game.gameId, alice.playerId, 'Correct Title', findSongByTitle);
+  multiplayerGames.forfeitStage(game.gameId, bob.playerId);
+
+  const result = multiplayerGames.checkStageProgress(game.gameId, durationForStage, 6);
+
+  assert.equal(result.type, 'ended');
+  assert.equal(result.songId, 42);
+  assert.equal(stored.status, 'ended');
+  const resultAlice = result.players.find((p) => p.playerId === alice.playerId);
+  assert.equal(resultAlice.foundStage, 6);
+});
+
+test('checkStageProgress is a no-op for a game that has not started', () => {
+  const game = createLobbyWithTwoPlayers();
+  assert.deepEqual(multiplayerGames.checkStageProgress(game.gameId, durationForStage, 6), { type: 'none' });
+});

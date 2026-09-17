@@ -24,6 +24,7 @@ export default function Lobby({ gameId, playerId }: LobbyProps) {
   const [stageInfo, setStageInfo] = useState<StageInfo | null>(null);
   const [answerFeedback, setAnswerFeedback] = useState<AnswerFeedback | null>(null);
   const [forfeited, setForfeited] = useState(false);
+  const [ended, setEnded] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [launching, setLaunching] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
@@ -52,7 +53,14 @@ export default function Lobby({ gameId, playerId }: LobbyProps) {
         setStageInfo({ stage: message.stage, durationSeconds: message.durationSeconds });
         setAnswerFeedback(null);
         setForfeited(false);
-        setPlayers((prev) => prev.map((player) => ({ ...player, status: 'active' })));
+        // "found" is permanent for the whole game — only forfeited players
+        // get another try once the stage advances (see server-side
+        // multiplayerGames.checkStageProgress for the matching rule).
+        setPlayers((prev) =>
+          prev.map((player) => (player.status === 'forfeited' ? { ...player, status: 'active' } : player))
+        );
+      } else if (message.type === 'game:ended') {
+        setEnded(true);
       } else if (message.type === 'answer:result' && typeof message.correct === 'boolean') {
         setAnswerFeedback({ correct: message.correct });
         // The server excludes the sender from the "found" broadcast (they
@@ -103,6 +111,11 @@ export default function Lobby({ gameId, playerId }: LobbyProps) {
     } finally {
       setLaunching(false);
     }
+  }
+
+  if (ended) {
+    // Full results screen (song reveal + ranking) is MP-12's scope.
+    return <p className="subtitle">Partie terminée.</p>;
   }
 
   if (stageInfo) {

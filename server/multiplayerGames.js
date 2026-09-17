@@ -131,6 +131,35 @@ function timeoutStage(gameId, stage) {
   return timedOutPlayerIds;
 }
 
+// Runs after any event that could resolve the current stage (found,
+// forfeited, timed out). "found" is permanent for the whole game (a player
+// who already found the song just waits out the remaining stages); only
+// "forfeited" players get another try once the stage advances.
+function checkStageProgress(gameId, getDurationForStage, maxStage) {
+  const game = games.get(gameId);
+  if (!game || game.status !== 'in_progress') {
+    return { type: 'none' };
+  }
+  const allResolved = game.players.every((player) => player.status !== 'active');
+  if (!allResolved) {
+    return { type: 'none' };
+  }
+
+  if (game.stage >= maxStage) {
+    game.status = 'ended';
+    return { type: 'ended', players: game.players, songId: game.songId };
+  }
+
+  game.stage += 1;
+  for (const player of game.players) {
+    if (player.status === 'forfeited') {
+      player.status = 'active';
+      delete player.forfeitReason;
+    }
+  }
+  return { type: 'advanced', stage: game.stage, durationSeconds: getDurationForStage(game.stage) };
+}
+
 module.exports = {
   createGame,
   getGame,
@@ -140,4 +169,5 @@ module.exports = {
   submitAnswer,
   forfeitStage,
   timeoutStage,
+  checkStageProgress,
 };

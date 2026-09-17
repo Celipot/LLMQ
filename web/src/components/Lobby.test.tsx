@@ -240,4 +240,37 @@ describe('Lobby', () => {
 
     expect(await screen.findByText('Alice — a trouvé')).toBeInTheDocument();
   });
+
+  test('does not reset a found player back to active when the stage advances', async () => {
+    render(<Lobby gameId="g1" playerId="p1" />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice', status: 'active' }] });
+    await screen.findByText('Alice');
+    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now() });
+    await screen.findByText(/Étape 1/);
+    socket.emit({ type: 'answer:result', correct: true });
+    await screen.findByText('Alice — a trouvé');
+
+    socket.emit({ type: 'stage:start', stage: 2, durationSeconds: 2, serverTimestamp: Date.now() });
+
+    await screen.findByText(/Étape 2/);
+    expect(screen.getByText('Alice — a trouvé')).toBeInTheDocument();
+  });
+
+  test('shows a game-over message once game:ended is received', async () => {
+    render(<Lobby gameId="g1" playerId="p1" />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice', status: 'active' }] });
+    await screen.findByText('Alice');
+    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now() });
+    await screen.findByText(/Étape 1/);
+
+    socket.emit({
+      type: 'game:ended',
+      song: { title: 'Some Song', artist: 'Some Artist', coverUrl: '/covers/x.png' },
+      players: [{ playerId: 'p1', nickname: 'Alice', foundStage: 1 }],
+    });
+
+    expect(await screen.findByText('Partie terminée.')).toBeInTheDocument();
+  });
 });

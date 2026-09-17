@@ -7,6 +7,7 @@ const { WebSocketServer } = require('ws');
 const { URL } = require('url');
 const multiplayerGames = require('./multiplayerGames');
 const songs = require('./songs');
+const gameState = require('./gameState');
 
 // gameId -> Set<WebSocket>
 const socketsByGame = new Map();
@@ -38,6 +39,13 @@ function broadcastToGame(gameId, message) {
 // conversation log) once audio playback stopped being clock-synchronized.
 const STAGE_ANSWER_WINDOW_MS = 30000;
 
+// Reuses the single-player tier list so stage N's clip length always matches
+// gameState.js's own progression, instead of maintaining a second table.
+function stageDurationFor(stage) {
+  const tierIndex = Math.min(stage - 1, gameState.TIERS_SECONDS.length - 1);
+  return gameState.TIERS_SECONDS[tierIndex];
+}
+
 function scheduleStageTimeout(gameId, stage, delayMs = STAGE_ANSWER_WINDOW_MS) {
   // unref: this timer must never be the reason the process (or a test run)
   // stays alive — it's a best-effort cleanup, not core work.
@@ -46,8 +54,36 @@ function scheduleStageTimeout(gameId, stage, delayMs = STAGE_ANSWER_WINDOW_MS) {
     for (const playerId of timedOutPlayerIds) {
       broadcast(gameId, { type: 'player:status', playerId, status: 'forfeited', stage, reason: 'timeout' });
     }
+    handleStageProgress(gameId);
   }, delayMs);
   timer.unref();
+}
+
+// Checks whether every player has resolved the current stage (found or
+// forfeited) and, if so, either advances to the next stage or ends the game.
+// Called after any event that could be the last missing status.
+function handleStageProgress(gameId) {
+  const result = multiplayerGames.checkStageProgress(gameId, stageDurationFor, gameState.TIERS_SECONDS.length);
+  if (result.type === 'advanced') {
+    broadcast(gameId, {
+      type: 'stage:start',
+      stage: result.stage,
+      durationSeconds: result.durationSeconds,
+      serverTimestamp: Date.now(),
+    });
+    scheduleStageTimeout(gameId, result.stage);
+  } else if (result.type === 'ended') {
+    const song = songs.getSongById(result.songId);
+    broadcast(gameId, {
+      type: 'game:ended',
+      song: { title: song.title, artist: song.artist, coverUrl: song.coverUrl },
+      players: result.players.map((player) => ({
+        playerId: player.playerId,
+        nickname: player.nickname,
+        foundStage: player.foundStage ?? null,
+      })),
+    });
+  }
 }
 
 function attachWebSocketServer(httpServer) {
@@ -83,6 +119,7 @@ function attachWebSocketServer(httpServer) {
           socket.send(JSON.stringify({ type: 'answer:result', correct: result.correct }));
           if (result.correct) {
             broadcast(gameId, { type: 'player:status', playerId, status: 'found', stage: result.stage }, socket);
+            handleStageProgress(gameId);
           }
         } catch (err) {
           socket.send(JSON.stringify({ type: 'answer:result', error: err.code || 'ANSWER_FAILED' }));
@@ -91,6 +128,7 @@ function attachWebSocketServer(httpServer) {
         try {
           const result = multiplayerGames.forfeitStage(gameId, playerId);
           broadcast(gameId, { type: 'player:status', playerId, status: 'forfeited', stage: result.stage });
+          handleStageProgress(gameId);
         } catch (err) {
           socket.send(JSON.stringify({ type: 'stage:forfeit:error', error: err.code || 'FORFEIT_FAILED' }));
         }
@@ -113,4 +151,4 @@ function attachWebSocketServer(httpServer) {
   return wss;
 }
 
-module.exports = { attachWebSocketServer, broadcastToGame, scheduleStageTimeout };
+module.exports = { attachWebSocketServer, broadcastToGame, scheduleStageTimeout, stageDurationFor };

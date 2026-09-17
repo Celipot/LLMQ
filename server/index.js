@@ -206,7 +206,7 @@ app.post('/games/:id/start', (req, res) => {
     wsServer.broadcastToGame(game.gameId, {
       type: 'stage:start',
       stage: game.stage,
-      durationSeconds: gameState.TIERS_SECONDS[0],
+      durationSeconds: wsServer.stageDurationFor(game.stage),
       serverTimestamp: Date.now(),
     });
     wsServer.scheduleStageTimeout(game.gameId, game.stage);
@@ -223,8 +223,7 @@ app.get('/games/:id/audio', async (req, res) => {
     return res.status(404).json({ error: 'GAME_NOT_FOUND' });
   }
 
-  const tierIndex = Math.min(game.stage - 1, gameState.TIERS_SECONDS.length - 1);
-  const seconds = gameState.TIERS_SECONDS[tierIndex];
+  const seconds = wsServer.stageDurationFor(game.stage);
   const filePath = songs.getAudioPath(game.songId);
   res.set('Content-Type', 'audio/wav');
   res.set('Cache-Control', 'no-store');

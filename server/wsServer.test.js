@@ -371,20 +371,82 @@ test('a disconnect once the game is in progress does not remove the player nor b
   bobSocket.close();
 });
 
-test('reconnecting with the same playerId after a timeout keeps the forfeited status', async () => {
+test('reconnecting with the same playerId keeps the forfeited status while the stage has not advanced', async () => {
+  // Bob stays active on purpose: if both players resolved, the stage would
+  // immediately advance (MP-10) and forfeited players reset to active —
+  // this test is specifically about a status surviving a reconnect *while
+  // still on the same stage*, so only Alice resolves here.
   const { gameId, aliceId, aliceSocket, bobSocket } = await createStartedGameWithSockets();
 
-  const timeoutPromise = aliceSocket.nextMessage();
-  scheduleStageTimeout(gameId, 1, 20);
-  await timeoutPromise;
+  aliceSocket.send(JSON.stringify({ type: 'stage:forfeit' }));
+  await aliceSocket.nextMessage(); // player:status forfeited for herself
   aliceSocket.close();
 
   const reconnectedSocket = await openSocket(gameId, aliceId);
   const snapshot = await reconnectedSocket.nextMessage();
   const alice = snapshot.players.find((p) => p.playerId === aliceId);
   assert.equal(alice.status, 'forfeited');
-  assert.equal(alice.forfeitReason, 'timeout');
+  assert.equal(multiplayerGames.getGame(gameId).stage, 1);
 
   reconnectedSocket.close();
+  bobSocket.close();
+});
+
+test('advances to the next stage once every player has resolved the current one', async () => {
+  const { gameId, aliceSocket, bobSocket, correctTitle } = await createStartedGameWithSockets();
+
+  const aliceResultPromise = aliceSocket.nextMessage();
+  const bobFoundStatusPromise = bobSocket.nextMessage(); // player:status for Alice's correct answer
+  aliceSocket.send(JSON.stringify({ type: 'answer:submit', value: correctTitle }));
+  await aliceResultPromise;
+  await bobFoundStatusPromise;
+
+  const aliceForfeitedStatusPromise = aliceSocket.nextMessage();
+  const bobForfeitedStatusPromise = bobSocket.nextMessage();
+  bobSocket.send(JSON.stringify({ type: 'stage:forfeit' })); // last missing status
+  await aliceForfeitedStatusPromise;
+  await bobForfeitedStatusPromise;
+
+  const aliceNextStage = await aliceSocket.nextMessage();
+  const bobNextStage = await bobSocket.nextMessage();
+  for (const message of [aliceNextStage, bobNextStage]) {
+    assert.equal(message.type, 'stage:start');
+    assert.equal(message.stage, 2);
+  }
+  assert.equal(multiplayerGames.getGame(gameId).stage, 2);
+
+  aliceSocket.close();
+  bobSocket.close();
+});
+
+test('ends the game and reveals the song once the last stage resolves', async () => {
+  const { gameId, aliceId, bobId, aliceSocket, bobSocket, correctTitle } = await createStartedGameWithSockets();
+  multiplayerGames.getGame(gameId).stage = 6; // last stage (TIERS_SECONDS has 6 entries)
+
+  const aliceResultPromise = aliceSocket.nextMessage();
+  const bobFoundStatusPromise = bobSocket.nextMessage(); // player:status for Alice's correct answer
+  aliceSocket.send(JSON.stringify({ type: 'answer:submit', value: correctTitle }));
+  await aliceResultPromise;
+  await bobFoundStatusPromise;
+
+  const aliceForfeitedStatusPromise = aliceSocket.nextMessage();
+  const bobForfeitedStatusPromise = bobSocket.nextMessage();
+  bobSocket.send(JSON.stringify({ type: 'stage:forfeit' }));
+  await aliceForfeitedStatusPromise;
+  await bobForfeitedStatusPromise;
+
+  const aliceEnded = await aliceSocket.nextMessage();
+  const bobEnded = await bobSocket.nextMessage();
+  for (const message of [aliceEnded, bobEnded]) {
+    assert.equal(message.type, 'game:ended');
+    assert.equal(message.song.title, correctTitle);
+    const alicePlayer = message.players.find((p) => p.playerId === aliceId);
+    const bobPlayer = message.players.find((p) => p.playerId === bobId);
+    assert.equal(alicePlayer.foundStage, 6);
+    assert.equal(bobPlayer.foundStage, null);
+  }
+  assert.equal(multiplayerGames.getGame(gameId).status, 'ended');
+
+  aliceSocket.close();
   bobSocket.close();
 });
