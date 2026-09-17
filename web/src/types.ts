@@ -46,3 +46,20 @@ export interface CreateGameResponse {
   gameId: string;
   hostToken: string;
 }
+
+export type MultiplayerGameStatus = 'lobby' | 'in_progress' | 'ended';
+
+export interface GameSummary {
+  gameId: string;
+  status: MultiplayerGameStatus;
+}
+
+export interface MultiplayerPlayer {
+  playerId: string;
+  nickname: string;
+}
+
+export interface JoinGameResponse {
+  playerId: string;
+  players: MultiplayerPlayer[];
+}

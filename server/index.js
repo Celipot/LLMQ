@@ -159,6 +159,35 @@ app.post('/games', (req, res) => {
   }
 });
 
+app.get('/games/:id', (req, res) => {
+  const game = multiplayerGames.getGame(req.params.id);
+  if (!game) {
+    return res.status(404).json({ error: 'GAME_NOT_FOUND' });
+  }
+  res.json({ gameId: game.gameId, status: game.status });
+});
+
+const JOIN_ERROR_STATUS = {
+  GAME_NOT_FOUND: 404,
+  GAME_NOT_JOINABLE: 409,
+  NICKNAME_TAKEN: 409,
+};
+
+app.post('/games/:id/join', (req, res) => {
+  const { nickname } = req.body || {};
+  if (typeof nickname !== 'string' || nickname.trim() === '') {
+    return res.status(400).json({ error: 'NICKNAME_REQUIRED' });
+  }
+
+  try {
+    const result = multiplayerGames.joinGame(req.params.id, nickname.trim());
+    res.json(result);
+  } catch (err) {
+    const status = JOIN_ERROR_STATUS[err.code] || 500;
+    res.status(status).json({ error: err.code || 'JOIN_FAILED' });
+  }
+});
+
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`LLMQ server listening on http://localhost:${PORT}`);

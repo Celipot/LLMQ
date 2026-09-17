@@ -7,14 +7,21 @@ import History from './components/History';
 import Result from './components/Result';
 import Home from './components/Home';
 import SongList from './components/SongList';
+import JoinGame from './components/JoinGame';
 import { useGameState } from './hooks/useGameState';
 import { useAudioPlayer } from './hooks/useAudioPlayer';
 import './App.css';
 
-type Screen = 'home' | 'random' | 'list';
+type Screen = 'home' | 'random' | 'list' | 'join' | 'lobby';
+
+function parseGameIdFromPath(): string | null {
+  const match = window.location.pathname.match(/^\/game\/([^/]+)$/);
+  return match ? match[1] : null;
+}
 
 export default function App() {
-  const [screen, setScreen] = useState<Screen>('home');
+  const [gameId] = useState<string | null>(() => parseGameIdFromPath());
+  const [screen, setScreen] = useState<Screen>(() => (parseGameIdFromPath() ? 'join' : 'home'));
   const { state, titles, activeSongId, error, guess, skip, reset, startRandom, selectSong, clearError } =
     useGameState();
   const [inputValue, setInputValue] = useState('');
@@ -66,7 +73,11 @@ export default function App() {
 
       {screen === 'home' && <Home onSelectRandom={handleSelectRandom} onSelectList={() => setScreen('list')} />}
 
-      {screen !== 'home' && (
+      {screen === 'join' && gameId && <JoinGame gameId={gameId} onJoined={() => setScreen('lobby')} />}
+
+      {screen === 'lobby' && <p className="subtitle">Tu as rejoint la partie. En attente du lancement...</p>}
+
+      {(screen === 'random' || screen === 'list') && (
         <div className={screen === 'list' ? 'game-layout' : undefined}>
           {screen === 'list' && (
             <SongList titles={titles} activeSongId={activeSongId} onSelect={handleSelectSong} />

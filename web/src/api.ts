@@ -1,4 +1,13 @@
-import type { ApiErrorBody, CreateGameResponse, GameState, GuessResponse, PlayableSong, SkipResponse } from './types';
+import type {
+  ApiErrorBody,
+  CreateGameResponse,
+  GameState,
+  GameSummary,
+  GuessResponse,
+  JoinGameResponse,
+  PlayableSong,
+  SkipResponse,
+} from './types';
 
 export class ApiError extends Error {
   code: string;
@@ -50,6 +59,18 @@ export function selectSong(id: number): Promise<GameState> {
 
 export function createMultiplayerGame(): Promise<CreateGameResponse> {
   return fetch('/games', { method: 'POST' }).then((res) => parseOrThrow<CreateGameResponse>(res));
+}
+
+export function fetchGameStatus(gameId: string): Promise<GameSummary> {
+  return fetch(`/games/${gameId}`).then((res) => parseOrThrow<GameSummary>(res));
+}
+
+export function joinGame(gameId: string, nickname: string): Promise<JoinGameResponse> {
+  return fetch(`/games/${gameId}/join`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nickname }),
+  }).then((res) => parseOrThrow<JoinGameResponse>(res));
 }
 
 export function audioTrackUrl(): string {

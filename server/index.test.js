@@ -162,6 +162,82 @@ test('POST /games reports an explicit error and creates nothing when creation fa
   }
 });
 
+test('GET /games/:id returns the game status', async () => {
+  const created = await (await fetch(`${baseUrl}/games`, { method: 'POST' })).json();
+  const res = await fetch(`${baseUrl}/games/${created.gameId}`);
+  const body = await res.json();
+  assert.equal(res.status, 200);
+  assert.equal(body.status, 'lobby');
+});
+
+test('GET /games/:id returns 404 for an unknown game', async () => {
+  const res = await fetch(`${baseUrl}/games/unknown-id`);
+  assert.equal(res.status, 404);
+});
+
+test('POST /games/:id/join adds a player and returns a playerId', async () => {
+  const created = await (await fetch(`${baseUrl}/games`, { method: 'POST' })).json();
+  const res = await fetch(`${baseUrl}/games/${created.gameId}/join`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nickname: 'Alice' }),
+  });
+  const body = await res.json();
+  assert.equal(res.status, 200);
+  assert.ok(body.playerId);
+  assert.equal(body.players.length, 1);
+});
+
+test('POST /games/:id/join rejects a duplicate nickname within the same game', async () => {
+  const created = await (await fetch(`${baseUrl}/games`, { method: 'POST' })).json();
+  await fetch(`${baseUrl}/games/${created.gameId}/join`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nickname: 'Alice' }),
+  });
+  const res = await fetch(`${baseUrl}/games/${created.gameId}/join`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nickname: 'Alice' }),
+  });
+  const body = await res.json();
+  assert.equal(res.status, 409);
+  assert.equal(body.error, 'NICKNAME_TAKEN');
+});
+
+test('POST /games/:id/join rejects joining a game that already started', async () => {
+  const created = await (await fetch(`${baseUrl}/games`, { method: 'POST' })).json();
+  const game = multiplayerGames.getGame(created.gameId);
+  game.status = 'in_progress';
+  const res = await fetch(`${baseUrl}/games/${created.gameId}/join`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nickname: 'Alice' }),
+  });
+  const body = await res.json();
+  assert.equal(res.status, 409);
+  assert.equal(body.error, 'GAME_NOT_JOINABLE');
+});
+
+test('POST /games/:id/join returns 404 for an unknown gameId', async () => {
+  const res = await fetch(`${baseUrl}/games/unknown-id/join`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nickname: 'Alice' }),
+  });
+  assert.equal(res.status, 404);
+});
+
+test('POST /games/:id/join requires a non-empty nickname', async () => {
+  const created = await (await fetch(`${baseUrl}/games`, { method: 'POST' })).json();
+  const res = await fetch(`${baseUrl}/games/${created.gameId}/join`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nickname: '  ' }),
+  });
+  assert.equal(res.status, 400);
+});
+
 test('List mode guesses never affect the concurrent Random mode round for the same song', async () => {
   await fetch(`${baseUrl}/api/mode/random`, { method: 'POST' });
   const beforeRandomState = await (await fetch(`${baseUrl}/api/state`)).json();

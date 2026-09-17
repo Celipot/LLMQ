@@ -22,7 +22,30 @@ function getGame(gameId) {
   return games.get(gameId);
 }
 
+function fail(code) {
+  const err = new Error(code);
+  err.code = code;
+  return err;
+}
+
+function joinGame(gameId, nickname) {
+  const game = games.get(gameId);
+  if (!game) {
+    throw fail('GAME_NOT_FOUND');
+  }
+  if (game.status !== 'lobby') {
+    throw fail('GAME_NOT_JOINABLE');
+  }
+  if (game.players.some((player) => player.nickname === nickname)) {
+    throw fail('NICKNAME_TAKEN');
+  }
+  const player = { playerId: crypto.randomUUID(), nickname };
+  game.players.push(player);
+  return { playerId: player.playerId, players: game.players };
+}
+
 module.exports = {
   createGame,
   getGame,
+  joinGame,
 };
