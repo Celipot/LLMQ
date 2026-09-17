@@ -2,12 +2,14 @@ const { test, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
 const gameState = require('./gameState');
 
+const CORRECT_SONG = { title: 'Correct Title', artist: 'Correct Artist', coverUrl: '/covers/correct.png' };
+
 beforeEach(() => {
   gameState.reset();
 });
 
 test('starts at tier 0 with 1 allowed second and no guesses', () => {
-  const state = gameState.getPublicState('Correct Title');
+  const state = gameState.getPublicState(CORRECT_SONG);
   assert.equal(state.attemptsUsed, 0);
   assert.equal(state.allowedSeconds, 1);
   assert.equal(state.status, 'playing');
@@ -27,16 +29,18 @@ test('wrong guess advances the tier and does not finish the game', () => {
 test('correct guess wins immediately regardless of attempts used', () => {
   gameState.applyGuess('Wrong Title', false);
   gameState.applyGuess('Correct Title', true);
-  const state = gameState.getPublicState('Correct Title');
+  const state = gameState.getPublicState(CORRECT_SONG);
   assert.equal(state.status, 'won');
   assert.equal(state.correctTitle, 'Correct Title');
+  assert.equal(state.correctArtist, 'Correct Artist');
+  assert.equal(state.correctCoverUrl, '/covers/correct.png');
 });
 
 test('6th failed attempt loses the game and reveals the title', () => {
   for (let i = 0; i < gameState.MAX_ATTEMPTS; i++) {
     gameState.applyGuess('Wrong Title', false);
   }
-  const state = gameState.getPublicState('Correct Title');
+  const state = gameState.getPublicState(CORRECT_SONG);
   assert.equal(state.status, 'lost');
   assert.equal(state.attemptsUsed, gameState.MAX_ATTEMPTS);
   assert.equal(state.correctTitle, 'Correct Title');
@@ -67,7 +71,7 @@ test('guess and skip both throw once the game is finished', () => {
 
 test('correctTitle is never included while the game is still playing', () => {
   gameState.applyGuess('Wrong Title', false);
-  const state = gameState.getPublicState('Correct Title');
+  const state = gameState.getPublicState(CORRECT_SONG);
   assert.equal(state.correctTitle, undefined);
 });
 

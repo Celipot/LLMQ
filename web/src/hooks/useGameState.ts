@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ApiError, fetchState, fetchTitles, resetGame, submitGuess, submitSkip } from '../api';
-import type { GameState } from '../types';
+import type { GameState, PlayableSong } from '../types';
 
 export function useGameState() {
   const [state, setState] = useState<GameState | null>(null);
-  const [titles, setTitles] = useState<string[]>([]);
+  const [titles, setTitles] = useState<PlayableSong[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {

@@ -10,13 +10,16 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
+app.use('/covers', express.static(path.join(__dirname, '..', 'data', 'covers')));
 
-function correctTitleIfFinished() {
-  return gameState.isFinished() ? songs.todaysSong.title : undefined;
+function correctSongIfFinished() {
+  if (!gameState.isFinished()) return undefined;
+  const { title, artist, coverUrl } = songs.randomSong;
+  return { title, artist, coverUrl };
 }
 
 app.get('/api/state', (req, res) => {
-  res.json(gameState.getPublicState(correctTitleIfFinished()));
+  res.json(gameState.getPublicState(correctSongIfFinished()));
 });
 
 app.get('/api/titles', (req, res) => {
@@ -53,12 +56,12 @@ app.post('/api/guess', (req, res) => {
     return res.status(400).json({ error: 'UNKNOWN_TITLE' });
   }
 
-  const isCorrect = matchedSong.id === songs.todaysSong.id;
+  const isCorrect = matchedSong.id === songs.randomSong.id;
   gameState.applyGuess(matchedSong.title, isCorrect);
 
   res.json({
     correct: isCorrect,
-    state: gameState.getPublicState(correctTitleIfFinished()),
+    state: gameState.getPublicState(correctSongIfFinished()),
   });
 });
 
@@ -70,13 +73,14 @@ app.post('/api/skip', (req, res) => {
   gameState.applySkip();
 
   res.json({
-    state: gameState.getPublicState(correctTitleIfFinished()),
+    state: gameState.getPublicState(correctSongIfFinished()),
   });
 });
 
 app.post('/api/reset', (req, res) => {
   // Dev-only convenience route, not authenticated. Must be protected/removed
   // before any multi-user deployment (see US-6.1 known limitation).
+  songs.selectNewSong();
   const state = gameState.reset();
   res.json(state);
 });

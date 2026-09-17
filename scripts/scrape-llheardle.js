@@ -11,6 +11,7 @@ const execFileAsync = promisify(execFile);
 
 const BASE_URL = 'https://llheardle.suyo.be';
 const AUDIO_DIR = path.join(__dirname, '..', 'data', 'audio');
+const COVERS_DIR = path.join(__dirname, '..', 'data', 'covers');
 const SONGS_JSON_PATH = path.join(__dirname, '..', 'data', 'songs.json');
 const CONCURRENCY = 5;
 
@@ -78,6 +79,11 @@ function slugFromSongUrl(songUrl) {
   return path.basename(songUrl, path.extname(songUrl));
 }
 
+function coverFileName(coverUrl) {
+  // e.g. "covers/0_bokuranolivekimitonolife.png" -> "0_bokuranolivekimitonolife.png"
+  return path.basename(coverUrl);
+}
+
 function mapToSchema(songPool) {
   return songPool.map((entry, id) => ({
     id,
@@ -86,9 +92,10 @@ function mapToSchema(songPool) {
     audioFile: `${slugFromSongUrl(entry.songUrl)}.wav`,
     titleJa: entry.titleJa,
     artistJa: entry.artistJa,
-    coverUrl: entry.coverUrl,
+    coverUrl: `/covers/${coverFileName(entry.coverUrl)}`,
     listenOn: entry.listenOn,
     _songUrl: entry.songUrl,
+    _coverUrl: entry.coverUrl,
   }));
 }
 
@@ -112,6 +119,23 @@ async function downloadAndConvert(song, index, total) {
   }
 }
 
+async function downloadCover(song, index, total) {
+  const fileName = coverFileName(song._coverUrl);
+  const destPath = path.join(COVERS_DIR, fileName);
+  if (fs.existsSync(destPath)) {
+    console.log(`[cover ${index + 1}/${total}] skip (exists): ${fileName}`);
+    return;
+  }
+
+  try {
+    const buffer = await fetchBuffer(`${BASE_URL}/${song._coverUrl}`);
+    fs.writeFileSync(destPath, buffer);
+    console.log(`[cover ${index + 1}/${total}] ok: ${fileName}`);
+  } catch (err) {
+    console.error(`[cover ${index + 1}/${total}] FAILED: ${fileName} (${err.message})`);
+  }
+}
+
 async function runWithConcurrency(items, limit, worker) {
   let cursor = 0;
   async function next() {
@@ -132,13 +156,17 @@ async function main() {
   const songs = mapToSchema(songPool);
 
   fs.mkdirSync(AUDIO_DIR, { recursive: true });
+  fs.mkdirSync(COVERS_DIR, { recursive: true });
 
   console.log('Downloading and converting audio (this will take a while)...');
   await runWithConcurrency(songs, CONCURRENCY, (song, i, total) =>
     downloadAndConvert(song, i, total)
   );
 
-  const output = songs.map(({ _songUrl, ...rest }) => rest);
+  console.log('Downloading cover art...');
+  await runWithConcurrency(songs, CONCURRENCY, (song, i, total) => downloadCover(song, i, total));
+
+  const output = songs.map(({ _songUrl, _coverUrl, ...rest }) => rest);
   fs.writeFileSync(SONGS_JSON_PATH, JSON.stringify(output, null, 2));
   console.log(`Wrote ${output.length} songs to ${SONGS_JSON_PATH}`);
 }

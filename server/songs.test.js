@@ -2,15 +2,15 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const songs = require('./songs');
 
-test('getPlayableTitles returns the titles from data/songs.json', () => {
+test('getPlayableTitles returns {title, artist} entries from data/songs.json', () => {
   const titles = songs.getPlayableTitles();
   assert.ok(Array.isArray(titles));
-  assert.ok(titles.includes(songs.todaysSong.title));
+  assert.ok(titles.some((t) => t.title === songs.randomSong.title && t.artist === songs.randomSong.artist));
 });
 
 test('findSongByTitle matches case-insensitively', () => {
-  const found = songs.findSongByTitle(songs.todaysSong.title.toUpperCase());
-  assert.equal(found.id, songs.todaysSong.id);
+  const found = songs.findSongByTitle(songs.randomSong.title.toUpperCase());
+  assert.equal(found.id, songs.randomSong.id);
 });
 
 test('findSongByTitle matches accent-insensitively', () => {
@@ -24,6 +24,6 @@ test('findSongByTitle returns null for an unknown title', () => {
 });
 
 test('findSongByTitle ignores leading/trailing whitespace', () => {
-  const found = songs.findSongByTitle(`  ${songs.todaysSong.title}  `);
-  assert.equal(found.id, songs.todaysSong.id);
+  const found = songs.findSongByTitle(`  ${songs.randomSong.title}  `);
+  assert.equal(found.id, songs.randomSong.id);
 });

@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import type { KeyboardEvent } from 'react';
+import type { PlayableSong } from '../types';
 
 interface SearchAutocompleteProps {
-  titles: string[];
+  titles: PlayableSong[];
   value: string;
   disabled: boolean;
   onChange: (value: string) => void;
@@ -21,7 +22,10 @@ export default function SearchAutocomplete({ titles, value, disabled, onChange, 
   const [activeIndex, setActiveIndex] = useState(-1);
   const [open, setOpen] = useState(false);
 
-  const matches = value.trim() && open ? titles.filter((t) => normalize(t).includes(normalize(value))) : [];
+  const matches =
+    value.trim() && open
+      ? titles.filter((t) => normalize(`${t.title} ${t.artist}`).includes(normalize(value)))
+      : [];
 
   function select(title: string) {
     onChange(title);
@@ -39,7 +43,7 @@ export default function SearchAutocomplete({ titles, value, disabled, onChange, 
     } else if (e.key === 'Enter') {
       if (activeIndex >= 0 && matches[activeIndex]) {
         e.preventDefault();
-        select(matches[activeIndex]);
+        select(matches[activeIndex].title);
       } else {
         onSubmit();
       }
@@ -69,16 +73,16 @@ export default function SearchAutocomplete({ titles, value, disabled, onChange, 
       />
       {matches.length > 0 && (
         <ul className="suggestions">
-          {matches.map((title, i) => (
+          {matches.map((match, i) => (
             <li
-              key={title}
+              key={match.title}
               className={i === activeIndex ? 'active' : ''}
               onMouseDown={(e) => {
                 e.preventDefault();
-                select(title);
+                select(match.title);
               }}
             >
-              {title}
+              {match.title} — {match.artist}
             </li>
           ))}
         </ul>

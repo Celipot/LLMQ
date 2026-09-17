@@ -27,7 +27,7 @@ const initialState: GameState = {
 
 beforeEach(() => {
   vi.mocked(api.fetchState).mockResolvedValue(initialState);
-  vi.mocked(api.fetchTitles).mockResolvedValue(['Placeholder Track']);
+  vi.mocked(api.fetchTitles).mockResolvedValue([{ title: 'Placeholder Track', artist: 'LLMQ Dev' }]);
 });
 
 describe('useGameState', () => {
@@ -35,7 +35,7 @@ describe('useGameState', () => {
     const { result } = renderHook(() => useGameState());
     await waitFor(() => expect(result.current.state).not.toBeNull());
     expect(result.current.state).toEqual(initialState);
-    expect(result.current.titles).toEqual(['Placeholder Track']);
+    expect(result.current.titles).toEqual([{ title: 'Placeholder Track', artist: 'LLMQ Dev' }]);
   });
 
   test('guess() with an empty title sets an error without calling the API', async () => {

@@ -1,4 +1,4 @@
-import type { ApiErrorBody, GameState, GuessResponse, SkipResponse } from './types';
+import type { ApiErrorBody, GameState, GuessResponse, PlayableSong, SkipResponse } from './types';
 
 export class ApiError extends Error {
   code: string;
@@ -20,8 +20,8 @@ export function fetchState(): Promise<GameState> {
   return fetch('/api/state').then((res) => parseOrThrow<GameState>(res));
 }
 
-export function fetchTitles(): Promise<string[]> {
-  return fetch('/api/titles').then((res) => parseOrThrow<string[]>(res));
+export function fetchTitles(): Promise<PlayableSong[]> {
+  return fetch('/api/titles').then((res) => parseOrThrow<PlayableSong[]>(res));
 }
 
 export function submitGuess(title: string): Promise<GuessResponse> {

@@ -6,3 +6,4 @@ public/
 
 data/audio/*.wav
 !data/audio/placeholder.wav
+data/covers/*.png

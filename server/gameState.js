@@ -29,9 +29,9 @@ function isFinished() {
   return state.status !== 'playing';
 }
 
-// correctTitle is passed in by the caller (server knows it via songs.json)
+// correctSong is passed in by the caller (server knows it via songs.json)
 // so this module never has to import song data itself.
-function getPublicState(correctTitle) {
+function getPublicState(correctSong) {
   const publicState = {
     attemptsUsed: state.attemptsUsed,
     maxAttempts: MAX_ATTEMPTS,
@@ -39,8 +39,10 @@ function getPublicState(correctTitle) {
     status: state.status,
     guesses: state.guesses,
   };
-  if (isFinished() && correctTitle) {
-    publicState.correctTitle = correctTitle;
+  if (isFinished() && correctSong) {
+    publicState.correctTitle = correctSong.title;
+    publicState.correctArtist = correctSong.artist;
+    publicState.correctCoverUrl = correctSong.coverUrl;
   }
   return publicState;
 }

@@ -14,6 +14,13 @@ export interface GameState {
   status: GameStatus;
   guesses: GuessEntry[];
   correctTitle?: string;
+  correctArtist?: string;
+  correctCoverUrl?: string;
+}
+
+export interface PlayableSong {
+  title: string;
+  artist: string;
 }
 
 export type ApiErrorCode = 'UNKNOWN_TITLE' | 'TITLE_REQUIRED' | 'GAME_FINISHED' | string;

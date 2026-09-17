@@ -9,8 +9,19 @@ const AUDIO_DIR = path.join(__dirname, '..', 'data', 'audio');
 
 const songs = JSON.parse(fs.readFileSync(SONGS_PATH, 'utf8'));
 
-// The one song the daily puzzle is currently built around.
-const todaysSong = songs[0];
+function pickRandomSong() {
+  return songs[Math.floor(Math.random() * songs.length)];
+}
+
+// Mutable so a new song can be picked per round (see selectNewSong below);
+// exposed through a getter so callers holding a reference to the `songs`
+// module always see the current pick, not the one at require() time.
+let currentSong = pickRandomSong();
+
+function selectNewSong() {
+  currentSong = pickRandomSong();
+  return currentSong;
+}
 
 function normalize(str) {
   return str
@@ -21,7 +32,7 @@ function normalize(str) {
 }
 
 function getPlayableTitles() {
-  return songs.map((song) => song.title);
+  return songs.map((song) => ({ title: song.title, artist: song.artist }));
 }
 
 function findSongByTitle(title) {
@@ -30,11 +41,14 @@ function findSongByTitle(title) {
 }
 
 function getTodaysAudioPath() {
-  return path.join(AUDIO_DIR, todaysSong.audioFile);
+  return path.join(AUDIO_DIR, currentSong.audioFile);
 }
 
 module.exports = {
-  todaysSong,
+  get randomSong() {
+    return currentSong;
+  },
+  selectNewSong,
   normalize,
   getPlayableTitles,
   findSongByTitle,

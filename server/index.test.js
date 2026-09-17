@@ -31,10 +31,10 @@ test('GET /api/state starts fresh with no correctTitle', async () => {
   assert.equal(body.correctTitle, undefined);
 });
 
-test('GET /api/titles includes the playable song', async () => {
+test('GET /api/titles includes the playable song with its artist', async () => {
   const res = await fetch(`${baseUrl}/api/titles`);
   const titles = await res.json();
-  assert.ok(titles.includes(songs.todaysSong.title));
+  assert.ok(titles.some((t) => t.title === songs.randomSong.title && t.artist === songs.randomSong.artist));
 });
 
 test('POST /api/guess with an unknown title is rejected without consuming an attempt', async () => {
@@ -55,13 +55,15 @@ test('POST /api/guess with the correct title wins and reveals the answer', async
   const res = await fetch(`${baseUrl}/api/guess`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: songs.todaysSong.title }),
+    body: JSON.stringify({ title: songs.randomSong.title }),
   });
   const body = await res.json();
   assert.equal(res.status, 200);
   assert.equal(body.correct, true);
   assert.equal(body.state.status, 'won');
-  assert.equal(body.state.correctTitle, songs.todaysSong.title);
+  assert.equal(body.state.correctTitle, songs.randomSong.title);
+  assert.equal(body.state.correctArtist, songs.randomSong.artist);
+  assert.equal(body.state.correctCoverUrl, songs.randomSong.coverUrl);
 });
 
 test('POST /api/skip advances the tier and is rejected once the game is finished', async () => {
@@ -85,12 +87,12 @@ test('POST /api/guess is rejected once the game is finished', async () => {
   await fetch(`${baseUrl}/api/guess`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: songs.todaysSong.title }),
+    body: JSON.stringify({ title: songs.randomSong.title }),
   });
   const res = await fetch(`${baseUrl}/api/guess`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: songs.todaysSong.title }),
+    body: JSON.stringify({ title: songs.randomSong.title }),
   });
   assert.equal(res.status, 409);
   assert.equal((await res.json()).error, 'GAME_FINISHED');
@@ -115,7 +117,7 @@ test('GET /audio/track serves the full track only once the game is finished', as
   await fetch(`${baseUrl}/api/guess`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: songs.todaysSong.title }),
+    body: JSON.stringify({ title: songs.randomSong.title }),
   });
 
   const afterFinish = await fetch(`${baseUrl}/audio/track`);

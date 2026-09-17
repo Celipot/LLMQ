@@ -3,7 +3,11 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, test, vi } from 'vitest';
 import SearchAutocomplete from './SearchAutocomplete';
 
-const TITLES = ['Placeholder Track', 'Été éternel', 'Another Song'];
+const TITLES = [
+  { title: 'Placeholder Track', artist: 'LLMQ Dev' },
+  { title: 'Été éternel', artist: 'Some Group' },
+  { title: 'Another Song', artist: 'Other Artist' },
+];
 
 function setup(overrides: Partial<React.ComponentProps<typeof SearchAutocomplete>> = {}) {
   const onChange = vi.fn();
@@ -43,7 +47,7 @@ describe('SearchAutocomplete', () => {
     // The suggestions list only opens on an input event (controlled `value`
     // alone doesn't open it), so type a keystroke to trigger it first.
     await user.type(screen.getByRole('textbox'), 'x');
-    await user.click(screen.getByText('Placeholder Track'));
+    await user.click(screen.getByText('Placeholder Track — LLMQ Dev'));
     expect(onChange).toHaveBeenCalledWith('Placeholder Track');
     expect(onSubmit).not.toHaveBeenCalled();
   });
