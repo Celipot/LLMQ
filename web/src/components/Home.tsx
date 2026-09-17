@@ -4,18 +4,17 @@ import { createMultiplayerGame } from '../api';
 interface HomeProps {
   onSelectRandom: () => void;
   onSelectList: () => void;
+  onGameCreated: (gameId: string, hostToken: string) => void;
 }
 
-export default function Home({ onSelectRandom, onSelectList }: HomeProps) {
-  const [gameLink, setGameLink] = useState<string | null>(null);
+export default function Home({ onSelectRandom, onSelectList, onGameCreated }: HomeProps) {
   const [error, setError] = useState<string | null>(null);
 
   async function handleCreateMultiplayer() {
     setError(null);
-    setGameLink(null);
     try {
-      const { gameId } = await createMultiplayerGame();
-      setGameLink(`/game/${gameId}`);
+      const { gameId, hostToken } = await createMultiplayerGame();
+      onGameCreated(gameId, hostToken);
     } catch {
       setError('La création de la partie a échoué. Réessaie.');
     }
@@ -38,11 +37,6 @@ export default function Home({ onSelectRandom, onSelectList }: HomeProps) {
           <span className="mode-card-desc">Génère un lien à partager avec tes amis</span>
         </button>
       </div>
-      {gameLink && (
-        <p className="multiplayer-link" role="status">
-          Partage ce lien : <a href={gameLink}>{gameLink}</a>
-        </p>
-      )}
       {error && (
         <p className="error-msg" role="alert">
           {error}

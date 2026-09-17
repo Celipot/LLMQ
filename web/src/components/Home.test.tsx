@@ -15,7 +15,7 @@ vi.mock('../api', async () => {
 describe('Home', () => {
   test('calls onSelectRandom when the random mode card is clicked', async () => {
     const onSelectRandom = vi.fn();
-    render(<Home onSelectRandom={onSelectRandom} onSelectList={vi.fn()} />);
+    render(<Home onSelectRandom={onSelectRandom} onSelectList={vi.fn()} onGameCreated={vi.fn()} />);
 
     await userEvent.click(screen.getByText('Mode Aléatoire'));
 
@@ -24,25 +24,26 @@ describe('Home', () => {
 
   test('calls onSelectList when the list mode card is clicked', async () => {
     const onSelectList = vi.fn();
-    render(<Home onSelectRandom={vi.fn()} onSelectList={onSelectList} />);
+    render(<Home onSelectRandom={vi.fn()} onSelectList={onSelectList} onGameCreated={vi.fn()} />);
 
     await userEvent.click(screen.getByText('Mode Liste'));
 
     expect(onSelectList).toHaveBeenCalledOnce();
   });
 
-  test('shows the game link after successfully creating a multiplayer game', async () => {
+  test('calls onGameCreated with the gameId and hostToken after successfully creating a multiplayer game', async () => {
     vi.mocked(api.createMultiplayerGame).mockResolvedValue({ gameId: 'abc123', hostToken: 'token' });
-    render(<Home onSelectRandom={vi.fn()} onSelectList={vi.fn()} />);
+    const onGameCreated = vi.fn();
+    render(<Home onSelectRandom={vi.fn()} onSelectList={vi.fn()} onGameCreated={onGameCreated} />);
 
     await userEvent.click(screen.getByText('Créer une partie multijoueur'));
 
-    expect(await screen.findByText('/game/abc123')).toBeInTheDocument();
+    await vi.waitFor(() => expect(onGameCreated).toHaveBeenCalledWith('abc123', 'token'));
   });
 
   test('shows an error message when creating a multiplayer game fails', async () => {
     vi.mocked(api.createMultiplayerGame).mockRejectedValue(new Error('boom'));
-    render(<Home onSelectRandom={vi.fn()} onSelectList={vi.fn()} />);
+    render(<Home onSelectRandom={vi.fn()} onSelectList={vi.fn()} onGameCreated={vi.fn()} />);
 
     await userEvent.click(screen.getByText('Créer une partie multijoueur'));
 

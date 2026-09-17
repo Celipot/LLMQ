@@ -1,9 +1,11 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const http = require('http');
 
 const gameState = require('./gameState');
 const multiplayerGames = require('./multiplayerGames');
+const { attachWebSocketServer } = require('./wsServer');
 const songs = require('./songs');
 const { truncateWavFile } = require('./wavTruncate');
 
@@ -189,7 +191,9 @@ app.post('/games/:id/join', (req, res) => {
 });
 
 if (require.main === module) {
-  app.listen(PORT, () => {
+  const server = http.createServer(app);
+  attachWebSocketServer(server);
+  server.listen(PORT, () => {
     console.log(`LLMQ server listening on http://localhost:${PORT}`);
   });
 }

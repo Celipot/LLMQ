@@ -8,6 +8,7 @@ import Result from './components/Result';
 import Home from './components/Home';
 import SongList from './components/SongList';
 import JoinGame from './components/JoinGame';
+import Lobby from './components/Lobby';
 import { useGameState } from './hooks/useGameState';
 import { useAudioPlayer } from './hooks/useAudioPlayer';
 import './App.css';
@@ -20,7 +21,8 @@ function parseGameIdFromPath(): string | null {
 }
 
 export default function App() {
-  const [gameId] = useState<string | null>(() => parseGameIdFromPath());
+  const [gameId, setGameId] = useState<string | null>(() => parseGameIdFromPath());
+  const [playerId, setPlayerId] = useState<string | null>(null);
   const [screen, setScreen] = useState<Screen>(() => (parseGameIdFromPath() ? 'join' : 'home'));
   const { state, titles, activeSongId, error, guess, skip, reset, startRandom, selectSong, clearError } =
     useGameState();
@@ -58,6 +60,18 @@ export default function App() {
     await selectSong(id);
   }
 
+  function handleGameCreated(newGameId: string, hostToken: string) {
+    localStorage.setItem(`hostToken:${newGameId}`, hostToken);
+    window.history.pushState(null, '', `/game/${newGameId}`);
+    setGameId(newGameId);
+    setScreen('join');
+  }
+
+  function handleJoined(newPlayerId: string) {
+    setPlayerId(newPlayerId);
+    setScreen('lobby');
+  }
+
   return (
     <main className="app">
       <div className="app-header">
@@ -71,11 +85,17 @@ export default function App() {
         )}
       </div>
 
-      {screen === 'home' && <Home onSelectRandom={handleSelectRandom} onSelectList={() => setScreen('list')} />}
+      {screen === 'home' && (
+        <Home
+          onSelectRandom={handleSelectRandom}
+          onSelectList={() => setScreen('list')}
+          onGameCreated={handleGameCreated}
+        />
+      )}
 
-      {screen === 'join' && gameId && <JoinGame gameId={gameId} onJoined={() => setScreen('lobby')} />}
+      {screen === 'join' && gameId && <JoinGame gameId={gameId} onJoined={handleJoined} />}
 
-      {screen === 'lobby' && <p className="subtitle">Tu as rejoint la partie. En attente du lancement...</p>}
+      {screen === 'lobby' && gameId && playerId && <Lobby gameId={gameId} playerId={playerId} />}
 
       {(screen === 'random' || screen === 'list') && (
         <div className={screen === 'list' ? 'game-layout' : undefined}>

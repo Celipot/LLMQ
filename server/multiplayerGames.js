@@ -44,8 +44,15 @@ function joinGame(gameId, nickname) {
   return { playerId: player.playerId, players: game.players };
 }
 
+function removePlayer(gameId, playerId) {
+  const game = games.get(gameId);
+  if (!game) return;
+  game.players = game.players.filter((player) => player.playerId !== playerId);
+}
+
 module.exports = {
   createGame,
   getGame,
   joinGame,
+  removePlayer,
 };

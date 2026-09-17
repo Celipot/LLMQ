@@ -15,7 +15,8 @@
     "test": "npm run test:server && npm run test:web"
   },
   "dependencies": {
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "ws": "^8.21.3"
   },
   "devDependencies": {
     "concurrently": "^10.0.5"
