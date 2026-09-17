@@ -6,15 +6,25 @@ Reproduction locale du mécanisme central d'un jeu type Heardle : le joueur éco
 
 ## Démarrer
 
+Développement (backend Express + frontend React/Vite avec hot-reload, en parallèle) :
+
 ```bash
 npm install
+npm --prefix web install
 npm run generate:placeholder-audio   # génère data/audio/placeholder.wav si absent
+npm run dev
+```
+
+Puis ouvrir http://localhost:5173 (le serveur Vite proxie `/api` et `/audio` vers Express sur le port 3000).
+
+Production (build React servi statiquement par Express) :
+
+```bash
+npm run build     # compile web/ vers public/
 npm start
 ```
 
 Puis ouvrir http://localhost:3000.
-
-`npm run dev` relance le serveur automatiquement à chaque modification (`node --watch`).
 
 ## Structure
 
@@ -23,13 +33,21 @@ data/
   songs.json          # bibliothèque jouable (1 chanson au MVP)
   audio/               # fichiers audio (WAV PCM requis, voir plus bas)
 server/
-  index.js             # routes Express
+  index.js             # routes Express, sert public/ en statique
   gameState.js         # état de partie en mémoire (paliers, essais, victoire/défaite)
   songs.js             # chargement/recherche des titres jouables
   wavTruncate.js        # découpe la piste WAV au nombre de secondes autorisé
+web/
+  src/                 # frontend React + TypeScript (Vite)
+    api.ts, types.ts    # client fetch typé pour le contrat API ci-dessous
+    hooks/               # useGameState (état + actions), useAudioPlayer (lecture + progress)
+    components/          # Player, Pips, SearchAutocomplete, History, Result, ShinyText
+  vite.config.ts        # dev proxy vers Express, build vers ../public
 public/
-  index.html, app.js, style.css   # frontend statique, aucun build requis
+  (généré par `npm run build`, ne pas éditer à la main)
 ```
+
+Le frontend utilise [React Bits](https://reactbits.dev) pour l'habillage animé (`ShinyText` sur le titre) ; le reste des composants suit des patterns React/TS classiques.
 
 ## Routes API
 
