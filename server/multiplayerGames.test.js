@@ -58,6 +58,27 @@ function createLobbyWithTwoPlayers() {
   return game;
 }
 
+test('removePlayer deletes the game once the last player leaves', () => {
+  const game = multiplayerGames.createGame();
+  const { playerId } = multiplayerGames.joinGame(game.gameId, 'Alice');
+  multiplayerGames.removePlayer(game.gameId, playerId);
+  assert.equal(multiplayerGames.getGame(game.gameId), undefined);
+});
+
+test('removePlayer keeps the game when other players remain', () => {
+  const game = createLobbyWithTwoPlayers();
+  const [alice] = multiplayerGames.getGame(game.gameId).players;
+  multiplayerGames.removePlayer(game.gameId, alice.playerId);
+  const stored = multiplayerGames.getGame(game.gameId);
+  assert.ok(stored);
+  assert.equal(stored.players.length, 1);
+  assert.equal(stored.players[0].nickname, 'Bob');
+});
+
+test('removePlayer is a no-op for an unknown gameId', () => {
+  assert.doesNotThrow(() => multiplayerGames.removePlayer('unknown-game', 'unknown-player'));
+});
+
 test('startGame moves a lobby with 2+ players to in_progress, sets stage 1 and picks a song', () => {
   const game = createLobbyWithTwoPlayers();
   const started = multiplayerGames.startGame(game.gameId, game.hostToken, () => 42);

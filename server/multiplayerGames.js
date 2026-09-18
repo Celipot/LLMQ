@@ -48,6 +48,9 @@ function removePlayer(gameId, playerId) {
   const game = games.get(gameId);
   if (!game) return;
   game.players = game.players.filter((player) => player.playerId !== playerId);
+  if (game.players.length === 0) {
+    games.delete(gameId);
+  }
 }
 
 function startGame(gameId, hostToken, pickSongId) {

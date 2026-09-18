@@ -660,3 +660,17 @@ test('closing the socket after an explicit player:leave does not re-broadcast pl
 
   bobSocket.close();
 });
+
+test('a game is purged once its last player leaves', async () => {
+  const { gameId, playerId } = await createGameWithPlayer('Alice');
+  const socket = await openSocket(gameId, playerId);
+  await socket.nextMessage(); // lobby:state
+
+  socket.send(JSON.stringify({ type: 'player:leave' }));
+  await new Promise((resolve) => setTimeout(resolve, 20));
+
+  const res = await fetch(`${baseUrl}/games/${gameId}`);
+  assert.equal(res.status, 404);
+
+  socket.close();
+});
