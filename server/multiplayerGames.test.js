@@ -278,3 +278,42 @@ test('checkStageProgress is a no-op for a game that has not started', () => {
   const game = createLobbyWithTwoPlayers();
   assert.deepEqual(multiplayerGames.checkStageProgress(game.gameId, durationForStage, 6), { type: 'none' });
 });
+
+test('startGame sets stageStartedAt', () => {
+  const game = createLobbyWithTwoPlayers();
+  const before = Date.now();
+  const started = multiplayerGames.startGame(game.gameId, game.hostToken, () => 1);
+  assert.ok(started.stageStartedAt >= before);
+});
+
+test('checkStageProgress refreshes stageStartedAt on advance', async () => {
+  const game = startedGameWithTwoPlayers();
+  const [alice, bob] = multiplayerGames.getGame(game.gameId).players;
+  const firstStartedAt = multiplayerGames.getGame(game.gameId).stageStartedAt;
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  multiplayerGames.submitAnswer(game.gameId, alice.playerId, 'Correct Title', findSongByTitle, computeScore);
+  multiplayerGames.forfeitStage(game.gameId, bob.playerId);
+  multiplayerGames.checkStageProgress(game.gameId, durationForStage, 6);
+  assert.ok(multiplayerGames.getGame(game.gameId).stageStartedAt > firstStartedAt);
+});
+
+test('joinGame marks the new player connected', () => {
+  const game = multiplayerGames.createGame();
+  multiplayerGames.joinGame(game.gameId, 'Alice');
+  assert.equal(multiplayerGames.getGame(game.gameId).players[0].connected, true);
+});
+
+test('markConnected and markDisconnected flip the player connected flag', () => {
+  const game = startedGameWithTwoPlayers();
+  const alice = multiplayerGames.getGame(game.gameId).players[0];
+  multiplayerGames.markDisconnected(game.gameId, alice.playerId);
+  assert.equal(alice.connected, false);
+  multiplayerGames.markConnected(game.gameId, alice.playerId);
+  assert.equal(alice.connected, true);
+});
+
+test('markDisconnected is a no-op for an unknown player or game', () => {
+  const game = startedGameWithTwoPlayers();
+  assert.doesNotThrow(() => multiplayerGames.markDisconnected(game.gameId, 'unknown-player'));
+  assert.doesNotThrow(() => multiplayerGames.markDisconnected('unknown-game', 'unknown-player'));
+});

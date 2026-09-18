@@ -6,7 +6,7 @@ const app = require('./index');
 const multiplayerGames = require('./multiplayerGames');
 const songs = require('./songs');
 const gameState = require('./gameState');
-const { attachWebSocketServer, scheduleStageTimeout } = require('./wsServer');
+const { attachWebSocketServer, scheduleStageTimeout, scheduleDisconnectGrace } = require('./wsServer');
 
 let server;
 let wss;
@@ -451,5 +451,72 @@ test('ends the game and reveals the song once the last stage resolves', async ()
   assert.equal(multiplayerGames.getGame(gameId).status, 'ended');
 
   aliceSocket.close();
+  bobSocket.close();
+});
+
+test('reconnecting mid-game sends a game:state resync with stage, players and remaining time', async () => {
+  const { gameId, aliceId, aliceSocket, bobSocket } = await createStartedGameWithSockets();
+  aliceSocket.close();
+
+  const reconnectedSocket = await openSocket(gameId, aliceId);
+  const snapshot = await reconnectedSocket.nextMessage();
+
+  assert.equal(snapshot.type, 'game:state');
+  assert.equal(snapshot.status, 'in_progress');
+  assert.equal(snapshot.stage, 1);
+  assert.equal(typeof snapshot.durationSeconds, 'number');
+  assert.equal(typeof snapshot.remainingMs, 'number');
+  assert.ok(snapshot.remainingMs <= 30000);
+  assert.ok(snapshot.players.some((p) => p.playerId === aliceId));
+
+  reconnectedSocket.close();
+  bobSocket.close();
+});
+
+test('reconnecting before the disconnect grace expires cancels it and keeps the player connected', async () => {
+  const { gameId, aliceId, aliceSocket, bobSocket } = await createStartedGameWithSockets();
+
+  aliceSocket.close();
+  scheduleDisconnectGrace(gameId, aliceId, 20);
+  const reconnectedSocket = await openSocket(gameId, aliceId);
+  await reconnectedSocket.nextMessage(); // game:state snapshot
+
+  await new Promise((resolve) => setTimeout(resolve, 40)); // past the grace delay
+
+  const alice = multiplayerGames.getGame(gameId).players.find((p) => p.playerId === aliceId);
+  assert.equal(alice.connected, true);
+
+  reconnectedSocket.close();
+  bobSocket.close();
+});
+
+test('failing to reconnect within the disconnect grace marks the player disconnected without removing them', async () => {
+  const { gameId, aliceId, aliceSocket, bobSocket } = await createStartedGameWithSockets();
+
+  aliceSocket.close();
+  scheduleDisconnectGrace(gameId, aliceId, 20);
+  await new Promise((resolve) => setTimeout(resolve, 40));
+
+  const game = multiplayerGames.getGame(gameId);
+  const alice = game.players.find((p) => p.playerId === aliceId);
+  assert.equal(alice.connected, false);
+  assert.ok(game.players.some((p) => p.playerId === aliceId));
+
+  bobSocket.close();
+});
+
+test('a late reconnect after the grace period still succeeds and marks the player connected again', async () => {
+  const { gameId, aliceId, aliceSocket, bobSocket } = await createStartedGameWithSockets();
+
+  aliceSocket.close();
+  scheduleDisconnectGrace(gameId, aliceId, 20);
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  assert.equal(multiplayerGames.getGame(gameId).players.find((p) => p.playerId === aliceId).connected, false);
+
+  const reconnectedSocket = await openSocket(gameId, aliceId);
+  await reconnectedSocket.nextMessage(); // game:state snapshot
+  assert.equal(multiplayerGames.getGame(gameId).players.find((p) => p.playerId === aliceId).connected, true);
+
+  reconnectedSocket.close();
   bobSocket.close();
 });

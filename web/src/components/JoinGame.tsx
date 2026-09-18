@@ -38,6 +38,7 @@ export default function JoinGame({ gameId, onJoined }: JoinGameProps) {
     setError(null);
     try {
       const { playerId } = await joinGame(gameId, nickname.trim());
+      localStorage.setItem(`playerId:${gameId}`, playerId);
       onJoined(playerId);
     } catch (err) {
       if (err instanceof ApiError && err.code === 'NICKNAME_TAKEN') {

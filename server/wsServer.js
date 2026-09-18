@@ -12,6 +12,10 @@ const gameState = require('./gameState');
 // gameId -> Set<WebSocket>
 const socketsByGame = new Map();
 
+// `${gameId}:${playerId}` -> pending disconnect-grace timer, so a reconnect
+// before it fires can cancel it (see scheduleDisconnectGrace below).
+const disconnectTimers = new Map();
+
 function socketsFor(gameId) {
   if (!socketsByGame.has(gameId)) {
     socketsByGame.set(gameId, new Set());
@@ -44,6 +48,33 @@ const STAGE_ANSWER_WINDOW_MS = 30000;
 function stageDurationFor(stage) {
   const tierIndex = Math.min(stage - 1, gameState.TIERS_SECONDS.length - 1);
   return gameState.TIERS_SECONDS[tierIndex];
+}
+
+// "délai de grâce" (backlog MP-13): a dropped connection during an active
+// game doesn't remove the player (see the close handler below); this only
+// tracks the visible connected/disconnected flag (MP-14 broadcasts it),
+// it never forces a forfeit — the existing per-stage timeout (MP-08)
+// already handles that naturally since a disconnected player just never
+// answers.
+const DISCONNECT_GRACE_MS = 60000;
+
+function scheduleDisconnectGrace(gameId, playerId, delayMs = DISCONNECT_GRACE_MS) {
+  const key = `${gameId}:${playerId}`;
+  const timer = setTimeout(() => {
+    multiplayerGames.markDisconnected(gameId, playerId);
+    disconnectTimers.delete(key);
+  }, delayMs);
+  timer.unref();
+  disconnectTimers.set(key, timer);
+}
+
+function cancelDisconnectGrace(gameId, playerId) {
+  const key = `${gameId}:${playerId}`;
+  const timer = disconnectTimers.get(key);
+  if (timer) {
+    clearTimeout(timer);
+    disconnectTimers.delete(key);
+  }
 }
 
 function scheduleStageTimeout(gameId, stage, delayMs = STAGE_ANSWER_WINDOW_MS) {
@@ -102,8 +133,27 @@ function attachWebSocketServer(httpServer) {
       return;
     }
 
+    multiplayerGames.markConnected(gameId, playerId);
+    cancelDisconnectGrace(gameId, playerId);
     socketsFor(gameId).add(socket);
-    socket.send(JSON.stringify({ type: 'lobby:state', players: game.players }));
+
+    if (game.status === 'lobby') {
+      socket.send(JSON.stringify({ type: 'lobby:state', players: game.players }));
+    } else {
+      // Full resync for a (re)connect mid-game or after it ended (backlog
+      // MP-13: "je reçois l'état courant... et me resynchronise").
+      const elapsed = Date.now() - (game.stageStartedAt ?? Date.now());
+      socket.send(
+        JSON.stringify({
+          type: 'game:state',
+          status: game.status,
+          stage: game.stage,
+          durationSeconds: stageDurationFor(game.stage),
+          remainingMs: Math.max(0, STAGE_ANSWER_WINDOW_MS - elapsed),
+          players: game.players,
+        })
+      );
+    }
     broadcast(gameId, { type: 'player:joined', player }, socket);
 
     socket.on('message', (data) => {
@@ -151,6 +201,8 @@ function attachWebSocketServer(httpServer) {
       if (game.status === 'lobby') {
         multiplayerGames.removePlayer(gameId, playerId);
         broadcast(gameId, { type: 'player:left', playerId });
+      } else if (game.status === 'in_progress') {
+        scheduleDisconnectGrace(gameId, playerId);
       }
     });
   });
@@ -158,4 +210,10 @@ function attachWebSocketServer(httpServer) {
   return wss;
 }
 
-module.exports = { attachWebSocketServer, broadcastToGame, scheduleStageTimeout, stageDurationFor };
+module.exports = {
+  attachWebSocketServer,
+  broadcastToGame,
+  scheduleStageTimeout,
+  stageDurationFor,
+  scheduleDisconnectGrace,
+};

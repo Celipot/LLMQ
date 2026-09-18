@@ -39,7 +39,7 @@ function joinGame(gameId, nickname) {
   if (game.players.some((player) => player.nickname === nickname)) {
     throw fail('NICKNAME_TAKEN');
   }
-  const player = { playerId: crypto.randomUUID(), nickname, status: 'active' };
+  const player = { playerId: crypto.randomUUID(), nickname, status: 'active', connected: true };
   game.players.push(player);
   return { playerId: player.playerId, players: game.players };
 }
@@ -67,6 +67,7 @@ function startGame(gameId, hostToken, pickSongId) {
   game.status = 'in_progress';
   game.stage = 1;
   game.songId = pickSongId();
+  game.stageStartedAt = Date.now();
   return game;
 }
 
@@ -152,6 +153,7 @@ function checkStageProgress(gameId, getDurationForStage, maxStage) {
   }
 
   game.stage += 1;
+  game.stageStartedAt = Date.now();
   for (const player of game.players) {
     if (player.status === 'forfeited') {
       player.status = 'active';
@@ -159,6 +161,18 @@ function checkStageProgress(gameId, getDurationForStage, maxStage) {
     }
   }
   return { type: 'advanced', stage: game.stage, durationSeconds: getDurationForStage(game.stage) };
+}
+
+function markConnected(gameId, playerId) {
+  const game = games.get(gameId);
+  const player = game && game.players.find((p) => p.playerId === playerId);
+  if (player) player.connected = true;
+}
+
+function markDisconnected(gameId, playerId) {
+  const game = games.get(gameId);
+  const player = game && game.players.find((p) => p.playerId === playerId);
+  if (player) player.connected = false;
 }
 
 module.exports = {
@@ -171,4 +185,6 @@ module.exports = {
   forfeitStage,
   timeoutStage,
   checkStageProgress,
+  markConnected,
+  markDisconnected,
 };

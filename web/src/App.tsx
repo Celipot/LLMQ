@@ -20,10 +20,18 @@ function parseGameIdFromPath(): string | null {
   return match ? match[1] : null;
 }
 
+function getPersistedPlayerId(gameId: string | null): string | null {
+  return gameId ? localStorage.getItem(`playerId:${gameId}`) : null;
+}
+
 export default function App() {
   const [gameId, setGameId] = useState<string | null>(() => parseGameIdFromPath());
-  const [playerId, setPlayerId] = useState<string | null>(null);
-  const [screen, setScreen] = useState<Screen>(() => (parseGameIdFromPath() ? 'join' : 'home'));
+  const [playerId, setPlayerId] = useState<string | null>(() => getPersistedPlayerId(parseGameIdFromPath()));
+  const [screen, setScreen] = useState<Screen>(() => {
+    const urlGameId = parseGameIdFromPath();
+    if (!urlGameId) return 'home';
+    return getPersistedPlayerId(urlGameId) ? 'lobby' : 'join';
+  });
   const { state, titles, activeSongId, error, guess, skip, reset, startRandom, selectSong, clearError } =
     useGameState();
   const [inputValue, setInputValue] = useState('');
@@ -72,6 +80,12 @@ export default function App() {
     setScreen('lobby');
   }
 
+  function handleSessionInvalid() {
+    if (gameId) localStorage.removeItem(`playerId:${gameId}`);
+    setPlayerId(null);
+    setScreen('join');
+  }
+
   return (
     <main className="app">
       <div className="app-header">
@@ -95,7 +109,9 @@ export default function App() {
 
       {screen === 'join' && gameId && <JoinGame gameId={gameId} onJoined={handleJoined} />}
 
-      {screen === 'lobby' && gameId && playerId && <Lobby gameId={gameId} playerId={playerId} />}
+      {screen === 'lobby' && gameId && playerId && (
+        <Lobby gameId={gameId} playerId={playerId} onSessionInvalid={handleSessionInvalid} />
+      )}
 
       {(screen === 'random' || screen === 'list') && (
         <div className={screen === 'list' ? 'game-layout' : undefined}>
