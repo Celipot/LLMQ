@@ -82,7 +82,8 @@ body {
   align-items: flex-start;
 }
 
-.quiz-area {
+.quiz-area,
+.game-play {
   flex: 1;
   min-width: 0;
 }
@@ -152,9 +153,35 @@ body {
   color: var(--muted);
 }
 
-.stage-timer {
-  margin: -1rem 0 1rem;
+.stage-info {
+  flex: none;
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1.25rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  text-align: center;
+}
+
+.stage-info-song {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.stage-info-stage {
+  margin: 0;
   font-weight: 600;
+}
+
+.stage-timer {
+  margin: 0.5rem 0 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--accent);
 }
 
 .pending-indicator {

@@ -118,73 +118,84 @@ export default function GamePlay({
   }
 
   return (
-    <section className="game-play">
-      <p className="subtitle">
-        Musique {songIndex}/{songCount} — Étape {stage} — devine le titre à partir de l'intro
-      </p>
-      <p className="stage-timer" role="timer">
-        Temps restant : {formatRemainingSeconds(remainingMs)}s
-      </p>
-      {songReveal && (
-        <p className="song-reveal" role="status">
-          Musique précédente : {songReveal.song.title} — {songReveal.song.artist}
+    <div className="game-layout">
+      <aside className="stage-info">
+        <p className="stage-info-song">
+          Musique {songIndex}/{songCount}
         </p>
-      )}
-      <Player
-        audioRef={audioRef}
-        allowedSeconds={durationSeconds}
-        progress={progress}
-        disabled={false}
-        volume={volume}
-        onPlay={play}
-        onEnded={handleEnded}
-        onVolumeChange={setVolume}
-      />
-      <section className="search-section">
-        <SearchAutocomplete
-          titles={titles}
-          value={inputValue}
-          disabled={locked || busy}
-          onChange={setInputValue}
-          onSubmit={handleSubmit}
-        />
-        <div className="actions">
-          <button type="button" disabled={locked || busy} onClick={handleSubmit}>
-            {answerPending ? 'Valider…' : 'Valider'}
-          </button>
-          <button type="button" className="secondary" disabled={locked || busy} onClick={onForfeit}>
-            {forfeitPending ? 'Abandonner…' : 'Abandonner cette étape'}
-          </button>
-        </div>
-        {busy && (
-          <p className="pending-indicator" role="status">
-            En attente du serveur…
+        <p className="stage-info-stage">Étape {stage}</p>
+        <p className="stage-timer" role="timer">
+          Temps restant : {formatRemainingSeconds(remainingMs)}s
+        </p>
+        {songReveal && (
+          <p className="song-reveal" role="status">
+            Musique précédente : {songReveal.song.title} — {songReveal.song.artist}
           </p>
         )}
+      </aside>
+      <section className="game-play">
+        <p className="subtitle">devine le titre à partir de l'intro</p>
+        <Player
+          audioRef={audioRef}
+          allowedSeconds={durationSeconds}
+          progress={progress}
+          disabled={false}
+          volume={volume}
+          onPlay={play}
+          onEnded={handleEnded}
+          onVolumeChange={setVolume}
+        />
+        <section className="search-section">
+          <SearchAutocomplete
+            titles={titles}
+            value={inputValue}
+            disabled={locked || busy}
+            onChange={setInputValue}
+            onSubmit={handleSubmit}
+          />
+          <div className="actions">
+            <button type="button" disabled={locked || busy} onClick={handleSubmit}>
+              {answerPending ? 'Valider…' : 'Valider'}
+            </button>
+            <button type="button" className="secondary" disabled={locked || busy} onClick={onForfeit}>
+              {forfeitPending ? 'Abandonner…' : 'Abandonner cette étape'}
+            </button>
+          </div>
+          {busy && (
+            <p className="pending-indicator" role="status">
+              En attente du serveur…
+            </p>
+          )}
+        </section>
+        {playError && (
+          <p className="error-msg" role="alert">
+            {playError}
+          </p>
+        )}
+        {forfeited && <p className="subtitle">Tu as abandonné cette étape.</p>}
+        {!forfeited && answerFeedback && (
+          <p className={found ? 'success-msg' : 'error-msg'} role={found ? 'status' : 'alert'}>
+            {found ? 'Bravo, tu as trouvé !' : "Ce n'est pas ça, retente ta chance."}
+          </p>
+        )}
+        <ul className="game-play-players">
+          {players.map((player) => (
+            <li key={player.playerId}>
+              {player.nickname} — {STATUS_LABEL[player.status ?? 'active']}
+              {player.connected === false && <span className="player-disconnected"> (déconnecté)</span>}
+              {player.playerId in scores && (
+                <span className="player-score">
+                  {' '}
+                  — {scores[player.playerId]} pt{scores[player.playerId] > 1 ? 's' : ''}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+        <button type="button" className="secondary" onClick={onLeave}>
+          Quitter la partie
+        </button>
       </section>
-      {playError && (
-        <p className="error-msg" role="alert">
-          {playError}
-        </p>
-      )}
-      {forfeited && <p className="subtitle">Tu as abandonné cette étape.</p>}
-      {!forfeited && answerFeedback && (
-        <p className={found ? 'success-msg' : 'error-msg'} role={found ? 'status' : 'alert'}>
-          {found ? 'Bravo, tu as trouvé !' : "Ce n'est pas ça, retente ta chance."}
-        </p>
-      )}
-      <ul className="game-play-players">
-        {players.map((player) => (
-          <li key={player.playerId}>
-            {player.nickname} — {STATUS_LABEL[player.status ?? 'active']}
-            {player.connected === false && <span className="player-disconnected"> (déconnecté)</span>}
-            {player.playerId in scores && <span className="player-score"> — {scores[player.playerId]} pt{scores[player.playerId] > 1 ? 's' : ''}</span>}
-          </li>
-        ))}
-      </ul>
-      <button type="button" className="secondary" onClick={onLeave}>
-        Quitter la partie
-      </button>
-    </section>
+    </div>
   );
 }
