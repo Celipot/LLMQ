@@ -16,6 +16,11 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
 app.use('/covers', express.static(path.join(__dirname, '..', 'data', 'covers')));
 
+// The web app routes /game/:id client-side; a shared link must load the SPA shell.
+app.get('/game/:id', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+});
+
 // Namespaced so a Random-mode pick never shows up as "en cours" in the List
 // mode badges for the same song (that would leak the answer while playing).
 function keyFor(mode, songId) {
