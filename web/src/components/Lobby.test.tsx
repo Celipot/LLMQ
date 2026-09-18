@@ -552,6 +552,33 @@ describe('Lobby', () => {
     expect(await screen.findByText('En attente du lancement de la partie...')).toBeInTheDocument();
   });
 
+  test('game:reset after a full game (stage:start then game:ended) shows the lobby, not GamePlay again', async () => {
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
+    await screen.findByText('Alice');
+    socket.emit({
+      type: 'stage:start',
+      stage: 1,
+      durationSeconds: 1,
+      serverTimestamp: Date.now(),
+      answerWindowMs: 30000,
+    });
+    await screen.findByText(/Étape 1/);
+    socket.emit({
+      type: 'game:ended',
+      song: { title: 'Some Song', artist: 'Some Artist', coverUrl: '/covers/x.png' },
+      players: [{ playerId: 'p1', nickname: 'Alice', foundStage: 1, score: 6 }],
+    });
+    await screen.findByText(/Some Song — Some Artist/);
+
+    await userEvent.click(screen.getByText('Retour au lobby'));
+    socket.emit({ type: 'game:reset', players: [{ playerId: 'p1', nickname: 'Alice', status: 'active' }] });
+
+    expect(await screen.findByText('En attente du lancement de la partie...')).toBeInTheDocument();
+    expect(screen.queryByRole('timer')).not.toBeInTheDocument();
+  });
+
   test('a game:reset from another player does not navigate this client away from the results screen', async () => {
     render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     const socket = MockWebSocket.instances[0];

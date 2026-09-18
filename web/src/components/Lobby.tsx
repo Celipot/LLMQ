@@ -199,6 +199,12 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         if (typeof message.stageOneSeconds === 'number') setStageOneSeconds(message.stageOneSeconds);
         setSongIndex(1);
         setScores({});
+        // Without this, the last game's stale stageInfo/started stay truthy
+        // and the render logic (gameResult -> stageInfo -> started -> lobby)
+        // falls straight back into GamePlay instead of the lobby screen —
+        // "Retour au lobby" would appear to relaunch the game immediately.
+        setStageInfo(null);
+        setStarted(false);
       } else if (message.type === 'answer:result' && typeof message.correct === 'boolean') {
         setAnswerPending(false);
         setAnswerFeedback({ correct: message.correct });
