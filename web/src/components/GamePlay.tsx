@@ -3,12 +3,27 @@ import Player from './Player';
 import SearchAutocomplete from './SearchAutocomplete';
 import { useAudioPlayer } from '../hooks/useAudioPlayer';
 import { fetchTitles, multiplayerAudioTrackUrl } from '../api';
-import type { AnswerFeedback, MultiplayerPlayer, PlayerStageStatus, PlayableSong } from '../types';
+import type {
+  AnswerFeedback,
+  GameEndedPlayer,
+  GameEndedSong,
+  MultiplayerPlayer,
+  PlayerStageStatus,
+  PlayableSong,
+} from '../types';
+
+interface SongReveal {
+  song: GameEndedSong;
+  players: GameEndedPlayer[];
+}
 
 interface GamePlayProps {
   gameId: string;
   stage: number;
   durationSeconds: number;
+  songIndex: number;
+  songCount: number;
+  songReveal: SongReveal | null;
   onSubmitAnswer: (title: string) => void;
   answerFeedback: AnswerFeedback | null;
   forfeited: boolean;
@@ -27,6 +42,9 @@ export default function GamePlay({
   gameId,
   stage,
   durationSeconds,
+  songIndex,
+  songCount,
+  songReveal,
   onSubmitAnswer,
   answerFeedback,
   forfeited,
@@ -59,7 +77,14 @@ export default function GamePlay({
 
   return (
     <section className="game-play">
-      <p className="subtitle">Étape {stage} — devine le titre à partir de l'intro</p>
+      <p className="subtitle">
+        Musique {songIndex}/{songCount} — Étape {stage} — devine le titre à partir de l'intro
+      </p>
+      {songReveal && (
+        <p className="song-reveal" role="status">
+          Musique précédente : {songReveal.song.title} — {songReveal.song.artist}
+        </p>
+      )}
       <Player
         audioRef={audioRef}
         allowedSeconds={durationSeconds}

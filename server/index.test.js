@@ -266,6 +266,69 @@ async function createLobbyWithTwoPlayers() {
   return created;
 }
 
+test('POST /games/:id/songCount lets the host set the number of songs', async () => {
+  const { gameId, hostToken } = await createLobbyWithTwoPlayers();
+  const res = await fetch(`${baseUrl}/games/${gameId}/songCount`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken, count: 10 }),
+  });
+  const body = await res.json();
+  assert.equal(res.status, 200);
+  assert.equal(body.songCount, 10);
+  assert.equal(multiplayerGames.getGame(gameId).songCount, 10);
+});
+
+test('POST /games/:id/songCount rejects a wrong hostToken', async () => {
+  const { gameId } = await createLobbyWithTwoPlayers();
+  const res = await fetch(`${baseUrl}/games/${gameId}/songCount`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken: 'wrong-token', count: 10 }),
+  });
+  const body = await res.json();
+  assert.equal(res.status, 403);
+  assert.equal(body.error, 'NOT_HOST');
+});
+
+test('POST /games/:id/songCount rejects a count outside 1-100', async () => {
+  const { gameId, hostToken } = await createLobbyWithTwoPlayers();
+  const res = await fetch(`${baseUrl}/games/${gameId}/songCount`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken, count: 101 }),
+  });
+  const body = await res.json();
+  assert.equal(res.status, 400);
+  assert.equal(body.error, 'INVALID_SONG_COUNT');
+});
+
+test('POST /games/:id/songCount rejects once the game has started', async () => {
+  const { gameId, hostToken } = await createLobbyWithTwoPlayers();
+  await fetch(`${baseUrl}/games/${gameId}/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken }),
+  });
+  const res = await fetch(`${baseUrl}/games/${gameId}/songCount`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken, count: 10 }),
+  });
+  const body = await res.json();
+  assert.equal(res.status, 409);
+  assert.equal(body.error, 'GAME_NOT_IN_LOBBY');
+});
+
+test('POST /games/:id/songCount returns 404 for an unknown gameId', async () => {
+  const res = await fetch(`${baseUrl}/games/unknown-id/songCount`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken: 'whatever', count: 10 }),
+  });
+  assert.equal(res.status, 404);
+});
+
 test('POST /games/:id/start moves the game to in_progress with 2+ players and the correct hostToken', async () => {
   const { gameId, hostToken } = await createLobbyWithTwoPlayers();
   const res = await fetch(`${baseUrl}/games/${gameId}/start`, {

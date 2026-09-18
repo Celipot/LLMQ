@@ -13,6 +13,7 @@ function createGame() {
     status: 'lobby',
     players: [],
     stage: 0,
+    songCount: 1,
   };
   games.set(game.gameId, game);
   return game;
@@ -61,6 +62,27 @@ function removePlayer(gameId, playerId) {
   }
 }
 
+// Host-only, lobby-only (backlog: "l'hôte choisit le nombre de musiques de
+// la partie, 1 à 100"). Kept separate from startGame so the value can be
+// tweaked any number of times while players are still gathering.
+function setSongCount(gameId, hostToken, count) {
+  const game = games.get(gameId);
+  if (!game) {
+    throw fail('GAME_NOT_FOUND');
+  }
+  if (game.hostToken !== hostToken) {
+    throw fail('NOT_HOST');
+  }
+  if (game.status !== 'lobby') {
+    throw fail('GAME_NOT_IN_LOBBY');
+  }
+  if (!Number.isInteger(count) || count < 1 || count > 100) {
+    throw fail('INVALID_SONG_COUNT');
+  }
+  game.songCount = count;
+  return game;
+}
+
 function startGame(gameId, hostToken, pickSongId) {
   const game = games.get(gameId);
   if (!game) {
@@ -77,6 +99,7 @@ function startGame(gameId, hostToken, pickSongId) {
   }
   game.status = 'in_progress';
   game.stage = 1;
+  game.songIndex = 1;
   game.songId = pickSongId();
   game.stageStartedAt = Date.now();
   return game;
@@ -145,10 +168,17 @@ function timeoutStage(gameId, stage) {
 }
 
 // Runs after any event that could resolve the current stage (found,
-// forfeited, timed out). "found" is permanent for the whole game (a player
-// who already found the song just waits out the remaining stages); only
+// forfeited, timed out). "found" is permanent for the whole song (a player
+// who already found it just waits out the remaining stages); only
 // "forfeited" players get another try once the stage advances.
-function checkStageProgress(gameId, getDurationForStage, maxStage) {
+//
+// When the last stage of the current song resolves, the game either moves
+// on to the next song (songIndex < songCount: reveal the finished song,
+// roll each player's per-song score into their running totalScore, pick a
+// new song, reset stage/players) or ends for good (last song: same
+// roll-up, then status becomes 'ended'). pickSongId is only invoked in the
+// former case.
+function checkStageProgress(gameId, getDurationForStage, maxStage, pickSongId) {
   const game = games.get(gameId);
   if (!game || game.status !== 'in_progress') {
     return { type: 'none' };
@@ -158,20 +188,62 @@ function checkStageProgress(gameId, getDurationForStage, maxStage) {
     return { type: 'none' };
   }
 
-  if (game.stage >= maxStage) {
-    game.status = 'ended';
-    return { type: 'ended', players: game.players, songId: game.songId };
+  if (game.stage < maxStage) {
+    game.stage += 1;
+    game.stageStartedAt = Date.now();
+    for (const player of game.players) {
+      if (player.status === 'forfeited') {
+        player.status = 'active';
+        delete player.forfeitReason;
+      }
+    }
+    return { type: 'advanced', stage: game.stage, durationSeconds: getDurationForStage(game.stage) };
   }
 
-  game.stage += 1;
-  game.stageStartedAt = Date.now();
+  const finishedSongId = game.songId;
   for (const player of game.players) {
-    if (player.status === 'forfeited') {
+    player.totalScore = (player.totalScore || 0) + (player.score || 0);
+  }
+
+  if (game.songIndex < game.songCount) {
+    const finishedSongPlayers = game.players.map((player) => ({
+      playerId: player.playerId,
+      nickname: player.nickname,
+      foundStage: player.foundStage ?? null,
+      score: player.score ?? 0,
+    }));
+    game.songIndex += 1;
+    game.songId = pickSongId();
+    game.stage = 1;
+    game.stageStartedAt = Date.now();
+    for (const player of game.players) {
       player.status = 'active';
+      delete player.foundStage;
+      delete player.score;
       delete player.forfeitReason;
     }
+    return {
+      type: 'songAdvanced',
+      finishedSongId,
+      finishedSongPlayers,
+      songIndex: game.songIndex,
+      songCount: game.songCount,
+      stage: game.stage,
+      durationSeconds: getDurationForStage(game.stage),
+    };
   }
-  return { type: 'advanced', stage: game.stage, durationSeconds: getDurationForStage(game.stage) };
+
+  game.status = 'ended';
+  return {
+    type: 'ended',
+    songId: finishedSongId,
+    players: game.players.map((player) => ({
+      playerId: player.playerId,
+      nickname: player.nickname,
+      foundStage: player.foundStage ?? null,
+      score: player.totalScore ?? 0,
+    })),
+  };
 }
 
 // Any single player confirming (backlog: "chaque joueur doit appuyer sur le
@@ -193,12 +265,14 @@ function confirmReturnToLobby(gameId, playerId) {
     game.status = 'lobby';
     game.stage = 0;
     delete game.songId;
+    delete game.songIndex;
     delete game.stageStartedAt;
     for (const p of game.players) {
       p.status = 'active';
       p.returnedToLobby = false;
       delete p.foundStage;
       delete p.score;
+      delete p.totalScore;
       delete p.forfeitReason;
     }
   } else if (game.status !== 'lobby') {
@@ -268,6 +342,7 @@ module.exports = {
   getGame,
   joinGame,
   removePlayer,
+  setSongCount,
   startGame,
   submitAnswer,
   forfeitStage,

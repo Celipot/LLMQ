@@ -208,12 +208,34 @@ app.post('/games/:id/start', (req, res) => {
       stage: game.stage,
       durationSeconds: wsServer.stageDurationFor(game.stage),
       serverTimestamp: Date.now(),
+      songIndex: game.songIndex,
+      songCount: game.songCount,
     });
     wsServer.scheduleStageTimeout(game.gameId, game.stage);
     res.json({ status: game.status });
   } catch (err) {
     const status = START_ERROR_STATUS[err.code] || 500;
     res.status(status).json({ error: err.code || 'START_FAILED' });
+  }
+});
+
+const SONG_COUNT_ERROR_STATUS = {
+  GAME_NOT_FOUND: 404,
+  NOT_HOST: 403,
+  GAME_NOT_IN_LOBBY: 409,
+  INVALID_SONG_COUNT: 400,
+};
+
+app.post('/games/:id/songCount', (req, res) => {
+  const { hostToken, count } = req.body || {};
+
+  try {
+    const game = multiplayerGames.setSongCount(req.params.id, hostToken, count);
+    wsServer.broadcastToGame(game.gameId, { type: 'lobby:songCount', songCount: game.songCount });
+    res.json({ songCount: game.songCount });
+  } catch (err) {
+    const status = SONG_COUNT_ERROR_STATUS[err.code] || 500;
+    res.status(status).json({ error: err.code || 'SONG_COUNT_FAILED' });
   }
 });
 

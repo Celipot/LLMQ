@@ -454,6 +454,119 @@ test('ends the game and reveals the song once the last stage resolves', async ()
   bobSocket.close();
 });
 
+test('a multi-song game reveals the finished song then starts the next one, ending only after the last song', async () => {
+  const created = await (await fetch(`${baseUrl}/games`, { method: 'POST' })).json();
+  await fetch(`${baseUrl}/games/${created.gameId}/songCount`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken: created.hostToken, count: 2 }),
+  });
+  const alice = await (
+    await fetch(`${baseUrl}/games/${created.gameId}/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nickname: 'Alice', hostToken: created.hostToken }),
+    })
+  ).json();
+  const bob = await (
+    await fetch(`${baseUrl}/games/${created.gameId}/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nickname: 'Bob' }),
+    })
+  ).json();
+
+  const aliceSocket = await openSocket(created.gameId, alice.playerId);
+  await aliceSocket.nextMessage(); // lobby:state
+  const bobSocket = await openSocket(created.gameId, bob.playerId);
+  await aliceSocket.nextMessage(); // player:joined for Bob
+  await bobSocket.nextMessage(); // lobby:state
+
+  const aliceStartedPromise = aliceSocket.nextMessage();
+  const bobStartedPromise = bobSocket.nextMessage();
+  await fetch(`${baseUrl}/games/${created.gameId}/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken: created.hostToken }),
+  });
+  await aliceStartedPromise; // game:started
+  const aliceFirstStage = await aliceSocket.nextMessage(); // stage:start (song 1)
+  await bobStartedPromise; // game:started
+  await bobSocket.nextMessage(); // stage:start (song 1)
+  assert.equal(aliceFirstStage.songIndex, 1);
+  assert.equal(aliceFirstStage.songCount, 2);
+
+  const firstSongId = multiplayerGames.getGame(created.gameId).songId;
+  const firstSongTitle = songs.getSongById(firstSongId).title;
+  multiplayerGames.getGame(created.gameId).stage = 6; // last stage of song 1
+
+  const aliceResultPromise = aliceSocket.nextMessage();
+  const bobFoundStatusPromise = bobSocket.nextMessage();
+  aliceSocket.send(JSON.stringify({ type: 'answer:submit', value: firstSongTitle }));
+  await aliceResultPromise;
+  await bobFoundStatusPromise;
+
+  const aliceForfeitedStatusPromise = aliceSocket.nextMessage();
+  const bobForfeitedStatusPromise = bobSocket.nextMessage();
+  bobSocket.send(JSON.stringify({ type: 'stage:forfeit' }));
+  await aliceForfeitedStatusPromise;
+  await bobForfeitedStatusPromise;
+
+  const aliceSongEnded = await aliceSocket.nextMessage();
+  const bobSongEnded = await bobSocket.nextMessage();
+  for (const message of [aliceSongEnded, bobSongEnded]) {
+    assert.equal(message.type, 'song:ended');
+    assert.equal(message.song.title, firstSongTitle);
+    assert.equal(message.songIndex, 1);
+    assert.equal(message.songCount, 2);
+    const alicePlayer = message.players.find((p) => p.playerId === alice.playerId);
+    assert.equal(alicePlayer.foundStage, 6);
+    assert.equal(alicePlayer.score, gameState.score(6));
+  }
+
+  const aliceSecondStage = await aliceSocket.nextMessage();
+  const bobSecondStage = await bobSocket.nextMessage();
+  for (const message of [aliceSecondStage, bobSecondStage]) {
+    assert.equal(message.type, 'stage:start');
+    assert.equal(message.stage, 1);
+    assert.equal(message.songIndex, 2);
+    assert.equal(message.songCount, 2);
+  }
+  const secondSongId = multiplayerGames.getGame(created.gameId).songId;
+  assert.notEqual(secondSongId, firstSongId);
+
+  const secondSongTitle = songs.getSongById(secondSongId).title;
+  multiplayerGames.getGame(created.gameId).stage = 6; // last stage of song 2
+
+  const aliceResult2Promise = aliceSocket.nextMessage();
+  const bobFoundStatus2Promise = bobSocket.nextMessage();
+  aliceSocket.send(JSON.stringify({ type: 'answer:submit', value: secondSongTitle }));
+  await aliceResult2Promise;
+  await bobFoundStatus2Promise;
+
+  const aliceForfeited2Promise = aliceSocket.nextMessage();
+  const bobForfeited2Promise = bobSocket.nextMessage();
+  bobSocket.send(JSON.stringify({ type: 'stage:forfeit' }));
+  await aliceForfeited2Promise;
+  await bobForfeited2Promise;
+
+  const aliceEnded = await aliceSocket.nextMessage();
+  const bobEnded = await bobSocket.nextMessage();
+  for (const message of [aliceEnded, bobEnded]) {
+    assert.equal(message.type, 'game:ended');
+    assert.equal(message.song.title, secondSongTitle);
+    const alicePlayer = message.players.find((p) => p.playerId === alice.playerId);
+    const bobPlayer = message.players.find((p) => p.playerId === bob.playerId);
+    // Cumulative across both songs: Alice found both, Bob found neither.
+    assert.equal(alicePlayer.score, gameState.score(6) * 2);
+    assert.equal(bobPlayer.score, 0);
+  }
+  assert.equal(multiplayerGames.getGame(created.gameId).status, 'ended');
+
+  aliceSocket.close();
+  bobSocket.close();
+});
+
 test('reconnecting mid-game sends a game:state resync with stage, players and remaining time', async () => {
   const { gameId, aliceId, aliceSocket, bobSocket } = await createStartedGameWithSockets();
   aliceSocket.close();

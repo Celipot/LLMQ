@@ -7,6 +7,7 @@ import type {
   JoinGameResponse,
   PlayableSong,
   SkipResponse,
+  SongCountResponse,
 } from './types';
 
 export class ApiError extends Error {
@@ -71,6 +72,14 @@ export function joinGame(gameId: string, nickname: string, hostToken?: string): 
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ nickname, hostToken }),
   }).then((res) => parseOrThrow<JoinGameResponse>(res));
+}
+
+export function updateSongCount(gameId: string, hostToken: string, count: number): Promise<SongCountResponse> {
+  return fetch(`/games/${gameId}/songCount`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken, count }),
+  }).then((res) => parseOrThrow<SongCountResponse>(res));
 }
 
 export function startMultiplayerGame(gameId: string, hostToken: string): Promise<{ status: string }> {

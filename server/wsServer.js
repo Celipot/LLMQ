@@ -107,10 +107,16 @@ function notifyHostTransfer(gameId, removedPlayerId) {
 }
 
 // Checks whether every player has resolved the current stage (found or
-// forfeited) and, if so, either advances to the next stage or ends the game.
-// Called after any event that could be the last missing status.
+// forfeited) and, if so, either advances to the next stage, moves on to the
+// next song (still the same game), or ends the game. Called after any event
+// that could be the last missing status.
 function handleStageProgress(gameId) {
-  const result = multiplayerGames.checkStageProgress(gameId, stageDurationFor, gameState.TIERS_SECONDS.length);
+  const result = multiplayerGames.checkStageProgress(
+    gameId,
+    stageDurationFor,
+    gameState.TIERS_SECONDS.length,
+    songs.pickRandomSongId
+  );
   if (result.type === 'advanced') {
     broadcast(gameId, {
       type: 'stage:start',
@@ -119,17 +125,34 @@ function handleStageProgress(gameId) {
       serverTimestamp: Date.now(),
     });
     scheduleStageTimeout(gameId, result.stage);
+  } else if (result.type === 'songAdvanced') {
+    const finishedSong = songs.getSongById(result.finishedSongId);
+    // Reveal the song that just ended, then immediately open the next one —
+    // no server-side delay/timer between the two (see the plan's design
+    // notes): the answer window hasn't started for the new song yet, so a
+    // client racing the two messages can't gain anything by answering early.
+    broadcast(gameId, {
+      type: 'song:ended',
+      song: { title: finishedSong.title, artist: finishedSong.artist, coverUrl: finishedSong.coverUrl },
+      players: result.finishedSongPlayers,
+      songIndex: result.songIndex - 1,
+      songCount: result.songCount,
+    });
+    broadcast(gameId, {
+      type: 'stage:start',
+      stage: result.stage,
+      durationSeconds: result.durationSeconds,
+      serverTimestamp: Date.now(),
+      songIndex: result.songIndex,
+      songCount: result.songCount,
+    });
+    scheduleStageTimeout(gameId, result.stage);
   } else if (result.type === 'ended') {
     const song = songs.getSongById(result.songId);
     broadcast(gameId, {
       type: 'game:ended',
       song: { title: song.title, artist: song.artist, coverUrl: song.coverUrl },
-      players: result.players.map((player) => ({
-        playerId: player.playerId,
-        nickname: player.nickname,
-        foundStage: player.foundStage ?? null,
-        score: player.score ?? 0,
-      })),
+      players: result.players,
     });
   }
 }
@@ -163,7 +186,7 @@ function attachWebSocketServer(httpServer) {
     }
 
     if (game.status === 'lobby') {
-      socket.send(JSON.stringify({ type: 'lobby:state', players: game.players }));
+      socket.send(JSON.stringify({ type: 'lobby:state', players: game.players, songCount: game.songCount }));
     } else {
       // Full resync for a (re)connect mid-game or after it ended (backlog
       // MP-13: "je reçois l'état courant... et me resynchronise").
@@ -176,6 +199,8 @@ function attachWebSocketServer(httpServer) {
           durationSeconds: stageDurationFor(game.stage),
           remainingMs: Math.max(0, STAGE_ANSWER_WINDOW_MS - elapsed),
           players: game.players,
+          songIndex: game.songIndex,
+          songCount: game.songCount,
         })
       );
     }
@@ -217,7 +242,11 @@ function attachWebSocketServer(httpServer) {
       } else if (payload.type === 'player:returnToLobby') {
         try {
           const updatedGame = multiplayerGames.confirmReturnToLobby(gameId, playerId);
-          broadcast(gameId, { type: 'game:reset', players: updatedGame.players });
+          broadcast(gameId, {
+            type: 'game:reset',
+            players: updatedGame.players,
+            songCount: updatedGame.songCount,
+          });
         } catch (err) {
           socket.send(JSON.stringify({ type: 'player:returnToLobby:error', error: err.code || 'RETURN_FAILED' }));
         }

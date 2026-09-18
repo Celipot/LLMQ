@@ -22,6 +22,9 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={2}
         durationSeconds={4}
+        songIndex={1}
+        songCount={1}
+        songReveal={null}
         onSubmitAnswer={vi.fn()}
         answerFeedback={null}
         forfeited={false}
@@ -35,6 +38,53 @@ describe('GamePlay', () => {
     expect(screen.getByText('0:04')).toBeInTheDocument();
   });
 
+  test('renders the current song index out of the total song count', () => {
+    vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
+    render(
+      <GamePlay
+        gameId="g1"
+        stage={1}
+        durationSeconds={1}
+        songIndex={2}
+        songCount={5}
+        songReveal={null}
+        onSubmitAnswer={vi.fn()}
+        answerFeedback={null}
+        forfeited={false}
+        onForfeit={vi.fn()}
+        onLeave={vi.fn()}
+        players={[]}
+      />
+    );
+
+    expect(screen.getByText(/Musique 2\/5/)).toBeInTheDocument();
+  });
+
+  test('shows a reveal banner for the previous song when songReveal is set', () => {
+    vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
+    render(
+      <GamePlay
+        gameId="g1"
+        stage={1}
+        durationSeconds={1}
+        songIndex={2}
+        songCount={5}
+        songReveal={{
+          song: { title: 'Some Song', artist: 'Some Artist', coverUrl: '/covers/x.png' },
+          players: [{ playerId: 'p1', nickname: 'Alice', foundStage: 1, score: 6 }],
+        }}
+        onSubmitAnswer={vi.fn()}
+        answerFeedback={null}
+        forfeited={false}
+        onForfeit={vi.fn()}
+        onLeave={vi.fn()}
+        players={[]}
+      />
+    );
+
+    expect(screen.getByText(/Some Song — Some Artist/)).toBeInTheDocument();
+  });
+
   test('points the audio element at the game-scoped multiplayer track once play is clicked', async () => {
     vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
     render(
@@ -42,6 +92,9 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={1}
         durationSeconds={1}
+        songIndex={1}
+        songCount={1}
+        songReveal={null}
         onSubmitAnswer={vi.fn()}
         answerFeedback={null}
         forfeited={false}
@@ -65,6 +118,9 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={1}
         durationSeconds={1}
+        songIndex={1}
+        songCount={1}
+        songReveal={null}
         onSubmitAnswer={onSubmitAnswer}
         answerFeedback={null}
         forfeited={false}
@@ -89,6 +145,9 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={1}
         durationSeconds={1}
+        songIndex={1}
+        songCount={1}
+        songReveal={null}
         onSubmitAnswer={vi.fn()}
         answerFeedback={{ correct: true }}
         forfeited={false}
@@ -110,6 +169,9 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={1}
         durationSeconds={1}
+        songIndex={1}
+        songCount={1}
+        songReveal={null}
         onSubmitAnswer={vi.fn()}
         answerFeedback={{ correct: false }}
         forfeited={false}
@@ -131,6 +193,9 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={1}
         durationSeconds={1}
+        songIndex={1}
+        songCount={1}
+        songReveal={null}
         onSubmitAnswer={vi.fn()}
         answerFeedback={null}
         forfeited={false}
@@ -152,6 +217,9 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={1}
         durationSeconds={1}
+        songIndex={1}
+        songCount={1}
+        songReveal={null}
         onSubmitAnswer={vi.fn()}
         answerFeedback={null}
         forfeited={true}
@@ -174,6 +242,9 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={1}
         durationSeconds={1}
+        songIndex={1}
+        songCount={1}
+        songReveal={null}
         onSubmitAnswer={vi.fn()}
         answerFeedback={null}
         forfeited={false}
@@ -199,6 +270,9 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={1}
         durationSeconds={1}
+        songIndex={1}
+        songCount={1}
+        songReveal={null}
         onSubmitAnswer={vi.fn()}
         answerFeedback={null}
         forfeited={false}
@@ -218,6 +292,9 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={1}
         durationSeconds={1}
+        songIndex={1}
+        songCount={1}
+        songReveal={null}
         onSubmitAnswer={vi.fn()}
         answerFeedback={null}
         forfeited={false}
@@ -242,6 +319,9 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={1}
         durationSeconds={1}
+        songIndex={1}
+        songCount={1}
+        songReveal={null}
         onSubmitAnswer={vi.fn()}
         answerFeedback={null}
         forfeited={false}

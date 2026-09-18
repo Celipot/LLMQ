@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ApiError, startMultiplayerGame } from '../api';
+import { ApiError, startMultiplayerGame, updateSongCount } from '../api';
 import type { AnswerFeedback, GameEndedPlayer, GameEndedSong, MultiplayerPlayer } from '../types';
 import GamePlay from './GamePlay';
 import GameResult from './GameResult';
@@ -21,6 +21,10 @@ interface GameResultData {
   players: GameEndedPlayer[];
 }
 
+const DEFAULT_SONG_COUNT = 1;
+const MIN_SONG_COUNT = 1;
+const MAX_SONG_COUNT = 100;
+
 // Solo testing/practice is allowed: the host alone is enough to start.
 // Kept as a named constant since the backlog (MP-03 note technique) flagged
 // this threshold as configurable, even though nothing else reads it.
@@ -40,6 +44,10 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [launching, setLaunching] = useState(false);
   const [kickError, setKickError] = useState<string | null>(null);
+  const [songCount, setSongCount] = useState(DEFAULT_SONG_COUNT);
+  const [songCountError, setSongCountError] = useState<string | null>(null);
+  const [songIndex, setSongIndex] = useState(1);
+  const [songReveal, setSongReveal] = useState<GameResultData | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const [isHost, setIsHost] = useState(() => localStorage.getItem(`hostToken:${gameId}`) !== null);
 
@@ -72,9 +80,14 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
       const message = JSON.parse(event.data as string);
       if (message.type === 'lobby:state') {
         setPlayers(message.players);
+        if (typeof message.songCount === 'number') setSongCount(message.songCount);
+      } else if (message.type === 'lobby:songCount') {
+        setSongCount(message.songCount);
       } else if (message.type === 'game:state') {
         // Full resync after a reconnect mid-game (backlog MP-13).
         setPlayers(message.players);
+        if (typeof message.songCount === 'number') setSongCount(message.songCount);
+        if (typeof message.songIndex === 'number') setSongIndex(message.songIndex);
         if (message.status === 'in_progress') {
           setStageInfo({ stage: message.stage, durationSeconds: message.durationSeconds });
           const own = message.players.find((p: MultiplayerPlayer) => p.playerId === playerId);
@@ -93,17 +106,32 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         setStarted(true);
       } else if (message.type === 'stage:start') {
         setStageInfo({ stage: message.stage, durationSeconds: message.durationSeconds });
+        if (typeof message.songIndex === 'number') setSongIndex(message.songIndex);
+        if (typeof message.songCount === 'number') setSongCount(message.songCount);
         setAnswerFeedback(null);
         setForfeited(false);
         // A straggler who never clicked "Retour au lobby" must not stay
         // stuck on the old results screen once a new round actually starts.
         setGameResult(null);
-        // "found" is permanent for the whole game — only forfeited players
+        // A song-transition reveal banner only applies to the song it
+        // announced; any later stage (same song or the next one) clears it.
+        setSongReveal(null);
+        // "found" is permanent for the whole song — only forfeited players
         // get another try once the stage advances (see server-side
         // multiplayerGames.checkStageProgress for the matching rule).
+        // stage === 1 marks a song boundary (game start or the next song
+        // after song:ended), where the server also resets "found" players
+        // back to active — mirror that here too.
+        const isNewSong = message.stage === 1;
         setPlayers((prev) =>
-          prev.map((player) => (player.status === 'forfeited' ? { ...player, status: 'active' } : player))
+          prev.map((player) =>
+            player.status === 'forfeited' || (isNewSong && player.status === 'found')
+              ? { ...player, status: 'active' }
+              : player
+          )
         );
+      } else if (message.type === 'song:ended') {
+        setSongReveal({ song: message.song, players: message.players });
       } else if (message.type === 'game:ended') {
         setGameResult({ song: message.song, players: message.players });
       } else if (message.type === 'game:reset') {
@@ -113,6 +141,8 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         // anyone away from their results screen; only clicking your own
         // button does that (see confirmReturnToLobby below).
         setPlayers(message.players);
+        if (typeof message.songCount === 'number') setSongCount(message.songCount);
+        setSongIndex(1);
       } else if (message.type === 'answer:result' && typeof message.correct === 'boolean') {
         setAnswerFeedback({ correct: message.correct });
         // The server excludes the sender from the "found" broadcast (they
@@ -183,6 +213,19 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
     setGameResult(null);
   }
 
+  async function handleSongCountChange(value: number) {
+    const hostToken = localStorage.getItem(`hostToken:${gameId}`);
+    if (!hostToken || Number.isNaN(value)) return;
+    const clamped = Math.min(MAX_SONG_COUNT, Math.max(MIN_SONG_COUNT, Math.round(value)));
+    setSongCount(clamped);
+    setSongCountError(null);
+    try {
+      await updateSongCount(gameId, hostToken, clamped);
+    } catch {
+      setSongCountError('Impossible de mettre à jour le nombre de musiques.');
+    }
+  }
+
   async function handleLaunch() {
     const hostToken = localStorage.getItem(`hostToken:${gameId}`);
     if (!hostToken) return;
@@ -218,6 +261,9 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         gameId={gameId}
         stage={stageInfo.stage}
         durationSeconds={stageInfo.durationSeconds}
+        songIndex={songIndex}
+        songCount={songCount}
+        songReveal={songReveal}
         onSubmitAnswer={submitAnswer}
         answerFeedback={answerFeedback}
         forfeited={forfeited}
@@ -235,6 +281,27 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
   return (
     <section className="lobby">
       <p className="subtitle">En attente du lancement de la partie...</p>
+      <div className="song-count-setting">
+        {isHost ? (
+          <label>
+            Nombre de musiques
+            <input
+              type="number"
+              min={MIN_SONG_COUNT}
+              max={MAX_SONG_COUNT}
+              value={songCount}
+              onChange={(event) => handleSongCountChange(Number(event.target.value))}
+            />
+          </label>
+        ) : (
+          <p>Nombre de musiques : {songCount}</p>
+        )}
+        {songCountError && (
+          <p className="error-msg" role="alert">
+            {songCountError}
+          </p>
+        )}
+      </div>
       <ul className="lobby-players">
         {players.map((player) => (
           <li key={player.playerId}>

@@ -85,3 +85,7 @@ export interface GameEndedPlayer {
   foundStage: number | null;
   score: number;
 }
+
+export interface SongCountResponse {
+  songCount: number;
+}

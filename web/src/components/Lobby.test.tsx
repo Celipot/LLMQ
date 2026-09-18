@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import Lobby from './Lobby';
@@ -11,6 +11,7 @@ vi.mock('../api', async () => {
     ...actual,
     startMultiplayerGame: vi.fn(),
     fetchTitles: vi.fn(),
+    updateSongCount: vi.fn(),
   };
 });
 
@@ -50,6 +51,7 @@ beforeEach(() => {
   vi.stubGlobal('WebSocket', MockWebSocket as unknown as typeof WebSocket);
   localStorage.clear();
   vi.mocked(api.fetchTitles).mockResolvedValue([]);
+  vi.mocked(api.updateSongCount).mockResolvedValue({ songCount: 1 });
 });
 
 afterEach(() => {
@@ -168,6 +170,52 @@ describe('Lobby', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('au moins un autre joueur');
   });
 
+  test('shows the host-chosen song count as read-only text for a non-host player', async () => {
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }], songCount: 7 });
+
+    expect(await screen.findByText('Nombre de musiques : 7')).toBeInTheDocument();
+    expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument();
+  });
+
+  test('the host can edit the song count, which calls updateSongCount', async () => {
+    localStorage.setItem('hostToken:g1', 'the-host-token');
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }], songCount: 1 });
+    await screen.findByText('Alice');
+
+    const input = screen.getByRole('spinbutton');
+    fireEvent.change(input, { target: { value: '25' } });
+
+    await waitFor(() => expect(api.updateSongCount).toHaveBeenCalledWith('g1', 'the-host-token', 25));
+  });
+
+  test('clamps the song count to the 1-100 range for the host', async () => {
+    localStorage.setItem('hostToken:g1', 'the-host-token');
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }], songCount: 1 });
+    await screen.findByText('Alice');
+
+    const input = screen.getByRole('spinbutton');
+    fireEvent.change(input, { target: { value: '250' } });
+
+    await waitFor(() => expect(api.updateSongCount).toHaveBeenCalledWith('g1', 'the-host-token', 100));
+  });
+
+  test('updates the displayed song count for everyone on lobby:songCount', async () => {
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }], songCount: 1 });
+    await screen.findByText('Nombre de musiques : 1');
+
+    socket.emit({ type: 'lobby:songCount', songCount: 12 });
+
+    expect(await screen.findByText('Nombre de musiques : 12')).toBeInTheDocument();
+  });
+
   test('shows the starting message once game:started is received', async () => {
     render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     const socket = MockWebSocket.instances[0];
@@ -275,6 +323,30 @@ describe('Lobby', () => {
 
     await screen.findByText(/Étape 2/);
     expect(screen.getByText('Alice — a trouvé')).toBeInTheDocument();
+  });
+
+  test('shows the song reveal banner on song:ended and starts the next song on the following stage:start', async () => {
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice', status: 'active' }] });
+    await screen.findByText('Alice');
+    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), songIndex: 1, songCount: 2 });
+    await screen.findByText(/Musique 1\/2/);
+
+    socket.emit({
+      type: 'song:ended',
+      song: { title: 'Some Song', artist: 'Some Artist', coverUrl: '/covers/x.png' },
+      players: [{ playerId: 'p1', nickname: 'Alice', foundStage: 1, score: 6 }],
+      songIndex: 1,
+      songCount: 2,
+    });
+
+    expect(await screen.findByText(/Some Song — Some Artist/)).toBeInTheDocument();
+
+    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), songIndex: 2, songCount: 2 });
+
+    expect(await screen.findByText(/Musique 2\/2/)).toBeInTheDocument();
+    expect(screen.queryByText(/Some Song — Some Artist/)).not.toBeInTheDocument();
   });
 
   test('renders GameResult once game:ended is received', async () => {

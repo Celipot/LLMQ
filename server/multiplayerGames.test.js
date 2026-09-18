@@ -9,6 +9,7 @@ test('createGame returns a lobby game with an id, host token, no players and sta
   assert.equal(game.status, 'lobby');
   assert.deepEqual(game.players, []);
   assert.equal(game.stage, 0);
+  assert.equal(game.songCount, 1);
 });
 
 test('createGame produces a distinct gameId and hostToken on each call', () => {
@@ -79,12 +80,48 @@ test('removePlayer is a no-op for an unknown gameId', () => {
   assert.doesNotThrow(() => multiplayerGames.removePlayer('unknown-game', 'unknown-player'));
 });
 
+test('setSongCount updates the host-chosen song count while in the lobby', () => {
+  const game = createLobbyWithTwoPlayers();
+  const updated = multiplayerGames.setSongCount(game.gameId, game.hostToken, 5);
+  assert.equal(updated.songCount, 5);
+});
+
+test('setSongCount accepts the boundaries 1 and 100', () => {
+  const game = createLobbyWithTwoPlayers();
+  assert.equal(multiplayerGames.setSongCount(game.gameId, game.hostToken, 1).songCount, 1);
+  assert.equal(multiplayerGames.setSongCount(game.gameId, game.hostToken, 100).songCount, 100);
+});
+
+test('setSongCount throws GAME_NOT_FOUND for an unknown gameId', () => {
+  assert.throws(() => multiplayerGames.setSongCount('unknown-id', 'token', 5), /GAME_NOT_FOUND/);
+});
+
+test('setSongCount throws NOT_HOST when the token does not match', () => {
+  const game = createLobbyWithTwoPlayers();
+  assert.throws(() => multiplayerGames.setSongCount(game.gameId, 'wrong-token', 5), /NOT_HOST/);
+});
+
+test('setSongCount throws GAME_NOT_IN_LOBBY once the game has started', () => {
+  const game = createLobbyWithTwoPlayers();
+  multiplayerGames.startGame(game.gameId, game.hostToken, () => 1);
+  assert.throws(() => multiplayerGames.setSongCount(game.gameId, game.hostToken, 5), /GAME_NOT_IN_LOBBY/);
+});
+
+test('setSongCount throws INVALID_SONG_COUNT for 0, 101 and non-integer values', () => {
+  const game = createLobbyWithTwoPlayers();
+  assert.throws(() => multiplayerGames.setSongCount(game.gameId, game.hostToken, 0), /INVALID_SONG_COUNT/);
+  assert.throws(() => multiplayerGames.setSongCount(game.gameId, game.hostToken, 101), /INVALID_SONG_COUNT/);
+  assert.throws(() => multiplayerGames.setSongCount(game.gameId, game.hostToken, 1.5), /INVALID_SONG_COUNT/);
+  assert.throws(() => multiplayerGames.setSongCount(game.gameId, game.hostToken, 'abc'), /INVALID_SONG_COUNT/);
+});
+
 test('startGame moves a lobby with 2+ players to in_progress, sets stage 1 and picks a song', () => {
   const game = createLobbyWithTwoPlayers();
   const started = multiplayerGames.startGame(game.gameId, game.hostToken, () => 42);
   assert.equal(started.status, 'in_progress');
   assert.equal(started.stage, 1);
   assert.equal(started.songId, 42);
+  assert.equal(started.songIndex, 1);
 });
 
 test('startGame throws GAME_NOT_FOUND for an unknown gameId', () => {
@@ -307,6 +344,72 @@ test('checkStageProgress is a no-op for a game that has not started', () => {
   assert.deepEqual(multiplayerGames.checkStageProgress(game.gameId, durationForStage, 6), { type: 'none' });
 });
 
+test('checkStageProgress moves to the next song once the last stage resolves and songIndex < songCount', () => {
+  const game = createLobbyWithTwoPlayers();
+  multiplayerGames.setSongCount(game.gameId, game.hostToken, 3);
+  multiplayerGames.startGame(game.gameId, game.hostToken, () => 42);
+  const stored = multiplayerGames.getGame(game.gameId);
+  stored.stage = 6; // last stage of song 1
+  const [alice, bob] = stored.players;
+  multiplayerGames.submitAnswer(game.gameId, alice.playerId, 'Correct Title', findSongByTitle, computeScore);
+  multiplayerGames.forfeitStage(game.gameId, bob.playerId);
+
+  const result = multiplayerGames.checkStageProgress(game.gameId, durationForStage, 6, () => 99);
+
+  assert.equal(result.type, 'songAdvanced');
+  assert.equal(result.finishedSongId, 42);
+  assert.equal(result.songIndex, 2);
+  assert.equal(result.songCount, 3);
+  assert.equal(result.stage, 1);
+  const finishedAlice = result.finishedSongPlayers.find((p) => p.playerId === alice.playerId);
+  assert.equal(finishedAlice.foundStage, 6);
+  assert.equal(finishedAlice.score, computeScore(6));
+
+  assert.equal(stored.status, 'in_progress');
+  assert.equal(stored.songId, 99);
+  assert.equal(stored.songIndex, 2);
+  assert.equal(stored.stage, 1);
+  assert.equal(alice.status, 'active');
+  assert.equal(alice.foundStage, undefined);
+  assert.equal(alice.score, undefined);
+  assert.equal(alice.totalScore, computeScore(6));
+  assert.equal(bob.status, 'active');
+  assert.equal(bob.totalScore, 0);
+});
+
+test('checkStageProgress ends the game only once the last song of a multi-song game resolves, with totals across songs', () => {
+  const game = createLobbyWithTwoPlayers();
+  multiplayerGames.setSongCount(game.gameId, game.hostToken, 2);
+  multiplayerGames.startGame(game.gameId, game.hostToken, () => 42);
+  const stored = multiplayerGames.getGame(game.gameId);
+  const [alice, bob] = stored.players;
+  // Matches whichever song is currently active, since checkStageProgress
+  // picks a new songId for song 2 (submitAnswer requires matchedSong.id to
+  // equal the game's *current* songId).
+  const findCurrentSongByTitle = (title) => (title === 'Correct Title' ? { id: stored.songId, title } : null);
+
+  // Song 1: Alice finds it at stage 6, Bob never finds it.
+  stored.stage = 6;
+  multiplayerGames.submitAnswer(game.gameId, alice.playerId, 'Correct Title', findCurrentSongByTitle, computeScore);
+  multiplayerGames.forfeitStage(game.gameId, bob.playerId);
+  const songOneResult = multiplayerGames.checkStageProgress(game.gameId, durationForStage, 6, () => 43);
+  assert.equal(songOneResult.type, 'songAdvanced');
+
+  // Song 2: Bob finds it at stage 6, Alice never finds it.
+  stored.stage = 6;
+  multiplayerGames.submitAnswer(game.gameId, bob.playerId, 'Correct Title', findCurrentSongByTitle, computeScore);
+  multiplayerGames.forfeitStage(game.gameId, alice.playerId);
+  const songTwoResult = multiplayerGames.checkStageProgress(game.gameId, durationForStage, 6, () => 44);
+
+  assert.equal(songTwoResult.type, 'ended');
+  assert.equal(songTwoResult.songId, 43);
+  assert.equal(stored.status, 'ended');
+  const finalAlice = songTwoResult.players.find((p) => p.playerId === alice.playerId);
+  const finalBob = songTwoResult.players.find((p) => p.playerId === bob.playerId);
+  assert.equal(finalAlice.score, computeScore(6));
+  assert.equal(finalBob.score, computeScore(6));
+});
+
 test('startGame sets stageStartedAt', () => {
   const game = createLobbyWithTwoPlayers();
   const before = Date.now();
@@ -364,11 +467,13 @@ test('confirmReturnToLobby resets the game and marks the caller returned, others
   assert.equal(game.status, 'lobby');
   assert.equal(game.stage, 0);
   assert.equal(game.songId, undefined);
+  assert.equal(game.songIndex, undefined);
   assert.equal(game.stageStartedAt, undefined);
   assert.equal(alice.status, 'active');
   assert.equal(alice.returnedToLobby, true);
   assert.equal(alice.foundStage, undefined);
   assert.equal(alice.score, undefined);
+  assert.equal(alice.totalScore, undefined);
   assert.equal(bob.status, 'active');
   assert.equal(bob.returnedToLobby, false);
   assert.equal(bob.forfeitReason, undefined);
