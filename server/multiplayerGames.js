@@ -64,7 +64,7 @@ function startGame(gameId, hostToken, pickSongId) {
   if (game.status !== 'lobby') {
     throw fail('GAME_NOT_STARTABLE');
   }
-  if (game.players.length < 2) {
+  if (game.players.length < 1) {
     throw fail('NOT_ENOUGH_PLAYERS');
   }
   game.status = 'in_progress';

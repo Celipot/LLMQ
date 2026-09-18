@@ -102,10 +102,17 @@ test('startGame throws GAME_NOT_STARTABLE once the game has already started', ()
   assert.throws(() => multiplayerGames.startGame(game.gameId, game.hostToken, () => 1), /GAME_NOT_STARTABLE/);
 });
 
-test('startGame throws NOT_ENOUGH_PLAYERS with fewer than 2 players', () => {
+test('startGame throws NOT_ENOUGH_PLAYERS with no players', () => {
+  const game = multiplayerGames.createGame();
+  assert.throws(() => multiplayerGames.startGame(game.gameId, game.hostToken, () => 1), /NOT_ENOUGH_PLAYERS/);
+});
+
+test('startGame succeeds with a single player (solo)', () => {
   const game = multiplayerGames.createGame();
   multiplayerGames.joinGame(game.gameId, 'Alice');
-  assert.throws(() => multiplayerGames.startGame(game.gameId, game.hostToken, () => 1), /NOT_ENOUGH_PLAYERS/);
+  const started = multiplayerGames.startGame(game.gameId, game.hostToken, () => 42);
+  assert.equal(started.status, 'in_progress');
+  assert.equal(started.players.length, 1);
 });
 
 const findSongByTitle = (title) => (title === 'Correct Title' ? { id: 42, title: 'Correct Title' } : null);

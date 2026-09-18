@@ -96,13 +96,13 @@ describe('Lobby', () => {
     expect(screen.queryByText('Lancer la partie')).not.toBeInTheDocument();
   });
 
-  test('shows a disabled launch button for the host with fewer than 2 players', async () => {
+  test('enables the launch button for the host alone in the lobby (solo)', async () => {
     localStorage.setItem('hostToken:g1', 'token');
     render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     const socket = MockWebSocket.instances[0];
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
 
-    expect(await screen.findByText('Lancer la partie')).toBeDisabled();
+    expect(await screen.findByText('Lancer la partie')).toBeEnabled();
   });
 
   test('enables the launch button for the host once at least 2 players are present', async () => {

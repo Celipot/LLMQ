@@ -278,7 +278,19 @@ test('POST /games/:id/start rejects a wrong hostToken', async () => {
   assert.equal(body.error, 'NOT_HOST');
 });
 
-test('POST /games/:id/start rejects fewer than 2 players', async () => {
+test('POST /games/:id/start rejects a game with no players', async () => {
+  const created = await (await fetch(`${baseUrl}/games`, { method: 'POST' })).json();
+  const res = await fetch(`${baseUrl}/games/${created.gameId}/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken: created.hostToken }),
+  });
+  const body = await res.json();
+  assert.equal(res.status, 409);
+  assert.equal(body.error, 'NOT_ENOUGH_PLAYERS');
+});
+
+test('POST /games/:id/start succeeds with a single player (solo)', async () => {
   const created = await (await fetch(`${baseUrl}/games`, { method: 'POST' })).json();
   await fetch(`${baseUrl}/games/${created.gameId}/join`, {
     method: 'POST',
@@ -291,8 +303,8 @@ test('POST /games/:id/start rejects fewer than 2 players', async () => {
     body: JSON.stringify({ hostToken: created.hostToken }),
   });
   const body = await res.json();
-  assert.equal(res.status, 409);
-  assert.equal(body.error, 'NOT_ENOUGH_PLAYERS');
+  assert.equal(res.status, 200);
+  assert.equal(body.status, 'in_progress');
 });
 
 test('POST /games/:id/start rejects starting an already-started game', async () => {

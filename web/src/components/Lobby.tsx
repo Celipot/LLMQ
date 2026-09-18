@@ -21,10 +21,10 @@ interface GameResultData {
   players: GameEndedPlayer[];
 }
 
-// "désactivé si moins de 1 autre joueur" (backlog MP-03) = host + at least
-// one other player, i.e. 2 total. Kept as a constant rather than a config UI:
-// no other value is used anywhere yet.
-const MIN_PLAYERS_TO_START = 2;
+// Solo testing/practice is allowed: the host alone is enough to start.
+// Kept as a named constant since the backlog (MP-03 note technique) flagged
+// this threshold as configurable, even though nothing else reads it.
+const MIN_PLAYERS_TO_START = 1;
 
 // The 60s server-side disconnect grace (backlog MP-13) is what actually
 // bounds reconnection; this is just how often the client retries within it.
