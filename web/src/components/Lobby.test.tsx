@@ -316,4 +316,23 @@ describe('Lobby', () => {
 
     expect(onSessionInvalid).toHaveBeenCalledOnce();
   });
+
+  test('reflects a live player:connection update in GamePlay', async () => {
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({
+      type: 'lobby:state',
+      players: [
+        { playerId: 'p1', nickname: 'Alice', status: 'active' },
+        { playerId: 'p2', nickname: 'Bob', status: 'active' },
+      ],
+    });
+    await screen.findByText('Alice');
+    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now() });
+    await screen.findByText(/Étape 1/);
+
+    socket.emit({ type: 'player:connection', playerId: 'p2', connected: false });
+
+    expect(await screen.findByText(/Bob — cherche encore/)).toHaveTextContent('(déconnecté)');
+  });
 });

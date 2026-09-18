@@ -63,6 +63,7 @@ function scheduleDisconnectGrace(gameId, playerId, delayMs = DISCONNECT_GRACE_MS
   const timer = setTimeout(() => {
     multiplayerGames.markDisconnected(gameId, playerId);
     disconnectTimers.delete(key);
+    broadcast(gameId, { type: 'player:connection', playerId, connected: false });
   }, delayMs);
   timer.unref();
   disconnectTimers.set(key, timer);
@@ -133,9 +134,14 @@ function attachWebSocketServer(httpServer) {
       return;
     }
 
+    const wasConnected = player.connected;
     multiplayerGames.markConnected(gameId, playerId);
     cancelDisconnectGrace(gameId, playerId);
     socketsFor(gameId).add(socket);
+
+    if (!wasConnected) {
+      broadcast(gameId, { type: 'player:connection', playerId, connected: true }, socket);
+    }
 
     if (game.status === 'lobby') {
       socket.send(JSON.stringify({ type: 'lobby:state', players: game.players }));

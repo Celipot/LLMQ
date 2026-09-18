@@ -520,3 +520,62 @@ test('a late reconnect after the grace period still succeeds and marks the playe
   reconnectedSocket.close();
   bobSocket.close();
 });
+
+test('broadcasts player:connection false to remaining players once the disconnect grace expires', async () => {
+  const { gameId, aliceId, aliceSocket, bobSocket } = await createStartedGameWithSockets();
+
+  const bobConnectionPromise = bobSocket.nextMessage();
+  aliceSocket.close();
+  scheduleDisconnectGrace(gameId, aliceId, 20);
+
+  const bobConnection = await bobConnectionPromise;
+  assert.equal(bobConnection.type, 'player:connection');
+  assert.equal(bobConnection.playerId, aliceId);
+  assert.equal(bobConnection.connected, false);
+
+  bobSocket.close();
+});
+
+test('broadcasts player:connection true to others once a disconnected player reconnects', async () => {
+  const { gameId, aliceId, aliceSocket, bobSocket } = await createStartedGameWithSockets();
+
+  aliceSocket.close();
+  scheduleDisconnectGrace(gameId, aliceId, 20);
+  await new Promise((resolve) => setTimeout(resolve, 40)); // past the grace delay, drain bob's player:connection(false)
+  await bobSocket.nextMessage();
+
+  const bobConnectionPromise = bobSocket.nextMessage();
+  const reconnectedSocket = await openSocket(gameId, aliceId);
+  await reconnectedSocket.nextMessage(); // game:state snapshot for Alice
+
+  const bobConnection = await bobConnectionPromise;
+  assert.equal(bobConnection.type, 'player:connection');
+  assert.equal(bobConnection.playerId, aliceId);
+  assert.equal(bobConnection.connected, true);
+
+  reconnectedSocket.close();
+  bobSocket.close();
+});
+
+test('does not broadcast player:connection for an ordinary first-time join', async () => {
+  const { gameId, playerId: aliceId } = await createGameWithPlayer('Alice');
+  const bob = await (
+    await fetch(`${baseUrl}/games/${gameId}/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nickname: 'Bob' }),
+    })
+  ).json();
+
+  const aliceSocket = await openSocket(gameId, aliceId);
+  await aliceSocket.nextMessage(); // lobby:state
+
+  const nextMessagePromise = aliceSocket.nextMessage();
+  const bobSocket = await openSocket(gameId, bob.playerId);
+  const message = await nextMessagePromise;
+
+  assert.equal(message.type, 'player:joined');
+
+  aliceSocket.close();
+  bobSocket.close();
+});

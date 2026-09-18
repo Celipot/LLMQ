@@ -60,6 +60,7 @@ export interface MultiplayerPlayer {
   playerId: string;
   nickname: string;
   status?: PlayerStageStatus;
+  connected?: boolean;
 }
 
 export interface JoinGameResponse {

@@ -117,6 +117,12 @@ export default function Lobby({ gameId, playerId, onSessionInvalid }: LobbyProps
         if (message.playerId === playerId && message.status === 'forfeited') {
           setForfeited(true);
         }
+      } else if (message.type === 'player:connection') {
+        setPlayers((prev) =>
+          prev.map((player) =>
+            player.playerId === message.playerId ? { ...player, connected: message.connected } : player
+          )
+        );
       }
     }
 

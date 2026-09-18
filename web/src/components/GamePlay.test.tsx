@@ -201,4 +201,26 @@ describe('GamePlay', () => {
 
     expect(screen.queryByText(TITLES[0].title)).not.toBeInTheDocument();
   });
+
+  test('shows a disconnected indicator distinct from the status for a dropped player', async () => {
+    vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
+    render(
+      <GamePlay
+        gameId="g1"
+        stage={1}
+        durationSeconds={1}
+        onSubmitAnswer={vi.fn()}
+        answerFeedback={null}
+        forfeited={false}
+        onForfeit={vi.fn()}
+        players={[
+          { playerId: 'p1', nickname: 'Alice', status: 'active', connected: false },
+          { playerId: 'p2', nickname: 'Bob', status: 'active', connected: true },
+        ]}
+      />
+    );
+
+    expect(screen.getByText(/Alice — cherche encore/)).toHaveTextContent('(déconnecté)');
+    expect(screen.getByText(/Bob — cherche encore/)).not.toHaveTextContent('(déconnecté)');
+  });
 });

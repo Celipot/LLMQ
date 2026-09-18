@@ -100,6 +100,7 @@ export default function GamePlay({
         {players.map((player) => (
           <li key={player.playerId}>
             {player.nickname} — {STATUS_LABEL[player.status ?? 'active']}
+            {player.connected === false && <span className="player-disconnected"> (déconnecté)</span>}
           </li>
         ))}
       </ul>
