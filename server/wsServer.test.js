@@ -512,6 +512,38 @@ test('ends the game and reveals the song once the last stage resolves', async ()
   bobSocket.close();
 });
 
+test('ends the game immediately once everyone finds the song early, with no intermediate stage:start broadcasts', async () => {
+  const { gameId, aliceId, bobId, aliceSocket, bobSocket, correctTitle } = await createStartedGameWithSockets();
+  // Both find it at stage 1 of 6 — nothing should broadcast for stages 2-6.
+
+  const aliceResultPromise = aliceSocket.nextMessage();
+  const bobFoundStatusPromise = bobSocket.nextMessage(); // player:status for Alice's correct answer
+  aliceSocket.send(JSON.stringify({ type: 'answer:submit', value: correctTitle }));
+  await aliceResultPromise;
+  await bobFoundStatusPromise;
+
+  const aliceBobFoundPromise = aliceSocket.nextMessage(); // player:status for Bob's correct answer
+  const bobResultPromise = bobSocket.nextMessage(); // Bob's own ack
+  bobSocket.send(JSON.stringify({ type: 'answer:submit', value: correctTitle }));
+  await bobResultPromise;
+  await aliceBobFoundPromise;
+
+  const aliceEnded = await aliceSocket.nextMessage();
+  const bobEnded = await bobSocket.nextMessage();
+  for (const message of [aliceEnded, bobEnded]) {
+    assert.equal(message.type, 'game:ended');
+    const alicePlayer = message.players.find((p) => p.playerId === aliceId);
+    const bobPlayer = message.players.find((p) => p.playerId === bobId);
+    assert.equal(alicePlayer.foundStage, 1);
+    assert.equal(bobPlayer.foundStage, 1);
+  }
+  assert.equal(multiplayerGames.getGame(gameId).stage, 6);
+  assert.equal(multiplayerGames.getGame(gameId).status, 'ended');
+
+  aliceSocket.close();
+  bobSocket.close();
+});
+
 test('a multi-song game reveals the finished song then starts the next one, ending only after the last song', async () => {
   const created = await (await fetch(`${baseUrl}/games`, { method: 'POST' })).json();
   await fetch(`${baseUrl}/games/${created.gameId}/songCount`, {

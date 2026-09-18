@@ -212,6 +212,17 @@ function checkStageProgress(gameId, getDurationForStage, maxStage, pickSongId) {
     return { type: 'none' };
   }
 
+  // If everyone already found the song, nobody would get a fresh chance at
+  // a later stage anyway (only forfeited players are reset to active when a
+  // stage advances) — skip straight to the end instead of waiting out each
+  // remaining stage's full answer window for nothing (backlog: "si tout le
+  // monde a trouvé, les étapes devraient être skip").
+  const everyoneFound = game.players.every((player) => player.status === 'found');
+  if (everyoneFound) {
+    game.stage = maxStage;
+    game.stageStartedAt = Date.now();
+  }
+
   if (game.stage < maxStage) {
     game.stage += 1;
     game.stageStartedAt = Date.now();

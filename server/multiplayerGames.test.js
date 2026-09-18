@@ -349,6 +349,60 @@ test('checkStageProgress advances the stage once everyone resolved, resetting fo
   assert.equal(bob.forfeitReason, undefined);
 });
 
+test('checkStageProgress skips straight to the end once everyone has found the song, without an intermediate advance', () => {
+  const game = startedGameWithTwoPlayers();
+  const [alice, bob] = multiplayerGames.getGame(game.gameId).players;
+  // Both find it at stage 1 of a 6-stage song — nobody is left to answer at
+  // any later stage, so the round should end immediately rather than
+  // waiting out stages 2-6.
+  multiplayerGames.submitAnswer(game.gameId, alice.playerId, 'Correct Title', findSongByTitle, computeScore);
+  multiplayerGames.submitAnswer(game.gameId, bob.playerId, 'Correct Title', findSongByTitle, computeScore);
+
+  const result = multiplayerGames.checkStageProgress(game.gameId, durationForStage, 6);
+
+  assert.equal(result.type, 'ended');
+  assert.equal(multiplayerGames.getGame(game.gameId).stage, 6);
+  assert.equal(multiplayerGames.getGame(game.gameId).status, 'ended');
+  const aliceResult = result.players.find((p) => p.playerId === alice.playerId);
+  const bobResult = result.players.find((p) => p.playerId === bob.playerId);
+  // Scores reflect the stage each player actually answered on (stage 1),
+  // not the stage the game fast-forwarded to.
+  assert.equal(aliceResult.score, computeScore(1));
+  assert.equal(bobResult.score, computeScore(1));
+});
+
+test('checkStageProgress skips straight to the next song once everyone has found it, in a multi-song game', () => {
+  const game = multiplayerGames.createGame();
+  multiplayerGames.setSongCount(game.gameId, game.hostToken, 2);
+  multiplayerGames.joinGame(game.gameId, 'Alice');
+  multiplayerGames.joinGame(game.gameId, 'Bob');
+  multiplayerGames.startGame(game.gameId, game.hostToken, () => 42);
+  const stored = multiplayerGames.getGame(game.gameId);
+  const [alice, bob] = stored.players;
+  multiplayerGames.submitAnswer(game.gameId, alice.playerId, 'Correct Title', findSongByTitle, computeScore);
+  multiplayerGames.submitAnswer(game.gameId, bob.playerId, 'Correct Title', findSongByTitle, computeScore);
+
+  const result = multiplayerGames.checkStageProgress(game.gameId, durationForStage, 6, () => 99);
+
+  assert.equal(result.type, 'songAdvanced');
+  assert.equal(result.songIndex, 2);
+  assert.equal(stored.songId, 99);
+  assert.equal(stored.stage, 1);
+  assert.equal(stored.status, 'in_progress');
+});
+
+test('checkStageProgress does not skip while a player is still forfeited (not everyone found)', () => {
+  const game = startedGameWithTwoPlayers();
+  const [alice, bob] = multiplayerGames.getGame(game.gameId).players;
+  multiplayerGames.submitAnswer(game.gameId, alice.playerId, 'Correct Title', findSongByTitle, computeScore);
+  multiplayerGames.forfeitStage(game.gameId, bob.playerId);
+
+  const result = multiplayerGames.checkStageProgress(game.gameId, durationForStage, 6);
+
+  assert.equal(result.type, 'advanced');
+  assert.equal(result.stage, 2);
+});
+
 test('checkStageProgress ends the game once the last stage resolves', () => {
   const game = multiplayerGames.createGame();
   multiplayerGames.joinGame(game.gameId, 'Alice');
