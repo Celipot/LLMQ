@@ -412,6 +412,76 @@ test('scheduleStageTimeout does not forfeit a player who already answered before
   bobSocket.close();
 });
 
+test('a stage timeout armed for a previous song does not forfeit players of the next song', async () => {
+  const { gameId, aliceSocket, bobSocket } = await createStartedGameWithSockets();
+  const game = multiplayerGames.getGame(gameId);
+  game.songCount = 2;
+
+  // Stage 1's timer of song 1 is still pending when everyone forfeits and
+  // the song ends early; song 2 then restarts at stage 1.
+  scheduleStageTimeout(gameId, 1, 60);
+  aliceSocket.send(JSON.stringify({ type: 'stage:forfeit' }));
+  bobSocket.send(JSON.stringify({ type: 'stage:forfeit' }));
+  for (;;) {
+    if ((await aliceSocket.nextMessage()).type === 'song:ended') break;
+  }
+
+  await new Promise((resolve) => setTimeout(resolve, 150));
+
+  assert.equal(game.status, 'in_progress');
+  assert.equal(game.songIndex, 2);
+  assert.equal(game.stage, 1);
+  assert.ok(game.players.every((p) => p.status === 'active'));
+
+  aliceSocket.close();
+  bobSocket.close();
+});
+
+test('a forfeit during the song reveal is rejected, and accepted once the next song starts', async () => {
+  const { gameId, aliceId, aliceSocket, bobSocket } = await createStartedGameWithSockets();
+  multiplayerGames.getGame(gameId).songCount = 2;
+
+  aliceSocket.send(JSON.stringify({ type: 'stage:forfeit' }));
+  bobSocket.send(JSON.stringify({ type: 'stage:forfeit' }));
+  for (;;) {
+    if ((await aliceSocket.nextMessage()).type === 'song:ended') break;
+  }
+
+  aliceSocket.send(JSON.stringify({ type: 'stage:forfeit' }));
+  const rejected = await aliceSocket.nextMessage();
+  assert.equal(rejected.type, 'stage:forfeit:error');
+  assert.equal(rejected.error, 'SONG_REVEALING');
+
+  scheduleSongTransition(gameId, 20);
+  for (;;) {
+    if ((await aliceSocket.nextMessage()).type === 'stage:start') break;
+  }
+
+  aliceSocket.send(JSON.stringify({ type: 'stage:forfeit' }));
+  for (;;) {
+    const message = await aliceSocket.nextMessage();
+    assert.notEqual(message.type, 'stage:forfeit:error');
+    if (message.type === 'player:status' && message.playerId === aliceId) break;
+  }
+
+  aliceSocket.close();
+  bobSocket.close();
+});
+
+test('scheduling a new stage timeout replaces the pending one for the same game', async () => {
+  const { gameId, aliceSocket, bobSocket } = await createStartedGameWithSockets();
+
+  scheduleStageTimeout(gameId, 1, 20);
+  scheduleStageTimeout(gameId, 1, 5000);
+  await new Promise((resolve) => setTimeout(resolve, 100));
+
+  const game = multiplayerGames.getGame(gameId);
+  assert.ok(game.players.every((p) => p.status === 'active'));
+
+  aliceSocket.close();
+  bobSocket.close();
+});
+
 test('a disconnect once the game is in progress does not remove the player nor broadcast player:left', async () => {
   const { gameId, aliceId, aliceSocket, bobSocket } = await createStartedGameWithSockets();
 

@@ -140,6 +140,9 @@ function submitAnswer(gameId, playerId, title, findSongByTitle, computeScore) {
   if (!player) {
     throw fail('PLAYER_NOT_FOUND');
   }
+  if (game.revealing) {
+    throw fail('SONG_REVEALING');
+  }
   if (player.status !== 'active') {
     throw fail('ALREADY_ANSWERED');
   }
@@ -166,6 +169,9 @@ function forfeitStage(gameId, playerId) {
   if (!player) {
     throw fail('PLAYER_NOT_FOUND');
   }
+  if (game.revealing) {
+    throw fail('SONG_REVEALING');
+  }
   if (player.status !== 'active') {
     throw fail('ALREADY_ANSWERED');
   }
@@ -176,7 +182,7 @@ function forfeitStage(gameId, playerId) {
 
 function timeoutStage(gameId, stage) {
   const game = games.get(gameId);
-  if (!game || game.status !== 'in_progress' || game.stage !== stage) {
+  if (!game || game.status !== 'in_progress' || game.revealing || game.stage !== stage) {
     return [];
   }
   const timedOutPlayerIds = [];
@@ -258,6 +264,7 @@ function checkStageProgress(gameId, getDurationForStage, maxStage, pickSongId) {
       totalScore: player.totalScore ?? 0,
     }));
     game.songIndex += 1;
+    game.revealing = true;
     game.songId = pickSongId();
     game.stage = 1;
     game.stageStartedAt = Date.now();
@@ -291,6 +298,14 @@ function checkStageProgress(gameId, getDurationForStage, maxStage, pickSongId) {
   };
 }
 
+// The finished song is on screen between checkStageProgress's songAdvanced
+// and this call; the next song's state already exists but must not be
+// playable yet, or a late click could resolve a stage nobody has heard.
+function endReveal(gameId) {
+  const game = games.get(gameId);
+  if (game) delete game.revealing;
+}
+
 // Any single player confirming (backlog: "chaque joueur doit appuyer sur le
 // bouton") is enough to flip the whole game back to lobby — there's only one
 // shared status. Each player's own returnedToLobby flag is tracked purely so
@@ -312,6 +327,7 @@ function confirmReturnToLobby(gameId, playerId) {
     delete game.songId;
     delete game.songIndex;
     delete game.stageStartedAt;
+    delete game.revealing;
     for (const p of game.players) {
       p.status = 'active';
       p.returnedToLobby = false;
@@ -394,6 +410,7 @@ module.exports = {
   forfeitStage,
   timeoutStage,
   checkStageProgress,
+  endReveal,
   markConnected,
   markDisconnected,
   confirmReturnToLobby,

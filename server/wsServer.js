@@ -93,10 +93,26 @@ function cancelDisconnectGrace(gameId, playerId) {
   }
 }
 
+// gameId -> the single pending stage timeout. Stage numbers repeat from one
+// song to the next, so a timer left over from an earlier stage/song would
+// pass timeoutStage's stage check and forfeit players who just got a fresh
+// song — hence at most one live timer per game, cancelled on every transition.
+const stageTimers = new Map();
+
+function cancelStageTimeout(gameId) {
+  const timer = stageTimers.get(gameId);
+  if (timer) {
+    clearTimeout(timer);
+    stageTimers.delete(gameId);
+  }
+}
+
 function scheduleStageTimeout(gameId, stage, delayMs = DEFAULT_ANSWER_WINDOW_MS) {
+  cancelStageTimeout(gameId);
   // unref: this timer must never be the reason the process (or a test run)
   // stays alive — it's a best-effort cleanup, not core work.
   const timer = setTimeout(() => {
+    stageTimers.delete(gameId);
     const timedOutPlayerIds = multiplayerGames.timeoutStage(gameId, stage);
     for (const playerId of timedOutPlayerIds) {
       broadcast(gameId, { type: 'player:status', playerId, status: 'forfeited', stage, reason: 'timeout' });
@@ -104,6 +120,7 @@ function scheduleStageTimeout(gameId, stage, delayMs = DEFAULT_ANSWER_WINDOW_MS)
     handleStageProgress(gameId);
   }, delayMs);
   timer.unref();
+  stageTimers.set(gameId, timer);
 }
 
 // How long the revealed song (song:ended) stays on screen before the next
@@ -118,6 +135,7 @@ function scheduleSongTransition(gameId, delayMs = SONG_REVEAL_DELAY_MS) {
   const timer = setTimeout(() => {
     const game = multiplayerGames.getGame(gameId);
     if (!game || game.status !== 'in_progress') return;
+    multiplayerGames.endReveal(gameId);
     const answerWindowMs = game.answerWindowSeconds * 1000;
     broadcast(gameId, {
       type: 'stage:start',
@@ -175,6 +193,7 @@ function handleStageProgress(gameId) {
     });
     scheduleStageTimeout(gameId, result.stage, answerWindowMs);
   } else if (result.type === 'songAdvanced') {
+    cancelStageTimeout(gameId);
     const finishedSong = songs.getSongById(result.finishedSongId);
     // Reveal the song that just ended, then hold it on screen for
     // SONG_REVEAL_DELAY_MS before the next song's first stage starts.
@@ -187,6 +206,7 @@ function handleStageProgress(gameId) {
     });
     scheduleSongTransition(gameId);
   } else if (result.type === 'ended') {
+    cancelStageTimeout(gameId);
     const song = songs.getSongById(result.songId);
     broadcast(gameId, {
       type: 'game:ended',
