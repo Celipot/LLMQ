@@ -201,6 +201,27 @@ function confirmReturnToLobby(gameId, playerId) {
   return game;
 }
 
+function kickPlayer(gameId, hostToken, requesterPlayerId, targetPlayerId) {
+  const game = games.get(gameId);
+  if (!game) {
+    throw fail('GAME_NOT_FOUND');
+  }
+  if (game.hostToken !== hostToken) {
+    throw fail('NOT_HOST');
+  }
+  if (game.status !== 'lobby') {
+    throw fail('GAME_NOT_IN_LOBBY');
+  }
+  if (targetPlayerId === requesterPlayerId) {
+    throw fail('CANNOT_KICK_SELF');
+  }
+  if (!game.players.some((p) => p.playerId === targetPlayerId)) {
+    throw fail('PLAYER_NOT_FOUND');
+  }
+  removePlayer(gameId, targetPlayerId);
+  return game;
+}
+
 function markConnected(gameId, playerId) {
   const game = games.get(gameId);
   const player = game && game.players.find((p) => p.playerId === playerId);
@@ -226,4 +247,5 @@ module.exports = {
   markConnected,
   markDisconnected,
   confirmReturnToLobby,
+  kickPlayer,
 };

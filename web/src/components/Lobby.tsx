@@ -39,6 +39,7 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
   const [gameResult, setGameResult] = useState<GameResultData | null>(null);
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [launching, setLaunching] = useState(false);
+  const [kickError, setKickError] = useState<string | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const isHost = localStorage.getItem(`hostToken:${gameId}`) !== null;
 
@@ -134,6 +135,10 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
             player.playerId === message.playerId ? { ...player, connected: message.connected } : player
           )
         );
+      } else if (message.type === 'player:kicked') {
+        onLeave();
+      } else if (message.type === 'player:kick:error') {
+        setKickError('Impossible de retirer ce joueur.');
       }
     }
 
@@ -145,7 +150,7 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
       socket?.close();
       socketRef.current = null;
     };
-  }, [gameId, playerId, onSessionInvalid]);
+  }, [gameId, playerId, onSessionInvalid, onLeave]);
 
   function submitAnswer(title: string) {
     setAnswerFeedback(null);
@@ -159,6 +164,13 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
   function leaveGame() {
     socketRef.current?.send(JSON.stringify({ type: 'player:leave' }));
     onLeave();
+  }
+
+  function kickPlayer(targetPlayerId: string) {
+    const hostToken = localStorage.getItem(`hostToken:${gameId}`);
+    if (!hostToken) return;
+    setKickError(null);
+    socketRef.current?.send(JSON.stringify({ type: 'player:kick', hostToken, targetPlayerId }));
   }
 
   function confirmReturnToLobby() {
@@ -225,6 +237,16 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
           <li key={player.playerId}>
             {player.nickname}
             {player.returnedToLobby === false && <span className="player-waiting"> (en attente)</span>}
+            {isHost && player.playerId !== playerId && (
+              <button
+                type="button"
+                className="kick-button"
+                aria-label={`Retirer ${player.nickname}`}
+                onClick={() => kickPlayer(player.playerId)}
+              >
+                ✕
+              </button>
+            )}
           </li>
         ))}
       </ul>
@@ -236,6 +258,11 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
           {launchError && (
             <p className="error-msg" role="alert">
               {launchError}
+            </p>
+          )}
+          {kickError && (
+            <p className="error-msg" role="alert">
+              {kickError}
             </p>
           )}
         </>

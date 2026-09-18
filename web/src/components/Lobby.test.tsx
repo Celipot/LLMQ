@@ -464,4 +464,68 @@ describe('Lobby', () => {
 
     expect(await screen.findByText(/Étape 1/)).toBeInTheDocument();
   });
+
+  test('the host sees a kick button next to other players but not next to themselves', async () => {
+    localStorage.setItem('hostToken:g1', 'token');
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({
+      type: 'lobby:state',
+      players: [
+        { playerId: 'p1', nickname: 'Alice' },
+        { playerId: 'p2', nickname: 'Bob' },
+      ],
+    });
+    await screen.findByText('Alice');
+
+    expect(screen.getByRole('button', { name: 'Retirer Bob' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retirer Alice' })).not.toBeInTheDocument();
+  });
+
+  test('a non-host player never sees a kick button', async () => {
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({
+      type: 'lobby:state',
+      players: [
+        { playerId: 'p1', nickname: 'Alice' },
+        { playerId: 'p2', nickname: 'Bob' },
+      ],
+    });
+    await screen.findByText('Alice');
+
+    expect(screen.queryByRole('button', { name: /Retirer/ })).not.toBeInTheDocument();
+  });
+
+  test('clicking the kick button sends player:kick with the host token and target', async () => {
+    localStorage.setItem('hostToken:g1', 'the-host-token');
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({
+      type: 'lobby:state',
+      players: [
+        { playerId: 'p1', nickname: 'Alice' },
+        { playerId: 'p2', nickname: 'Bob' },
+      ],
+    });
+    await screen.findByText('Alice');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Retirer Bob' }));
+
+    expect(socket.sent).toContainEqual(
+      JSON.stringify({ type: 'player:kick', hostToken: 'the-host-token', targetPlayerId: 'p2' })
+    );
+  });
+
+  test('receiving player:kicked calls onLeave', async () => {
+    const onLeave = vi.fn();
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={onLeave} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
+    await screen.findByText('Alice');
+
+    socket.emit({ type: 'player:kicked' });
+
+    expect(onLeave).toHaveBeenCalledOnce();
+  });
 });

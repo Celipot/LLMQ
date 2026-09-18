@@ -134,6 +134,10 @@ function attachWebSocketServer(httpServer) {
       return;
     }
 
+    // Tagged so a host kick can find and close this exact socket later
+    // (socketsFor only tracks the Set, not which player owns which entry).
+    socket.playerId = playerId;
+
     const wasConnected = player.connected;
     multiplayerGames.markConnected(gameId, playerId);
     cancelDisconnectGrace(gameId, playerId);
@@ -201,6 +205,26 @@ function attachWebSocketServer(httpServer) {
           broadcast(gameId, { type: 'game:reset', players: updatedGame.players });
         } catch (err) {
           socket.send(JSON.stringify({ type: 'player:returnToLobby:error', error: err.code || 'RETURN_FAILED' }));
+        }
+      } else if (payload.type === 'player:kick') {
+        try {
+          multiplayerGames.kickPlayer(gameId, payload.hostToken, playerId, payload.targetPlayerId);
+          let targetSocket;
+          for (const s of socketsFor(gameId)) {
+            if (s.playerId === payload.targetPlayerId) targetSocket = s;
+          }
+          // Private notice goes to the kicked player alone; everyone else
+          // just sees the generic player:left (the target is excluded so
+          // it doesn't arrive ahead of/instead of their own player:kicked).
+          if (targetSocket) {
+            targetSocket.send(JSON.stringify({ type: 'player:kicked' }));
+          }
+          broadcast(gameId, { type: 'player:left', playerId: payload.targetPlayerId }, targetSocket);
+          if (targetSocket) {
+            targetSocket.close();
+          }
+        } catch (err) {
+          socket.send(JSON.stringify({ type: 'player:kick:error', error: err.code || 'KICK_FAILED' }));
         }
       } else if (payload.type === 'player:leave') {
         // Deliberate exit (backlog MP-15): unlike a dropped connection

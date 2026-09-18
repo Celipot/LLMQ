@@ -398,3 +398,56 @@ test('confirmReturnToLobby throws GAME_NOT_ENDED while the game is still in prog
   const alice = multiplayerGames.getGame(game.gameId).players[0];
   assert.throws(() => multiplayerGames.confirmReturnToLobby(game.gameId, alice.playerId), /GAME_NOT_ENDED/);
 });
+
+test('kickPlayer removes the targeted player from the lobby', () => {
+  const game = createLobbyWithTwoPlayers();
+  const [alice, bob] = multiplayerGames.getGame(game.gameId).players;
+  multiplayerGames.kickPlayer(game.gameId, game.hostToken, alice.playerId, bob.playerId);
+  const stored = multiplayerGames.getGame(game.gameId);
+  assert.equal(stored.players.length, 1);
+  assert.equal(stored.players[0].playerId, alice.playerId);
+});
+
+test('kickPlayer throws GAME_NOT_FOUND for an unknown gameId', () => {
+  assert.throws(
+    () => multiplayerGames.kickPlayer('unknown-game', 'token', 'p1', 'p2'),
+    /GAME_NOT_FOUND/
+  );
+});
+
+test('kickPlayer throws NOT_HOST when the token does not match', () => {
+  const game = createLobbyWithTwoPlayers();
+  const [alice, bob] = multiplayerGames.getGame(game.gameId).players;
+  assert.throws(
+    () => multiplayerGames.kickPlayer(game.gameId, 'wrong-token', alice.playerId, bob.playerId),
+    /NOT_HOST/
+  );
+});
+
+test('kickPlayer throws GAME_NOT_IN_LOBBY once the game has started', () => {
+  const game = createLobbyWithTwoPlayers();
+  const [alice, bob] = multiplayerGames.getGame(game.gameId).players;
+  multiplayerGames.startGame(game.gameId, game.hostToken, () => 1);
+  assert.throws(
+    () => multiplayerGames.kickPlayer(game.gameId, game.hostToken, alice.playerId, bob.playerId),
+    /GAME_NOT_IN_LOBBY/
+  );
+});
+
+test('kickPlayer throws CANNOT_KICK_SELF when the host targets their own playerId', () => {
+  const game = createLobbyWithTwoPlayers();
+  const [alice] = multiplayerGames.getGame(game.gameId).players;
+  assert.throws(
+    () => multiplayerGames.kickPlayer(game.gameId, game.hostToken, alice.playerId, alice.playerId),
+    /CANNOT_KICK_SELF/
+  );
+});
+
+test('kickPlayer throws PLAYER_NOT_FOUND for an unknown targetPlayerId', () => {
+  const game = createLobbyWithTwoPlayers();
+  const [alice] = multiplayerGames.getGame(game.gameId).players;
+  assert.throws(
+    () => multiplayerGames.kickPlayer(game.gameId, game.hostToken, alice.playerId, 'unknown-player'),
+    /PLAYER_NOT_FOUND/
+  );
+});

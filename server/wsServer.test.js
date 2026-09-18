@@ -760,3 +760,78 @@ test('player:returnToLobby is rejected while the game is still in progress', asy
   aliceSocket.close();
   bobSocket.close();
 });
+
+async function createLobbyWithSockets() {
+  const { gameId, hostToken, playerId: aliceId } = await (async () => {
+    const created = await (await fetch(`${baseUrl}/games`, { method: 'POST' })).json();
+    const joined = await (
+      await fetch(`${baseUrl}/games/${created.gameId}/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nickname: 'Alice' }),
+      })
+    ).json();
+    return { gameId: created.gameId, hostToken: created.hostToken, playerId: joined.playerId };
+  })();
+  const bob = await (
+    await fetch(`${baseUrl}/games/${gameId}/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nickname: 'Bob' }),
+    })
+  ).json();
+
+  const aliceSocket = await openSocket(gameId, aliceId);
+  await aliceSocket.nextMessage(); // lobby:state
+  const bobSocket = await openSocket(gameId, bob.playerId);
+  await aliceSocket.nextMessage(); // player:joined for Bob
+  await bobSocket.nextMessage(); // lobby:state
+
+  return { gameId, hostToken, aliceId, bobId: bob.playerId, aliceSocket, bobSocket };
+}
+
+test('a host kicking a player removes them, broadcasts player:left, and closes their socket with player:kicked', async () => {
+  const { gameId, hostToken, aliceId, bobId, aliceSocket, bobSocket } = await createLobbyWithSockets();
+
+  const bobKickedPromise = bobSocket.nextMessage();
+  const bobClosePromise = new Promise((resolve) => bobSocket.once('close', resolve));
+  aliceSocket.send(JSON.stringify({ type: 'player:kick', hostToken, targetPlayerId: bobId }));
+
+  const bobKicked = await bobKickedPromise;
+  assert.equal(bobKicked.type, 'player:kicked');
+  await bobClosePromise;
+
+  const game = multiplayerGames.getGame(gameId);
+  assert.ok(!game.players.some((p) => p.playerId === bobId));
+  assert.ok(game.players.some((p) => p.playerId === aliceId));
+
+  aliceSocket.close();
+});
+
+test('other players receive player:left once the host kicks someone', async () => {
+  const { hostToken, bobId, aliceSocket, bobSocket } = await createLobbyWithSockets();
+
+  const aliceLeftPromise = aliceSocket.nextMessage();
+  aliceSocket.send(JSON.stringify({ type: 'player:kick', hostToken, targetPlayerId: bobId }));
+  const aliceLeft = await aliceLeftPromise;
+
+  assert.equal(aliceLeft.type, 'player:left');
+  assert.equal(aliceLeft.playerId, bobId);
+
+  aliceSocket.close();
+  bobSocket.close();
+});
+
+test('a non-host attempting to kick receives a private NOT_HOST error', async () => {
+  const { aliceId, aliceSocket, bobSocket } = await createLobbyWithSockets();
+
+  const bobErrorPromise = bobSocket.nextMessage();
+  bobSocket.send(JSON.stringify({ type: 'player:kick', hostToken: 'wrong-token', targetPlayerId: aliceId }));
+  const bobError = await bobErrorPromise;
+
+  assert.equal(bobError.type, 'player:kick:error');
+  assert.equal(bobError.error, 'NOT_HOST');
+
+  aliceSocket.close();
+  bobSocket.close();
+});
