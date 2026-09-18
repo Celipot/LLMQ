@@ -210,6 +210,7 @@ app.post('/games/:id/start', (req, res) => {
       serverTimestamp: Date.now(),
       songIndex: game.songIndex,
       songCount: game.songCount,
+      answerWindowMs: wsServer.STAGE_ANSWER_WINDOW_MS,
     });
     wsServer.scheduleStageTimeout(game.gameId, game.stage);
     res.json({ status: game.status });

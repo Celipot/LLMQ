@@ -14,6 +14,12 @@ interface LobbyProps {
 interface StageInfo {
   stage: number;
   durationSeconds: number;
+  answerWindowMs: number;
+  // Client-captured Date.now() when this StageInfo was set, not a value from
+  // the server — see GamePlay's countdown: it avoids needing a clock-sync
+  // handshake (an unconfirmed spike in the epic doc) since a UI countdown
+  // only needs to be accurate to about a second, not audio-sync precision.
+  startedAt: number;
 }
 
 interface GameResultData {
@@ -48,6 +54,14 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
   const [songCountError, setSongCountError] = useState<string | null>(null);
   const [songIndex, setSongIndex] = useState(1);
   const [songReveal, setSongReveal] = useState<GameResultData | null>(null);
+  // Running total per player, updated at the end of each song (backlog:
+  // "afficher le score au fur et à mesure"). Keyed by playerId rather than
+  // kept on MultiplayerPlayer itself since it only exists once at least one
+  // song has finished, and needs to survive that player's status resetting
+  // back to "active" for the next song.
+  const [scores, setScores] = useState<Record<string, number>>({});
+  const [answerPending, setAnswerPending] = useState(false);
+  const [forfeitPending, setForfeitPending] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
   const [isHost, setIsHost] = useState(() => localStorage.getItem(`hostToken:${gameId}`) !== null);
 
@@ -89,10 +103,20 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         if (typeof message.songCount === 'number') setSongCount(message.songCount);
         if (typeof message.songIndex === 'number') setSongIndex(message.songIndex);
         if (message.status === 'in_progress') {
-          setStageInfo({ stage: message.stage, durationSeconds: message.durationSeconds });
+          // On resync, the server already knows how much of the answer
+          // window is left (remainingMs) — seed the local countdown with
+          // that instead of a fresh full window.
+          setStageInfo({
+            stage: message.stage,
+            durationSeconds: message.durationSeconds,
+            answerWindowMs: message.remainingMs,
+            startedAt: Date.now(),
+          });
           const own = message.players.find((p: MultiplayerPlayer) => p.playerId === playerId);
           setForfeited(own?.status === 'forfeited');
           setAnswerFeedback(own?.status === 'found' ? { correct: true } : null);
+          setAnswerPending(false);
+          setForfeitPending(false);
         }
       } else if (message.type === 'player:joined') {
         // A reconnect (same playerId, new socket) re-triggers this event —
@@ -105,11 +129,20 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
       } else if (message.type === 'game:started') {
         setStarted(true);
       } else if (message.type === 'stage:start') {
-        setStageInfo({ stage: message.stage, durationSeconds: message.durationSeconds });
+        setStageInfo({
+          stage: message.stage,
+          durationSeconds: message.durationSeconds,
+          answerWindowMs: message.answerWindowMs,
+          startedAt: Date.now(),
+        });
         if (typeof message.songIndex === 'number') setSongIndex(message.songIndex);
         if (typeof message.songCount === 'number') setSongCount(message.songCount);
         setAnswerFeedback(null);
         setForfeited(false);
+        // A new stage moots any in-flight submit/forfeit for the previous
+        // one — the server has already moved on.
+        setAnswerPending(false);
+        setForfeitPending(false);
         // A straggler who never clicked "Retour au lobby" must not stay
         // stuck on the old results screen once a new round actually starts.
         setGameResult(null);
@@ -132,6 +165,13 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         );
       } else if (message.type === 'song:ended') {
         setSongReveal({ song: message.song, players: message.players });
+        setScores((prev) => {
+          const next = { ...prev };
+          for (const player of message.players as GameEndedPlayer[]) {
+            next[player.playerId] = player.totalScore ?? 0;
+          }
+          return next;
+        });
       } else if (message.type === 'game:ended') {
         setGameResult({ song: message.song, players: message.players });
       } else if (message.type === 'game:reset') {
@@ -143,7 +183,9 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         setPlayers(message.players);
         if (typeof message.songCount === 'number') setSongCount(message.songCount);
         setSongIndex(1);
+        setScores({});
       } else if (message.type === 'answer:result' && typeof message.correct === 'boolean') {
+        setAnswerPending(false);
         setAnswerFeedback({ correct: message.correct });
         // The server excludes the sender from the "found" broadcast (they
         // already have this ack) — reflect it in the shared list ourselves.
@@ -158,7 +200,10 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         );
         if (message.playerId === playerId && message.status === 'forfeited') {
           setForfeited(true);
+          setForfeitPending(false);
         }
+      } else if (message.type === 'stage:forfeit:error') {
+        setForfeitPending(false);
       } else if (message.type === 'player:connection') {
         setPlayers((prev) =>
           prev.map((player) =>
@@ -187,10 +232,12 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
 
   function submitAnswer(title: string) {
     setAnswerFeedback(null);
+    setAnswerPending(true);
     socketRef.current?.send(JSON.stringify({ type: 'answer:submit', value: title }));
   }
 
   function forfeitStage() {
+    setForfeitPending(true);
     socketRef.current?.send(JSON.stringify({ type: 'stage:forfeit' }));
   }
 
@@ -261,13 +308,18 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         gameId={gameId}
         stage={stageInfo.stage}
         durationSeconds={stageInfo.durationSeconds}
+        answerWindowMs={stageInfo.answerWindowMs}
+        startedAt={stageInfo.startedAt}
         songIndex={songIndex}
         songCount={songCount}
         songReveal={songReveal}
+        scores={scores}
         onSubmitAnswer={submitAnswer}
         answerFeedback={answerFeedback}
         forfeited={forfeited}
         onForfeit={forfeitStage}
+        answerPending={answerPending}
+        forfeitPending={forfeitPending}
         players={players}
         onLeave={leaveGame}
       />

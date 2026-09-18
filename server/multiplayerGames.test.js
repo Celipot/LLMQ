@@ -364,6 +364,9 @@ test('checkStageProgress moves to the next song once the last stage resolves and
   const finishedAlice = result.finishedSongPlayers.find((p) => p.playerId === alice.playerId);
   assert.equal(finishedAlice.foundStage, 6);
   assert.equal(finishedAlice.score, computeScore(6));
+  assert.equal(finishedAlice.totalScore, computeScore(6));
+  const finishedBob = result.finishedSongPlayers.find((p) => p.playerId === bob.playerId);
+  assert.equal(finishedBob.totalScore, 0);
 
   assert.equal(stored.status, 'in_progress');
   assert.equal(stored.songId, 99);

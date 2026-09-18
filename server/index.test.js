@@ -427,6 +427,24 @@ test('POST /games/:id/start schedules a stage timeout for stage 1', async () => 
   }
 });
 
+test('POST /games/:id/start broadcasts the answer window duration alongside stage:start', async () => {
+  const { gameId, hostToken } = await createLobbyWithTwoPlayers();
+  const original = wsServer.broadcastToGame;
+  const calls = [];
+  wsServer.broadcastToGame = (...args) => calls.push(args);
+  try {
+    await fetch(`${baseUrl}/games/${gameId}/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hostToken }),
+    });
+    const stageStartCall = calls.find(([, message]) => message.type === 'stage:start');
+    assert.equal(stageStartCall[1].answerWindowMs, wsServer.STAGE_ANSWER_WINDOW_MS);
+  } finally {
+    wsServer.broadcastToGame = original;
+  }
+});
+
 test('GET /games/:id/audio returns 404 before the game has started', async () => {
   const created = await (await fetch(`${baseUrl}/games`, { method: 'POST' })).json();
   const res = await fetch(`${baseUrl}/games/${created.gameId}/audio`);

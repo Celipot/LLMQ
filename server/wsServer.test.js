@@ -6,7 +6,12 @@ const app = require('./index');
 const multiplayerGames = require('./multiplayerGames');
 const songs = require('./songs');
 const gameState = require('./gameState');
-const { attachWebSocketServer, scheduleStageTimeout, scheduleDisconnectGrace } = require('./wsServer');
+const {
+  attachWebSocketServer,
+  scheduleStageTimeout,
+  scheduleDisconnectGrace,
+  STAGE_ANSWER_WINDOW_MS,
+} = require('./wsServer');
 
 let server;
 let wss;
@@ -177,6 +182,7 @@ test('starting the game broadcasts game:started then stage:start to connected so
   assert.equal(stageMessage.stage, 1);
   assert.equal(typeof stageMessage.durationSeconds, 'number');
   assert.equal(typeof stageMessage.serverTimestamp, 'number');
+  assert.equal(stageMessage.answerWindowMs, STAGE_ANSWER_WINDOW_MS);
 
   aliceSocket.close();
   bobSocket.close();
@@ -413,6 +419,7 @@ test('advances to the next stage once every player has resolved the current one'
   for (const message of [aliceNextStage, bobNextStage]) {
     assert.equal(message.type, 'stage:start');
     assert.equal(message.stage, 2);
+    assert.equal(message.answerWindowMs, STAGE_ANSWER_WINDOW_MS);
   }
   assert.equal(multiplayerGames.getGame(gameId).stage, 2);
 
@@ -522,6 +529,9 @@ test('a multi-song game reveals the finished song then starts the next one, endi
     const alicePlayer = message.players.find((p) => p.playerId === alice.playerId);
     assert.equal(alicePlayer.foundStage, 6);
     assert.equal(alicePlayer.score, gameState.score(6));
+    assert.equal(alicePlayer.totalScore, gameState.score(6));
+    const bobPlayer = message.players.find((p) => p.playerId === bob.playerId);
+    assert.equal(bobPlayer.totalScore, 0);
   }
 
   const aliceSecondStage = await aliceSocket.nextMessage();
@@ -531,6 +541,7 @@ test('a multi-song game reveals the finished song then starts the next one, endi
     assert.equal(message.stage, 1);
     assert.equal(message.songIndex, 2);
     assert.equal(message.songCount, 2);
+    assert.equal(message.answerWindowMs, STAGE_ANSWER_WINDOW_MS);
   }
   const secondSongId = multiplayerGames.getGame(created.gameId).songId;
   assert.notEqual(secondSongId, firstSongId);

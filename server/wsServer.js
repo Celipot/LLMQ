@@ -123,6 +123,7 @@ function handleStageProgress(gameId) {
       stage: result.stage,
       durationSeconds: result.durationSeconds,
       serverTimestamp: Date.now(),
+      answerWindowMs: STAGE_ANSWER_WINDOW_MS,
     });
     scheduleStageTimeout(gameId, result.stage);
   } else if (result.type === 'songAdvanced') {
@@ -145,6 +146,7 @@ function handleStageProgress(gameId) {
       serverTimestamp: Date.now(),
       songIndex: result.songIndex,
       songCount: result.songCount,
+      answerWindowMs: STAGE_ANSWER_WINDOW_MS,
     });
     scheduleStageTimeout(gameId, result.stage);
   } else if (result.type === 'ended') {
@@ -320,4 +322,5 @@ module.exports = {
   scheduleStageTimeout,
   stageDurationFor,
   scheduleDisconnectGrace,
+  STAGE_ANSWER_WINDOW_MS,
 };

@@ -21,15 +21,31 @@ interface GamePlayProps {
   gameId: string;
   stage: number;
   durationSeconds: number;
+  answerWindowMs: number;
+  // Date.now() at the moment this stage's countdown should start from —
+  // changing this value (even if stage/answerWindowMs didn't) restarts the
+  // countdown, which is what a mid-game reconnect resync needs.
+  startedAt: number;
   songIndex: number;
   songCount: number;
   songReveal: SongReveal | null;
+  // Running total per player, keyed by playerId. Only populated once a song
+  // has finished (a player with no entry hasn't scored yet).
+  scores: Record<string, number>;
   onSubmitAnswer: (title: string) => void;
   answerFeedback: AnswerFeedback | null;
   forfeited: boolean;
   onForfeit: () => void;
+  answerPending: boolean;
+  forfeitPending: boolean;
   players: MultiplayerPlayer[];
   onLeave: () => void;
+}
+
+const COUNTDOWN_TICK_MS = 250;
+
+function formatRemainingSeconds(remainingMs: number): number {
+  return Math.max(0, Math.ceil(remainingMs / 1000));
 }
 
 const STATUS_LABEL: Record<PlayerStageStatus, string> = {
@@ -42,26 +58,52 @@ export default function GamePlay({
   gameId,
   stage,
   durationSeconds,
+  answerWindowMs,
+  startedAt,
   songIndex,
   songCount,
   songReveal,
+  scores,
   onSubmitAnswer,
   answerFeedback,
   forfeited,
   onForfeit,
+  answerPending,
+  forfeitPending,
   players,
   onLeave,
 }: GamePlayProps) {
   const [titles, setTitles] = useState<PlayableSong[]>([]);
   const [inputValue, setInputValue] = useState('');
+  const [remainingMs, setRemainingMs] = useState(answerWindowMs);
+  // React's "adjusting state when a prop changes" pattern: resets the
+  // countdown to the full window the instant startedAt changes (new stage,
+  // or a reconnect resync), within the same render — no extra effect
+  // roundtrip, and no setState-during-effect lint warning.
+  const [prevStartedAt, setPrevStartedAt] = useState(startedAt);
+  if (startedAt !== prevStartedAt) {
+    setPrevStartedAt(startedAt);
+    setRemainingMs(answerWindowMs);
+  }
   const found = answerFeedback?.correct === true;
   const locked = found || forfeited;
+  const busy = answerPending || forfeitPending;
 
   useEffect(() => {
     fetchTitles()
       .then(setTitles)
       .catch(() => {});
   }, []);
+
+  // Paced locally rather than off serverTimestamp: a UI countdown only needs
+  // second-level accuracy, so it isn't worth the clock-sync handshake the
+  // epic doc flags as an unconfirmed spike for audio playback.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRemainingMs(Math.max(0, answerWindowMs - (Date.now() - startedAt)));
+    }, COUNTDOWN_TICK_MS);
+    return () => clearInterval(interval);
+  }, [answerWindowMs, startedAt]);
 
   const getTrackUrl = useCallback(() => multiplayerAudioTrackUrl(gameId), [gameId]);
   const { audioRef, progress, playError, volume, play, handleEnded, setVolume } = useAudioPlayer(
@@ -70,7 +112,7 @@ export default function GamePlay({
   );
 
   function handleSubmit() {
-    if (inputValue.trim() === '' || locked) return;
+    if (inputValue.trim() === '' || locked || busy) return;
     onSubmitAnswer(inputValue.trim());
     setInputValue('');
   }
@@ -79,6 +121,9 @@ export default function GamePlay({
     <section className="game-play">
       <p className="subtitle">
         Musique {songIndex}/{songCount} — Étape {stage} — devine le titre à partir de l'intro
+      </p>
+      <p className="stage-timer" role="timer">
+        Temps restant : {formatRemainingSeconds(remainingMs)}s
       </p>
       {songReveal && (
         <p className="song-reveal" role="status">
@@ -99,18 +144,23 @@ export default function GamePlay({
         <SearchAutocomplete
           titles={titles}
           value={inputValue}
-          disabled={locked}
+          disabled={locked || busy}
           onChange={setInputValue}
           onSubmit={handleSubmit}
         />
         <div className="actions">
-          <button type="button" disabled={locked} onClick={handleSubmit}>
-            Valider
+          <button type="button" disabled={locked || busy} onClick={handleSubmit}>
+            {answerPending ? 'Valider…' : 'Valider'}
           </button>
-          <button type="button" className="secondary" disabled={locked} onClick={onForfeit}>
-            Abandonner cette étape
+          <button type="button" className="secondary" disabled={locked || busy} onClick={onForfeit}>
+            {forfeitPending ? 'Abandonner…' : 'Abandonner cette étape'}
           </button>
         </div>
+        {busy && (
+          <p className="pending-indicator" role="status">
+            En attente du serveur…
+          </p>
+        )}
       </section>
       {playError && (
         <p className="error-msg" role="alert">
@@ -128,6 +178,7 @@ export default function GamePlay({
           <li key={player.playerId}>
             {player.nickname} — {STATUS_LABEL[player.status ?? 'active']}
             {player.connected === false && <span className="player-disconnected"> (déconnecté)</span>}
+            {player.playerId in scores && <span className="player-score"> — {scores[player.playerId]} pt{scores[player.playerId] > 1 ? 's' : ''}</span>}
           </li>
         ))}
       </ul>

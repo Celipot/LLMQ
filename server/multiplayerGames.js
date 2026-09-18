@@ -211,6 +211,7 @@ function checkStageProgress(gameId, getDurationForStage, maxStage, pickSongId) {
       nickname: player.nickname,
       foundStage: player.foundStage ?? null,
       score: player.score ?? 0,
+      totalScore: player.totalScore ?? 0,
     }));
     game.songIndex += 1;
     game.songId = pickSongId();

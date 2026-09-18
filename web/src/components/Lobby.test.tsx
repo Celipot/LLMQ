@@ -234,9 +234,10 @@ describe('Lobby', () => {
     await screen.findByText('Alice');
 
     socket.emit({ type: 'game:started' });
-    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now() });
+    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
 
     expect(await screen.findByText(/Étape 1/)).toBeInTheDocument();
+    expect(screen.getByRole('timer')).toHaveTextContent('Temps restant : 30s');
   });
 
   test('sends answer:submit over the socket and shows the result once received', async () => {
@@ -244,7 +245,7 @@ describe('Lobby', () => {
     const socket = MockWebSocket.instances[0];
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
     await screen.findByText('Alice');
-    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now() });
+    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
     await screen.findByText(/Étape 1/);
 
     const input = await screen.findByRole('textbox');
@@ -252,10 +253,13 @@ describe('Lobby', () => {
     await userEvent.click(screen.getByText('Valider'));
 
     expect(socket.sent).toContainEqual(JSON.stringify({ type: 'answer:submit', value: 'Some Title' }));
+    expect(await screen.findByText('En attente du serveur…')).toBeInTheDocument();
+    expect(screen.getByText('Valider…')).toBeDisabled();
 
     socket.emit({ type: 'answer:result', correct: true });
 
     expect(await screen.findByText('Bravo, tu as trouvé !')).toBeInTheDocument();
+    expect(screen.queryByText('En attente du serveur…')).not.toBeInTheDocument();
   });
 
   test('sends stage:forfeit over the socket and shows the forfeited message once acknowledged', async () => {
@@ -263,16 +267,18 @@ describe('Lobby', () => {
     const socket = MockWebSocket.instances[0];
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
     await screen.findByText('Alice');
-    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now() });
+    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
     await screen.findByText(/Étape 1/);
 
     await userEvent.click(screen.getByText('Abandonner cette étape'));
 
     expect(socket.sent).toContainEqual(JSON.stringify({ type: 'stage:forfeit' }));
+    expect(await screen.findByText('En attente du serveur…')).toBeInTheDocument();
 
     socket.emit({ type: 'player:status', playerId: 'p1', status: 'forfeited', stage: 1 });
 
     expect(await screen.findByText('Tu as abandonné cette étape.')).toBeInTheDocument();
+    expect(screen.queryByText('En attente du serveur…')).not.toBeInTheDocument();
   });
 
   test('reflects another player found/forfeited status live during the stage', async () => {
@@ -286,7 +292,7 @@ describe('Lobby', () => {
       ],
     });
     await screen.findByText('Alice');
-    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now() });
+    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
     await screen.findByText(/Étape 1/);
 
     expect(await screen.findByText('Bob — cherche encore')).toBeInTheDocument();
@@ -301,7 +307,7 @@ describe('Lobby', () => {
     const socket = MockWebSocket.instances[0];
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice', status: 'active' }] });
     await screen.findByText('Alice');
-    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now() });
+    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
     await screen.findByText(/Étape 1/);
 
     socket.emit({ type: 'answer:result', correct: true });
@@ -314,12 +320,12 @@ describe('Lobby', () => {
     const socket = MockWebSocket.instances[0];
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice', status: 'active' }] });
     await screen.findByText('Alice');
-    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now() });
+    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
     await screen.findByText(/Étape 1/);
     socket.emit({ type: 'answer:result', correct: true });
     await screen.findByText('Alice — a trouvé');
 
-    socket.emit({ type: 'stage:start', stage: 2, durationSeconds: 2, serverTimestamp: Date.now() });
+    socket.emit({ type: 'stage:start', stage: 2, durationSeconds: 2, serverTimestamp: Date.now(), answerWindowMs: 30000 });
 
     await screen.findByText(/Étape 2/);
     expect(screen.getByText('Alice — a trouvé')).toBeInTheDocument();
@@ -330,23 +336,27 @@ describe('Lobby', () => {
     const socket = MockWebSocket.instances[0];
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice', status: 'active' }] });
     await screen.findByText('Alice');
-    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), songIndex: 1, songCount: 2 });
+    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000, songIndex: 1, songCount: 2 });
     await screen.findByText(/Musique 1\/2/);
 
     socket.emit({
       type: 'song:ended',
       song: { title: 'Some Song', artist: 'Some Artist', coverUrl: '/covers/x.png' },
-      players: [{ playerId: 'p1', nickname: 'Alice', foundStage: 1, score: 6 }],
+      players: [{ playerId: 'p1', nickname: 'Alice', foundStage: 1, score: 6, totalScore: 6 }],
       songIndex: 1,
       songCount: 2,
     });
 
     expect(await screen.findByText(/Some Song — Some Artist/)).toBeInTheDocument();
+    expect(screen.getByText(/Alice — cherche encore/)).toHaveTextContent('6 pts');
 
-    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), songIndex: 2, songCount: 2 });
+    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000, songIndex: 2, songCount: 2 });
 
     expect(await screen.findByText(/Musique 2\/2/)).toBeInTheDocument();
     expect(screen.queryByText(/Some Song — Some Artist/)).not.toBeInTheDocument();
+    // The running score survives into the next song, unlike the transient
+    // reveal banner above.
+    expect(screen.getByText(/Alice — cherche encore/)).toHaveTextContent('6 pts');
   });
 
   test('renders GameResult once game:ended is received', async () => {
@@ -354,7 +364,7 @@ describe('Lobby', () => {
     const socket = MockWebSocket.instances[0];
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice', status: 'active' }] });
     await screen.findByText('Alice');
-    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now() });
+    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
     await screen.findByText(/Étape 1/);
 
     socket.emit({
@@ -389,6 +399,9 @@ describe('Lobby', () => {
     vi.useRealTimers();
     expect(await screen.findByText(/Étape 2/)).toBeInTheDocument();
     expect(await screen.findByText('Alice — a trouvé')).toBeInTheDocument();
+    // The countdown is seeded from the server's authoritative remainingMs on
+    // resync, not restarted at a full answer window.
+    expect(screen.getByRole('timer')).toHaveTextContent('Temps restant : 10s');
   });
 
   test('calls onSessionInvalid and does not retry when the socket closes with code 4004', async () => {
@@ -412,7 +425,7 @@ describe('Lobby', () => {
       ],
     });
     await screen.findByText('Alice');
-    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now() });
+    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
     await screen.findByText(/Étape 1/);
 
     socket.emit({ type: 'player:connection', playerId: 'p2', connected: false });
@@ -439,7 +452,7 @@ describe('Lobby', () => {
     const socket = MockWebSocket.instances[0];
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
     await screen.findByText('Alice');
-    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now() });
+    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
     await screen.findByText(/Étape 1/);
 
     await userEvent.click(screen.getByText('Quitter la partie'));
@@ -544,7 +557,7 @@ describe('Lobby', () => {
     });
     await screen.findByText(/Some Song — Some Artist/);
 
-    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now() });
+    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
 
     expect(await screen.findByText(/Étape 1/)).toBeInTheDocument();
   });

@@ -84,6 +84,10 @@ export interface GameEndedPlayer {
   nickname: string;
   foundStage: number | null;
   score: number;
+  // Only present on `song:ended` (the running total across all songs played
+  // so far) — the final `game:ended` payload already reports the cumulative
+  // total in `score` itself, so this is absent there.
+  totalScore?: number;
 }
 
 export interface SongCountResponse {
