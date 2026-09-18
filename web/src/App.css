@@ -78,14 +78,21 @@ body {
 
 .game-layout {
   display: flex;
-  gap: 1.5rem;
+  gap: 2rem;
   align-items: flex-start;
 }
 
-.quiz-area,
+.quiz-area {
+  flex: 1;
+  min-width: 0;
+}
+
 .game-play {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
 }
 
 .song-list {
@@ -153,9 +160,15 @@ body {
   color: var(--muted);
 }
 
-.stage-info {
+.sidebar {
   flex: none;
   width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.stage-info {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
@@ -164,6 +177,50 @@ body {
   border: 1px solid var(--border);
   background: var(--surface);
   text-align: center;
+}
+
+.score-recap {
+  padding: 1rem 1.25rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.score-recap-title {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+}
+
+.score-recap ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.song-answers {
+  flex: none;
+  width: 220px;
+  padding: 1.25rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.song-answers-title {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+}
+
+.song-answers ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
 }
 
 .stage-info-song {

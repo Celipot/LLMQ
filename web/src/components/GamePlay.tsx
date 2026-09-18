@@ -20,6 +20,7 @@ interface SongReveal {
 interface GamePlayProps {
   gameId: string;
   stage: number;
+  maxStage: number;
   durationSeconds: number;
   // Preview of the next stage's clip length, or null at the last stage of a
   // song (there is no next stage within it — the song ends there instead).
@@ -60,6 +61,7 @@ const STATUS_LABEL: Record<PlayerStageStatus, string> = {
 export default function GamePlay({
   gameId,
   stage,
+  maxStage,
   durationSeconds,
   nextDurationSeconds,
   answerWindowMs,
@@ -123,26 +125,49 @@ export default function GamePlay({
 
   return (
     <div className="game-layout">
-      <aside className="stage-info">
-        <p className="stage-info-song">
-          Musique {songIndex}/{songCount}
-        </p>
-        <p className="stage-info-stage">
-          <span>Étape {stage}</span>
-          <span>{durationSeconds}s</span>
-        </p>
-        {nextDurationSeconds !== null && (
-          <p className="stage-info-next-duration">({nextDurationSeconds}s — étape suivante)</p>
-        )}
-        <p className="stage-timer" role="timer">
-          Temps restant : {formatRemainingSeconds(remainingMs)}s
-        </p>
-        {songReveal && (
-          <p className="song-reveal" role="status">
-            Musique précédente : {songReveal.song.title} — {songReveal.song.artist}
+      <div className="sidebar">
+        <aside className="stage-info">
+          <p className="stage-info-song">
+            Musique {songIndex}/{songCount}
           </p>
+          <p className="stage-info-stage">
+            <span>
+              Étape {stage} sur {maxStage}
+            </span>
+            <span>{durationSeconds}s</span>
+          </p>
+          {nextDurationSeconds !== null && (
+            <p className="stage-info-next-duration">(étape suivante — {nextDurationSeconds}s)</p>
+          )}
+          <p className="stage-timer" role="timer">
+            Temps restant : {formatRemainingSeconds(remainingMs)}s
+          </p>
+          {songReveal && (
+            <p className="song-reveal" role="status">
+              Musique précédente : {songReveal.song.title} — {songReveal.song.artist}
+            </p>
+          )}
+        </aside>
+        {players.length > 0 && (
+          <aside className="score-recap">
+            <p className="score-recap-title">Scores</p>
+            <ul>
+              {players.map((player) => (
+                <li key={player.playerId}>
+                  {player.nickname} — {STATUS_LABEL[player.status ?? 'active']}
+                  {player.connected === false && <span className="player-disconnected"> (déconnecté)</span>}
+                  {player.playerId in scores && (
+                    <span className="player-score">
+                      {' '}
+                      — {scores[player.playerId]} pt{scores[player.playerId] > 1 ? 's' : ''}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </aside>
         )}
-      </aside>
+      </div>
       <section className="game-play">
         <p className="subtitle">devine le titre à partir de l'intro</p>
         <Player
@@ -188,24 +213,24 @@ export default function GamePlay({
             {found ? 'Bravo, tu as trouvé !' : "Ce n'est pas ça, retente ta chance."}
           </p>
         )}
-        <ul className="game-play-players">
-          {players.map((player) => (
-            <li key={player.playerId}>
-              {player.nickname} — {STATUS_LABEL[player.status ?? 'active']}
-              {player.connected === false && <span className="player-disconnected"> (déconnecté)</span>}
-              {player.playerId in scores && (
-                <span className="player-score">
-                  {' '}
-                  — {scores[player.playerId]} pt{scores[player.playerId] > 1 ? 's' : ''}
-                </span>
-              )}
-            </li>
-          ))}
-        </ul>
         <button type="button" className="secondary" onClick={onLeave}>
           Quitter la partie
         </button>
       </section>
+      {songReveal && (
+        <aside className="song-answers">
+          <p className="song-answers-title">Réponses</p>
+          <ul>
+            {songReveal.players.map((player) => (
+              <li key={player.playerId}>
+                {player.nickname} —{' '}
+                {player.foundStage !== null ? `étape ${player.foundStage}` : "n'a pas trouvé"}
+                {player.score > 0 && ` (${player.score} pt${player.score > 1 ? 's' : ''})`}
+              </li>
+            ))}
+          </ul>
+        </aside>
+      )}
     </div>
   );
 }

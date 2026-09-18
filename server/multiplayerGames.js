@@ -14,7 +14,7 @@ function createGame() {
     players: [],
     stage: 0,
     songCount: 1,
-    stageOneSeconds: 1,
+    answerWindowSeconds: 60,
   };
   games.set(game.gameId, game);
   return game;
@@ -84,12 +84,11 @@ function setSongCount(gameId, hostToken, count) {
   return game;
 }
 
-// Host-only, lobby-only (backlog: "un slider... pour paramétrer la durée
-// d'une étape"). Scales the whole fixed tier shape proportionally rather
-// than letting the host pick 6 independent numbers — see
-// wsServer.stageDurationFor, which multiplies gameState.TIERS_SECONDS by
-// this value. 1 (the default) reproduces today's exact durations.
-function setStageOneSeconds(gameId, hostToken, seconds) {
+// Host-only, lobby-only (backlog: "le slider de durée... devrait
+// correspondre au temps accordé pour deviner une étape"). Controls how long
+// players have to answer each stage — not the audio clip length, which is
+// fixed (see wsServer.stageDurationFor).
+function setAnswerWindowSeconds(gameId, hostToken, seconds) {
   const game = games.get(gameId);
   if (!game) {
     throw fail('GAME_NOT_FOUND');
@@ -100,10 +99,10 @@ function setStageOneSeconds(gameId, hostToken, seconds) {
   if (game.status !== 'lobby') {
     throw fail('GAME_NOT_IN_LOBBY');
   }
-  if (!Number.isInteger(seconds) || seconds < 1 || seconds > 5) {
-    throw fail('INVALID_STAGE_DURATION');
+  if (!Number.isInteger(seconds) || seconds < 10 || seconds > 300) {
+    throw fail('INVALID_ANSWER_WINDOW');
   }
-  game.stageOneSeconds = seconds;
+  game.answerWindowSeconds = seconds;
   return game;
 }
 
@@ -212,13 +211,23 @@ function checkStageProgress(gameId, getDurationForStage, maxStage, pickSongId) {
     return { type: 'none' };
   }
 
-  // If everyone already found the song, nobody would get a fresh chance at
-  // a later stage anyway (only forfeited players are reset to active when a
-  // stage advances) — skip straight to the end instead of waiting out each
-  // remaining stage's full answer window for nothing (backlog: "si tout le
-  // monde a trouvé, les étapes devraient être skip").
+  // Skip straight to the end instead of advancing one stage at a time when
+  // there's nobody left who'd meaningfully benefit from a fresh try:
+  // - everyone already found the song (only forfeited players are reset to
+  //   active on advance — backlog: "si tout le monde a trouvé, les étapes
+  //   devraient être skip"), or
+  // - everyone unanimously forfeited (nobody found it and nobody is still
+  //   trying — backlog: "la dernière étape devrait être sautée quand tout
+  //   le monde abandonne"). A *mix* of found and forfeited still advances
+  //   normally below: a forfeited player may still want a longer clip next
+  //   stage regardless of whether someone else already found it.
   const everyoneFound = game.players.every((player) => player.status === 'found');
-  if (everyoneFound) {
+  // length > 1: a lone remaining player (e.g. solo testing, or after
+  // everyone else left) forfeiting is just their normal retry flow, not a
+  // group unanimously giving up — must not short-circuit their own
+  // stage-by-stage progression.
+  const everyoneForfeited = game.players.length > 1 && game.players.every((player) => player.status === 'forfeited');
+  if (everyoneFound || everyoneForfeited) {
     game.stage = maxStage;
     game.stageStartedAt = Date.now();
   }
@@ -379,7 +388,7 @@ module.exports = {
   joinGame,
   removePlayer,
   setSongCount,
-  setStageOneSeconds,
+  setAnswerWindowSeconds,
   startGame,
   submitAnswer,
   forfeitStage,

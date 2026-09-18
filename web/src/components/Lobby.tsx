@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ApiError, startMultiplayerGame, updateSongCount, updateStageDuration } from '../api';
+import { ApiError, startMultiplayerGame, updateSongCount, updateAnswerWindow } from '../api';
 import type { AnswerFeedback, GameEndedPlayer, GameEndedSong, MultiplayerPlayer } from '../types';
 import GamePlay from './GamePlay';
 import GameResult from './GameResult';
@@ -13,6 +13,7 @@ interface LobbyProps {
 
 interface StageInfo {
   stage: number;
+  maxStage: number;
   durationSeconds: number;
   // Preview of the next stage's clip length, or null at the last stage of a
   // song (there is no next stage within it — the song ends there instead).
@@ -34,9 +35,9 @@ const DEFAULT_SONG_COUNT = 1;
 const MIN_SONG_COUNT = 1;
 const MAX_SONG_COUNT = 100;
 
-const DEFAULT_STAGE_ONE_SECONDS = 1;
-const MIN_STAGE_ONE_SECONDS = 1;
-const MAX_STAGE_ONE_SECONDS = 5;
+const DEFAULT_ANSWER_WINDOW_SECONDS = 60;
+const MIN_ANSWER_WINDOW_SECONDS = 10;
+const MAX_ANSWER_WINDOW_SECONDS = 300;
 
 // Solo testing/practice is allowed: the host alone is enough to start.
 // Kept as a named constant since the backlog (MP-03 note technique) flagged
@@ -59,8 +60,8 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
   const [kickError, setKickError] = useState<string | null>(null);
   const [songCount, setSongCount] = useState(DEFAULT_SONG_COUNT);
   const [songCountError, setSongCountError] = useState<string | null>(null);
-  const [stageOneSeconds, setStageOneSeconds] = useState(DEFAULT_STAGE_ONE_SECONDS);
-  const [stageDurationError, setStageDurationError] = useState<string | null>(null);
+  const [answerWindowSeconds, setAnswerWindowSeconds] = useState(DEFAULT_ANSWER_WINDOW_SECONDS);
+  const [answerWindowError, setAnswerWindowError] = useState<string | null>(null);
   const [songIndex, setSongIndex] = useState(1);
   const [songReveal, setSongReveal] = useState<GameResultData | null>(null);
   // Running total per player, updated at the end of each song (backlog:
@@ -104,11 +105,11 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
       if (message.type === 'lobby:state') {
         setPlayers(message.players);
         if (typeof message.songCount === 'number') setSongCount(message.songCount);
-        if (typeof message.stageOneSeconds === 'number') setStageOneSeconds(message.stageOneSeconds);
+        if (typeof message.answerWindowSeconds === 'number') setAnswerWindowSeconds(message.answerWindowSeconds);
       } else if (message.type === 'lobby:songCount') {
         setSongCount(message.songCount);
-      } else if (message.type === 'lobby:stageDuration') {
-        setStageOneSeconds(message.stageOneSeconds);
+      } else if (message.type === 'lobby:answerWindow') {
+        setAnswerWindowSeconds(message.answerWindowSeconds);
       } else if (message.type === 'game:state') {
         // Full resync after a reconnect mid-game (backlog MP-13).
         setPlayers(message.players);
@@ -120,6 +121,7 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
           // that instead of a fresh full window.
           setStageInfo({
             stage: message.stage,
+            maxStage: message.maxStage,
             durationSeconds: message.durationSeconds,
             nextDurationSeconds: message.nextDurationSeconds ?? null,
             answerWindowMs: message.remainingMs,
@@ -144,6 +146,7 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
       } else if (message.type === 'stage:start') {
         setStageInfo({
           stage: message.stage,
+          maxStage: message.maxStage,
           durationSeconds: message.durationSeconds,
           nextDurationSeconds: message.nextDurationSeconds ?? null,
           answerWindowMs: message.answerWindowMs,
@@ -196,7 +199,7 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         // button does that (see confirmReturnToLobby below).
         setPlayers(message.players);
         if (typeof message.songCount === 'number') setSongCount(message.songCount);
-        if (typeof message.stageOneSeconds === 'number') setStageOneSeconds(message.stageOneSeconds);
+        if (typeof message.answerWindowSeconds === 'number') setAnswerWindowSeconds(message.answerWindowSeconds);
         setSongIndex(1);
         setScores({});
         // Without this, the last game's stale stageInfo/started stay truthy
@@ -294,16 +297,16 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
     }
   }
 
-  async function handleStageDurationChange(value: number) {
+  async function handleAnswerWindowChange(value: number) {
     const hostToken = localStorage.getItem(`hostToken:${gameId}`);
     if (!hostToken || Number.isNaN(value)) return;
-    const clamped = Math.min(MAX_STAGE_ONE_SECONDS, Math.max(MIN_STAGE_ONE_SECONDS, Math.round(value)));
-    setStageOneSeconds(clamped);
-    setStageDurationError(null);
+    const clamped = Math.min(MAX_ANSWER_WINDOW_SECONDS, Math.max(MIN_ANSWER_WINDOW_SECONDS, Math.round(value)));
+    setAnswerWindowSeconds(clamped);
+    setAnswerWindowError(null);
     try {
-      await updateStageDuration(gameId, hostToken, clamped);
+      await updateAnswerWindow(gameId, hostToken, clamped);
     } catch {
-      setStageDurationError("Impossible de mettre à jour la durée d'une étape.");
+      setAnswerWindowError('Impossible de mettre à jour le temps pour deviner.');
     }
   }
 
@@ -341,6 +344,7 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
       <GamePlay
         gameId={gameId}
         stage={stageInfo.stage}
+        maxStage={stageInfo.maxStage}
         durationSeconds={stageInfo.durationSeconds}
         nextDurationSeconds={stageInfo.nextDurationSeconds}
         answerWindowMs={stageInfo.answerWindowMs}
@@ -389,24 +393,24 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
           </p>
         )}
       </div>
-      <div className="stage-duration-setting">
+      <div className="answer-window-setting">
         {isHost ? (
           <label>
-            Durée de l'étape 1 : {stageOneSeconds}s
+            Temps pour deviner : {answerWindowSeconds}s
             <input
               type="range"
-              min={MIN_STAGE_ONE_SECONDS}
-              max={MAX_STAGE_ONE_SECONDS}
-              value={stageOneSeconds}
-              onChange={(event) => handleStageDurationChange(Number(event.target.value))}
+              min={MIN_ANSWER_WINDOW_SECONDS}
+              max={MAX_ANSWER_WINDOW_SECONDS}
+              value={answerWindowSeconds}
+              onChange={(event) => handleAnswerWindowChange(Number(event.target.value))}
             />
           </label>
         ) : (
-          <p>Durée de l'étape 1 : {stageOneSeconds}s</p>
+          <p>Temps pour deviner : {answerWindowSeconds}s</p>
         )}
-        {stageDurationError && (
+        {answerWindowError && (
           <p className="error-msg" role="alert">
-            {stageDurationError}
+            {answerWindowError}
           </p>
         )}
       </div>

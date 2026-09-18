@@ -11,7 +11,7 @@ const {
   scheduleStageTimeout,
   scheduleDisconnectGrace,
   scheduleSongTransition,
-  STAGE_ANSWER_WINDOW_MS,
+  DEFAULT_ANSWER_WINDOW_MS,
   SONG_REVEAL_DELAY_MS,
   stageDurationFor,
   nextStageDurationFor,
@@ -46,12 +46,6 @@ test('nextStageDurationFor previews the next tier for every stage except the las
   assert.equal(nextStageDurationFor(gameState.TIERS_SECONDS.length), null);
 });
 
-test('stageDurationFor and nextStageDurationFor scale every tier by the given factor', () => {
-  assert.equal(stageDurationFor(1, 3), gameState.TIERS_SECONDS[0] * 3);
-  assert.equal(stageDurationFor(4, 3), Math.round(gameState.TIERS_SECONDS[3] * 3));
-  assert.equal(nextStageDurationFor(1, 3), Math.round(gameState.TIERS_SECONDS[1] * 3));
-  assert.equal(nextStageDurationFor(gameState.TIERS_SECONDS.length, 3), null);
-});
 
 test('SONG_REVEAL_DELAY_MS defaults to 10 seconds', () => {
   assert.equal(SONG_REVEAL_DELAY_MS, 10000);
@@ -204,30 +198,31 @@ test('starting the game broadcasts game:started then stage:start to connected so
   assert.equal(stageMessage.stage, 1);
   assert.equal(typeof stageMessage.durationSeconds, 'number');
   assert.equal(typeof stageMessage.serverTimestamp, 'number');
-  assert.equal(stageMessage.answerWindowMs, STAGE_ANSWER_WINDOW_MS);
+  assert.equal(stageMessage.answerWindowMs, DEFAULT_ANSWER_WINDOW_MS);
   assert.equal(stageMessage.nextDurationSeconds, gameState.TIERS_SECONDS[1]);
+  assert.equal(stageMessage.maxStage, gameState.TIERS_SECONDS.length);
 
   aliceSocket.close();
   bobSocket.close();
 });
 
-test('a host-configured stage duration scales every stage broadcast, including the lobby-wide preview', async () => {
+test('a host-configured answer window is used for every stage broadcast, including the lobby-wide preview', async () => {
   const { gameId, playerId: aliceId } = await createGameWithPlayer('Alice');
   const { hostToken } = multiplayerGames.getGame(gameId);
 
   const aliceSocket = await openSocket(gameId, aliceId);
   const lobbyStatePromise = aliceSocket.nextMessage();
-  await fetch(`${baseUrl}/games/${gameId}/stageDuration`, {
+  await fetch(`${baseUrl}/games/${gameId}/answerWindow`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ hostToken, seconds: 3 }),
+    body: JSON.stringify({ hostToken, seconds: 45 }),
   });
   const initialSnapshot = await lobbyStatePromise;
-  assert.equal(initialSnapshot.stageOneSeconds, 1); // pre-change snapshot
+  assert.equal(initialSnapshot.answerWindowSeconds, 60); // pre-change snapshot
 
-  const stageDurationMessage = await aliceSocket.nextMessage();
-  assert.equal(stageDurationMessage.type, 'lobby:stageDuration');
-  assert.equal(stageDurationMessage.stageOneSeconds, 3);
+  const answerWindowMessage = await aliceSocket.nextMessage();
+  assert.equal(answerWindowMessage.type, 'lobby:answerWindow');
+  assert.equal(answerWindowMessage.answerWindowSeconds, 45);
 
   const startedPromise = aliceSocket.nextMessage();
   await fetch(`${baseUrl}/games/${gameId}/start`, {
@@ -238,8 +233,8 @@ test('a host-configured stage duration scales every stage broadcast, including t
   await startedPromise; // game:started
   const stageMessage = await aliceSocket.nextMessage();
 
-  assert.equal(stageMessage.durationSeconds, gameState.TIERS_SECONDS[0] * 3);
-  assert.equal(stageMessage.nextDurationSeconds, gameState.TIERS_SECONDS[1] * 3);
+  assert.equal(stageMessage.durationSeconds, gameState.TIERS_SECONDS[0]);
+  assert.equal(stageMessage.answerWindowMs, 45000);
 
   aliceSocket.close();
 });
@@ -475,7 +470,7 @@ test('advances to the next stage once every player has resolved the current one'
   for (const message of [aliceNextStage, bobNextStage]) {
     assert.equal(message.type, 'stage:start');
     assert.equal(message.stage, 2);
-    assert.equal(message.answerWindowMs, STAGE_ANSWER_WINDOW_MS);
+    assert.equal(message.answerWindowMs, DEFAULT_ANSWER_WINDOW_MS);
     assert.equal(message.nextDurationSeconds, gameState.TIERS_SECONDS[2]);
   }
   assert.equal(multiplayerGames.getGame(gameId).stage, 2);
@@ -635,7 +630,7 @@ test('a multi-song game reveals the finished song then starts the next one, endi
     assert.equal(message.stage, 1);
     assert.equal(message.songIndex, 2);
     assert.equal(message.songCount, 2);
-    assert.equal(message.answerWindowMs, STAGE_ANSWER_WINDOW_MS);
+    assert.equal(message.answerWindowMs, DEFAULT_ANSWER_WINDOW_MS);
     assert.equal(message.nextDurationSeconds, gameState.TIERS_SECONDS[1]);
   }
   const secondSongId = multiplayerGames.getGame(created.gameId).songId;
@@ -750,9 +745,10 @@ test('reconnecting mid-game sends a game:state resync with stage, players and re
   assert.equal(snapshot.type, 'game:state');
   assert.equal(snapshot.status, 'in_progress');
   assert.equal(snapshot.stage, 1);
+  assert.equal(snapshot.maxStage, gameState.TIERS_SECONDS.length);
   assert.equal(typeof snapshot.durationSeconds, 'number');
   assert.equal(typeof snapshot.remainingMs, 'number');
-  assert.ok(snapshot.remainingMs <= 30000);
+  assert.ok(snapshot.remainingMs <= DEFAULT_ANSWER_WINDOW_MS);
   assert.equal(snapshot.nextDurationSeconds, gameState.TIERS_SECONDS[1]);
   assert.ok(snapshot.players.some((p) => p.playerId === aliceId));
 

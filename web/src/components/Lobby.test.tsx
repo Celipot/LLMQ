@@ -12,7 +12,7 @@ vi.mock('../api', async () => {
     startMultiplayerGame: vi.fn(),
     fetchTitles: vi.fn(),
     updateSongCount: vi.fn(),
-    updateStageDuration: vi.fn(),
+    updateAnswerWindow: vi.fn(),
   };
 });
 
@@ -53,7 +53,7 @@ beforeEach(() => {
   localStorage.clear();
   vi.mocked(api.fetchTitles).mockResolvedValue([]);
   vi.mocked(api.updateSongCount).mockResolvedValue({ songCount: 1 });
-  vi.mocked(api.updateStageDuration).mockResolvedValue({ stageOneSeconds: 1 });
+  vi.mocked(api.updateAnswerWindow).mockResolvedValue({ answerWindowSeconds: 60 });
 });
 
 afterEach(() => {
@@ -218,66 +218,66 @@ describe('Lobby', () => {
     expect(await screen.findByText('Nombre de musiques : 12')).toBeInTheDocument();
   });
 
-  test('shows the host-chosen stage duration as read-only text for a non-host player', async () => {
+  test('shows the host-chosen answer window as read-only text for a non-host player', async () => {
     render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     const socket = MockWebSocket.instances[0];
     socket.emit({
       type: 'lobby:state',
       players: [{ playerId: 'p1', nickname: 'Alice' }],
-      stageOneSeconds: 3,
+      answerWindowSeconds: 45,
     });
 
-    expect(await screen.findByText("Durée de l'étape 1 : 3s")).toBeInTheDocument();
+    expect(await screen.findByText('Temps pour deviner : 45s')).toBeInTheDocument();
     expect(screen.queryByRole('slider')).not.toBeInTheDocument();
   });
 
-  test('the host can drag the stage duration slider, which calls updateStageDuration', async () => {
+  test('the host can drag the answer window slider, which calls updateAnswerWindow', async () => {
     localStorage.setItem('hostToken:g1', 'the-host-token');
     render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     const socket = MockWebSocket.instances[0];
     socket.emit({
       type: 'lobby:state',
       players: [{ playerId: 'p1', nickname: 'Alice' }],
-      stageOneSeconds: 1,
+      answerWindowSeconds: 60,
     });
     await screen.findByText('Alice');
 
     const slider = screen.getByRole('slider');
-    fireEvent.change(slider, { target: { value: '4' } });
+    fireEvent.change(slider, { target: { value: '90' } });
 
-    await waitFor(() => expect(api.updateStageDuration).toHaveBeenCalledWith('g1', 'the-host-token', 4));
+    await waitFor(() => expect(api.updateAnswerWindow).toHaveBeenCalledWith('g1', 'the-host-token', 90));
   });
 
-  test('clamps the stage duration to the 1-5 range for the host', async () => {
+  test('clamps the answer window to the 10-300 range for the host', async () => {
     localStorage.setItem('hostToken:g1', 'the-host-token');
     render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     const socket = MockWebSocket.instances[0];
     socket.emit({
       type: 'lobby:state',
       players: [{ playerId: 'p1', nickname: 'Alice' }],
-      stageOneSeconds: 1,
+      answerWindowSeconds: 60,
     });
     await screen.findByText('Alice');
 
     const slider = screen.getByRole('slider');
-    fireEvent.change(slider, { target: { value: '9' } });
+    fireEvent.change(slider, { target: { value: '9000' } });
 
-    await waitFor(() => expect(api.updateStageDuration).toHaveBeenCalledWith('g1', 'the-host-token', 5));
+    await waitFor(() => expect(api.updateAnswerWindow).toHaveBeenCalledWith('g1', 'the-host-token', 300));
   });
 
-  test('updates the displayed stage duration for everyone on lobby:stageDuration', async () => {
+  test('updates the displayed answer window for everyone on lobby:answerWindow', async () => {
     render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     const socket = MockWebSocket.instances[0];
     socket.emit({
       type: 'lobby:state',
       players: [{ playerId: 'p1', nickname: 'Alice' }],
-      stageOneSeconds: 1,
+      answerWindowSeconds: 60,
     });
-    await screen.findByText("Durée de l'étape 1 : 1s");
+    await screen.findByText('Temps pour deviner : 60s');
 
-    socket.emit({ type: 'lobby:stageDuration', stageOneSeconds: 4 });
+    socket.emit({ type: 'lobby:answerWindow', answerWindowSeconds: 45 });
 
-    expect(await screen.findByText("Durée de l'étape 1 : 4s")).toBeInTheDocument();
+    expect(await screen.findByText('Temps pour deviner : 45s')).toBeInTheDocument();
   });
 
   test('shows the starting message once game:started is received', async () => {
@@ -299,7 +299,7 @@ describe('Lobby', () => {
 
     socket.emit({ type: 'game:started' });
     socket.emit({
-      type: 'stage:start',
+      type: 'stage:start', maxStage: 6,
       stage: 1,
       durationSeconds: 1,
       serverTimestamp: Date.now(),
@@ -309,8 +309,8 @@ describe('Lobby', () => {
 
     expect(await screen.findByText(/Étape 1/)).toBeInTheDocument();
     expect(screen.getByRole('timer')).toHaveTextContent('Temps restant : 30s');
-    expect(screen.getByText(/Étape 1/).closest('p')).toHaveTextContent('Étape 11s');
-    expect(screen.getByText('(2s — étape suivante)')).toBeInTheDocument();
+    expect(screen.getByText(/Étape 1/).closest('p')).toHaveTextContent('Étape 1 sur 61s');
+    expect(screen.getByText('(étape suivante — 2s)')).toBeInTheDocument();
   });
 
   test('sends answer:submit over the socket and shows the result once received', async () => {
@@ -318,7 +318,7 @@ describe('Lobby', () => {
     const socket = MockWebSocket.instances[0];
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
     await screen.findByText('Alice');
-    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
+    socket.emit({ type: 'stage:start', maxStage: 6, stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
     await screen.findByText(/Étape 1/);
 
     const input = await screen.findByRole('textbox');
@@ -340,7 +340,7 @@ describe('Lobby', () => {
     const socket = MockWebSocket.instances[0];
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
     await screen.findByText('Alice');
-    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
+    socket.emit({ type: 'stage:start', maxStage: 6, stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
     await screen.findByText(/Étape 1/);
 
     await userEvent.click(screen.getByText('Abandonner cette étape'));
@@ -365,7 +365,7 @@ describe('Lobby', () => {
       ],
     });
     await screen.findByText('Alice');
-    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
+    socket.emit({ type: 'stage:start', maxStage: 6, stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
     await screen.findByText(/Étape 1/);
 
     expect(await screen.findByText('Bob — cherche encore')).toBeInTheDocument();
@@ -380,7 +380,7 @@ describe('Lobby', () => {
     const socket = MockWebSocket.instances[0];
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice', status: 'active' }] });
     await screen.findByText('Alice');
-    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
+    socket.emit({ type: 'stage:start', maxStage: 6, stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
     await screen.findByText(/Étape 1/);
 
     socket.emit({ type: 'answer:result', correct: true });
@@ -393,12 +393,12 @@ describe('Lobby', () => {
     const socket = MockWebSocket.instances[0];
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice', status: 'active' }] });
     await screen.findByText('Alice');
-    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
+    socket.emit({ type: 'stage:start', maxStage: 6, stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
     await screen.findByText(/Étape 1/);
     socket.emit({ type: 'answer:result', correct: true });
     await screen.findByText('Alice — a trouvé');
 
-    socket.emit({ type: 'stage:start', stage: 2, durationSeconds: 2, serverTimestamp: Date.now(), answerWindowMs: 30000 });
+    socket.emit({ type: 'stage:start', maxStage: 6, stage: 2, durationSeconds: 2, serverTimestamp: Date.now(), answerWindowMs: 30000 });
 
     await screen.findByText(/Étape 2/);
     expect(screen.getByText('Alice — a trouvé')).toBeInTheDocument();
@@ -409,7 +409,7 @@ describe('Lobby', () => {
     const socket = MockWebSocket.instances[0];
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice', status: 'active' }] });
     await screen.findByText('Alice');
-    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000, songIndex: 1, songCount: 2 });
+    socket.emit({ type: 'stage:start', maxStage: 6, stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000, songIndex: 1, songCount: 2 });
     await screen.findByText(/Musique 1\/2/);
 
     socket.emit({
@@ -423,7 +423,7 @@ describe('Lobby', () => {
     expect(await screen.findByText(/Some Song — Some Artist/)).toBeInTheDocument();
     expect(screen.getByText(/Alice — cherche encore/)).toHaveTextContent('6 pts');
 
-    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000, songIndex: 2, songCount: 2 });
+    socket.emit({ type: 'stage:start', maxStage: 6, stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000, songIndex: 2, songCount: 2 });
 
     expect(await screen.findByText(/Musique 2\/2/)).toBeInTheDocument();
     expect(screen.queryByText(/Some Song — Some Artist/)).not.toBeInTheDocument();
@@ -437,7 +437,7 @@ describe('Lobby', () => {
     const socket = MockWebSocket.instances[0];
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice', status: 'active' }] });
     await screen.findByText('Alice');
-    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
+    socket.emit({ type: 'stage:start', maxStage: 6, stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
     await screen.findByText(/Étape 1/);
 
     socket.emit({
@@ -464,6 +464,7 @@ describe('Lobby', () => {
       type: 'game:state',
       status: 'in_progress',
       stage: 2,
+      maxStage: 6,
       durationSeconds: 2,
       remainingMs: 10000,
       players: [{ playerId: 'p1', nickname: 'Alice', status: 'found' }],
@@ -498,7 +499,7 @@ describe('Lobby', () => {
       ],
     });
     await screen.findByText('Alice');
-    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
+    socket.emit({ type: 'stage:start', maxStage: 6, stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
     await screen.findByText(/Étape 1/);
 
     socket.emit({ type: 'player:connection', playerId: 'p2', connected: false });
@@ -525,7 +526,7 @@ describe('Lobby', () => {
     const socket = MockWebSocket.instances[0];
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
     await screen.findByText('Alice');
-    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
+    socket.emit({ type: 'stage:start', maxStage: 6, stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
     await screen.findByText(/Étape 1/);
 
     await userEvent.click(screen.getByText('Quitter la partie'));
@@ -558,7 +559,7 @@ describe('Lobby', () => {
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
     await screen.findByText('Alice');
     socket.emit({
-      type: 'stage:start',
+      type: 'stage:start', maxStage: 6,
       stage: 1,
       durationSeconds: 1,
       serverTimestamp: Date.now(),
@@ -657,7 +658,7 @@ describe('Lobby', () => {
     });
     await screen.findByText(/Some Song — Some Artist/);
 
-    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
+    socket.emit({ type: 'stage:start', maxStage: 6, stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
 
     expect(await screen.findByText(/Étape 1/)).toBeInTheDocument();
   });

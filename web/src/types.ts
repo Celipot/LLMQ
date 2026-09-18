@@ -94,6 +94,6 @@ export interface SongCountResponse {
   songCount: number;
 }
 
-export interface StageDurationResponse {
-  stageOneSeconds: number;
+export interface AnswerWindowResponse {
+  answerWindowSeconds: number;
 }

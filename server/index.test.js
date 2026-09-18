@@ -330,65 +330,65 @@ test('POST /games/:id/songCount returns 404 for an unknown gameId', async () => 
   assert.equal(res.status, 404);
 });
 
-test('POST /games/:id/stageDuration lets the host set the stage 1 duration', async () => {
+test('POST /games/:id/answerWindow lets the host set the answer window duration', async () => {
   const { gameId, hostToken } = await createLobbyWithTwoPlayers();
-  const res = await fetch(`${baseUrl}/games/${gameId}/stageDuration`, {
+  const res = await fetch(`${baseUrl}/games/${gameId}/answerWindow`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ hostToken, seconds: 3 }),
+    body: JSON.stringify({ hostToken, seconds: 45 }),
   });
   const body = await res.json();
   assert.equal(res.status, 200);
-  assert.equal(body.stageOneSeconds, 3);
-  assert.equal(multiplayerGames.getGame(gameId).stageOneSeconds, 3);
+  assert.equal(body.answerWindowSeconds, 45);
+  assert.equal(multiplayerGames.getGame(gameId).answerWindowSeconds, 45);
 });
 
-test('POST /games/:id/stageDuration rejects a wrong hostToken', async () => {
+test('POST /games/:id/answerWindow rejects a wrong hostToken', async () => {
   const { gameId } = await createLobbyWithTwoPlayers();
-  const res = await fetch(`${baseUrl}/games/${gameId}/stageDuration`, {
+  const res = await fetch(`${baseUrl}/games/${gameId}/answerWindow`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ hostToken: 'wrong-token', seconds: 3 }),
+    body: JSON.stringify({ hostToken: 'wrong-token', seconds: 45 }),
   });
   const body = await res.json();
   assert.equal(res.status, 403);
   assert.equal(body.error, 'NOT_HOST');
 });
 
-test('POST /games/:id/stageDuration rejects a value outside 1-5', async () => {
+test('POST /games/:id/answerWindow rejects a value outside 10-300', async () => {
   const { gameId, hostToken } = await createLobbyWithTwoPlayers();
-  const res = await fetch(`${baseUrl}/games/${gameId}/stageDuration`, {
+  const res = await fetch(`${baseUrl}/games/${gameId}/answerWindow`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ hostToken, seconds: 6 }),
+    body: JSON.stringify({ hostToken, seconds: 301 }),
   });
   const body = await res.json();
   assert.equal(res.status, 400);
-  assert.equal(body.error, 'INVALID_STAGE_DURATION');
+  assert.equal(body.error, 'INVALID_ANSWER_WINDOW');
 });
 
-test('POST /games/:id/stageDuration rejects once the game has started', async () => {
+test('POST /games/:id/answerWindow rejects once the game has started', async () => {
   const { gameId, hostToken } = await createLobbyWithTwoPlayers();
   await fetch(`${baseUrl}/games/${gameId}/start`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ hostToken }),
   });
-  const res = await fetch(`${baseUrl}/games/${gameId}/stageDuration`, {
+  const res = await fetch(`${baseUrl}/games/${gameId}/answerWindow`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ hostToken, seconds: 3 }),
+    body: JSON.stringify({ hostToken, seconds: 45 }),
   });
   const body = await res.json();
   assert.equal(res.status, 409);
   assert.equal(body.error, 'GAME_NOT_IN_LOBBY');
 });
 
-test('POST /games/:id/stageDuration returns 404 for an unknown gameId', async () => {
-  const res = await fetch(`${baseUrl}/games/unknown-id/stageDuration`, {
+test('POST /games/:id/answerWindow returns 404 for an unknown gameId', async () => {
+  const res = await fetch(`${baseUrl}/games/unknown-id/answerWindow`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ hostToken: 'whatever', seconds: 3 }),
+    body: JSON.stringify({ hostToken: 'whatever', seconds: 45 }),
   });
   assert.equal(res.status, 404);
 });
@@ -503,8 +503,9 @@ test('POST /games/:id/start broadcasts the answer window duration alongside stag
       body: JSON.stringify({ hostToken }),
     });
     const stageStartCall = calls.find(([, message]) => message.type === 'stage:start');
-    assert.equal(stageStartCall[1].answerWindowMs, wsServer.STAGE_ANSWER_WINDOW_MS);
+    assert.equal(stageStartCall[1].answerWindowMs, multiplayerGames.getGame(gameId).answerWindowSeconds * 1000);
     assert.equal(stageStartCall[1].nextDurationSeconds, gameState.TIERS_SECONDS[1]);
+    assert.equal(stageStartCall[1].maxStage, gameState.TIERS_SECONDS.length);
   } finally {
     wsServer.broadcastToGame = original;
   }
@@ -536,29 +537,35 @@ test('GET /games/:id/audio serves audio truncated to stage 1 duration once the g
   assert.ok(bytes.byteLength > 0);
 });
 
-test('GET /games/:id/audio respects a host-configured stage duration', async () => {
+test('GET /games/:id/audio clip length is unaffected by the host-configured answer window', async () => {
   const defaultGame = await createLobbyWithTwoPlayers();
   await fetch(`${baseUrl}/games/${defaultGame.gameId}/start`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ hostToken: defaultGame.hostToken }),
   });
+  // Force the same song for both games — a byte-length comparison across two
+  // different random songs isn't meaningful (their source WAVs can differ).
+  const songId = multiplayerGames.getGame(defaultGame.gameId).songId;
   const defaultBytes = await (await fetch(`${baseUrl}/games/${defaultGame.gameId}/audio`)).arrayBuffer();
 
-  const scaledGame = await createLobbyWithTwoPlayers();
-  await fetch(`${baseUrl}/games/${scaledGame.gameId}/stageDuration`, {
+  const longAnswerWindowGame = await createLobbyWithTwoPlayers();
+  await fetch(`${baseUrl}/games/${longAnswerWindowGame.gameId}/answerWindow`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ hostToken: scaledGame.hostToken, seconds: 3 }),
+    body: JSON.stringify({ hostToken: longAnswerWindowGame.hostToken, seconds: 200 }),
   });
-  await fetch(`${baseUrl}/games/${scaledGame.gameId}/start`, {
+  await fetch(`${baseUrl}/games/${longAnswerWindowGame.gameId}/start`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ hostToken: scaledGame.hostToken }),
+    body: JSON.stringify({ hostToken: longAnswerWindowGame.hostToken }),
   });
-  const scaledBytes = await (await fetch(`${baseUrl}/games/${scaledGame.gameId}/audio`)).arrayBuffer();
+  multiplayerGames.getGame(longAnswerWindowGame.gameId).songId = songId;
+  const longAnswerWindowBytes = await (
+    await fetch(`${baseUrl}/games/${longAnswerWindowGame.gameId}/audio`)
+  ).arrayBuffer();
 
-  assert.ok(scaledBytes.byteLength > defaultBytes.byteLength);
+  assert.equal(longAnswerWindowBytes.byteLength, defaultBytes.byteLength);
 });
 
 test('List mode guesses never affect the concurrent Random mode round for the same song', async () => {

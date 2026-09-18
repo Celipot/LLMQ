@@ -10,7 +10,7 @@ test('createGame returns a lobby game with an id, host token, no players and sta
   assert.deepEqual(game.players, []);
   assert.equal(game.stage, 0);
   assert.equal(game.songCount, 1);
-  assert.equal(game.stageOneSeconds, 1);
+  assert.equal(game.answerWindowSeconds, 60);
 });
 
 test('createGame produces a distinct gameId and hostToken on each call', () => {
@@ -116,33 +116,33 @@ test('setSongCount throws INVALID_SONG_COUNT for 0, 101 and non-integer values',
   assert.throws(() => multiplayerGames.setSongCount(game.gameId, game.hostToken, 'abc'), /INVALID_SONG_COUNT/);
 });
 
-test('setStageOneSeconds accepts the boundaries 1 and 5', () => {
+test('setAnswerWindowSeconds accepts the boundaries 10 and 300', () => {
   const game = createLobbyWithTwoPlayers();
-  assert.equal(multiplayerGames.setStageOneSeconds(game.gameId, game.hostToken, 1).stageOneSeconds, 1);
-  assert.equal(multiplayerGames.setStageOneSeconds(game.gameId, game.hostToken, 5).stageOneSeconds, 5);
+  assert.equal(multiplayerGames.setAnswerWindowSeconds(game.gameId, game.hostToken, 10).answerWindowSeconds, 10);
+  assert.equal(multiplayerGames.setAnswerWindowSeconds(game.gameId, game.hostToken, 300).answerWindowSeconds, 300);
 });
 
-test('setStageOneSeconds throws GAME_NOT_FOUND for an unknown gameId', () => {
-  assert.throws(() => multiplayerGames.setStageOneSeconds('unknown-id', 'token', 2), /GAME_NOT_FOUND/);
+test('setAnswerWindowSeconds throws GAME_NOT_FOUND for an unknown gameId', () => {
+  assert.throws(() => multiplayerGames.setAnswerWindowSeconds('unknown-id', 'token', 30), /GAME_NOT_FOUND/);
 });
 
-test('setStageOneSeconds throws NOT_HOST when the token does not match', () => {
+test('setAnswerWindowSeconds throws NOT_HOST when the token does not match', () => {
   const game = createLobbyWithTwoPlayers();
-  assert.throws(() => multiplayerGames.setStageOneSeconds(game.gameId, 'wrong-token', 2), /NOT_HOST/);
+  assert.throws(() => multiplayerGames.setAnswerWindowSeconds(game.gameId, 'wrong-token', 30), /NOT_HOST/);
 });
 
-test('setStageOneSeconds throws GAME_NOT_IN_LOBBY once the game has started', () => {
+test('setAnswerWindowSeconds throws GAME_NOT_IN_LOBBY once the game has started', () => {
   const game = createLobbyWithTwoPlayers();
   multiplayerGames.startGame(game.gameId, game.hostToken, () => 1);
-  assert.throws(() => multiplayerGames.setStageOneSeconds(game.gameId, game.hostToken, 2), /GAME_NOT_IN_LOBBY/);
+  assert.throws(() => multiplayerGames.setAnswerWindowSeconds(game.gameId, game.hostToken, 30), /GAME_NOT_IN_LOBBY/);
 });
 
-test('setStageOneSeconds throws INVALID_STAGE_DURATION for 0, 6 and non-integer values', () => {
+test('setAnswerWindowSeconds throws INVALID_ANSWER_WINDOW for 9, 301 and non-integer values', () => {
   const game = createLobbyWithTwoPlayers();
-  assert.throws(() => multiplayerGames.setStageOneSeconds(game.gameId, game.hostToken, 0), /INVALID_STAGE_DURATION/);
-  assert.throws(() => multiplayerGames.setStageOneSeconds(game.gameId, game.hostToken, 6), /INVALID_STAGE_DURATION/);
-  assert.throws(() => multiplayerGames.setStageOneSeconds(game.gameId, game.hostToken, 1.5), /INVALID_STAGE_DURATION/);
-  assert.throws(() => multiplayerGames.setStageOneSeconds(game.gameId, game.hostToken, 'abc'), /INVALID_STAGE_DURATION/);
+  assert.throws(() => multiplayerGames.setAnswerWindowSeconds(game.gameId, game.hostToken, 9), /INVALID_ANSWER_WINDOW/);
+  assert.throws(() => multiplayerGames.setAnswerWindowSeconds(game.gameId, game.hostToken, 301), /INVALID_ANSWER_WINDOW/);
+  assert.throws(() => multiplayerGames.setAnswerWindowSeconds(game.gameId, game.hostToken, 30.5), /INVALID_ANSWER_WINDOW/);
+  assert.throws(() => multiplayerGames.setAnswerWindowSeconds(game.gameId, game.hostToken, 'abc'), /INVALID_ANSWER_WINDOW/);
 });
 
 test('startGame moves a lobby with 2+ players to in_progress, sets stage 1 and picks a song', () => {
@@ -401,6 +401,38 @@ test('checkStageProgress does not skip while a player is still forfeited (not ev
 
   assert.equal(result.type, 'advanced');
   assert.equal(result.stage, 2);
+});
+
+test('checkStageProgress skips straight to the end once everyone has unanimously forfeited (backlog: skip on abandon)', () => {
+  const game = startedGameWithTwoPlayers();
+  const [alice, bob] = multiplayerGames.getGame(game.gameId).players;
+  // Both give up at stage 1 — nobody found it and nobody is still trying,
+  // so continuing to cycle through stages 2-6 offers nothing.
+  multiplayerGames.forfeitStage(game.gameId, alice.playerId);
+  multiplayerGames.forfeitStage(game.gameId, bob.playerId);
+
+  const result = multiplayerGames.checkStageProgress(game.gameId, durationForStage, 6);
+
+  assert.equal(result.type, 'ended');
+  assert.equal(multiplayerGames.getGame(game.gameId).stage, 6);
+  const aliceResult = result.players.find((p) => p.playerId === alice.playerId);
+  const bobResult = result.players.find((p) => p.playerId === bob.playerId);
+  assert.equal(aliceResult.score, 0);
+  assert.equal(bobResult.score, 0);
+});
+
+test('checkStageProgress does not skip a solo remaining player who forfeits — that is their normal retry, not a group giving up', () => {
+  const game = multiplayerGames.createGame();
+  multiplayerGames.joinGame(game.gameId, 'Alice');
+  multiplayerGames.startGame(game.gameId, game.hostToken, () => 42);
+  const [alice] = multiplayerGames.getGame(game.gameId).players;
+  multiplayerGames.forfeitStage(game.gameId, alice.playerId);
+
+  const result = multiplayerGames.checkStageProgress(game.gameId, durationForStage, 6);
+
+  assert.equal(result.type, 'advanced');
+  assert.equal(result.stage, 2);
+  assert.equal(alice.status, 'active');
 });
 
 test('checkStageProgress ends the game once the last stage resolves', () => {

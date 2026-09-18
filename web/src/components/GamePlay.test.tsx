@@ -21,6 +21,7 @@ describe('GamePlay', () => {
       <GamePlay
         gameId="g1"
         stage={2}
+        maxStage={6}
         durationSeconds={4}
         nextDurationSeconds={null}
         answerWindowMs={30000}
@@ -50,6 +51,7 @@ describe('GamePlay', () => {
       <GamePlay
         gameId="g1"
         stage={1}
+        maxStage={6}
         durationSeconds={1}
         nextDurationSeconds={null}
         answerWindowMs={30000}
@@ -78,6 +80,7 @@ describe('GamePlay', () => {
       <GamePlay
         gameId="g1"
         stage={1}
+        maxStage={6}
         durationSeconds={1}
         nextDurationSeconds={null}
         answerWindowMs={30000}
@@ -109,6 +112,7 @@ describe('GamePlay', () => {
       <GamePlay
         gameId="g1"
         stage={1}
+        maxStage={6}
         durationSeconds={1}
         nextDurationSeconds={null}
         answerWindowMs={30000}
@@ -141,6 +145,7 @@ describe('GamePlay', () => {
       <GamePlay
         gameId="g1"
         stage={1}
+        maxStage={6}
         durationSeconds={1}
         nextDurationSeconds={null}
         answerWindowMs={30000}
@@ -174,6 +179,7 @@ describe('GamePlay', () => {
       <GamePlay
         gameId="g1"
         stage={1}
+        maxStage={6}
         durationSeconds={1}
         nextDurationSeconds={null}
         answerWindowMs={30000}
@@ -205,6 +211,7 @@ describe('GamePlay', () => {
       <GamePlay
         gameId="g1"
         stage={1}
+        maxStage={6}
         durationSeconds={1}
         nextDurationSeconds={null}
         answerWindowMs={30000}
@@ -235,6 +242,7 @@ describe('GamePlay', () => {
       <GamePlay
         gameId="g1"
         stage={1}
+        maxStage={6}
         durationSeconds={1}
         nextDurationSeconds={null}
         answerWindowMs={30000}
@@ -265,6 +273,7 @@ describe('GamePlay', () => {
       <GamePlay
         gameId="g1"
         stage={1}
+        maxStage={6}
         durationSeconds={1}
         nextDurationSeconds={null}
         answerWindowMs={30000}
@@ -296,6 +305,7 @@ describe('GamePlay', () => {
       <GamePlay
         gameId="g1"
         stage={1}
+        maxStage={6}
         durationSeconds={1}
         nextDurationSeconds={null}
         answerWindowMs={30000}
@@ -330,6 +340,7 @@ describe('GamePlay', () => {
       <GamePlay
         gameId="g1"
         stage={1}
+        maxStage={6}
         durationSeconds={1}
         nextDurationSeconds={null}
         answerWindowMs={30000}
@@ -358,6 +369,7 @@ describe('GamePlay', () => {
       <GamePlay
         gameId="g1"
         stage={1}
+        maxStage={6}
         durationSeconds={1}
         nextDurationSeconds={null}
         answerWindowMs={30000}
@@ -391,6 +403,7 @@ describe('GamePlay', () => {
       <GamePlay
         gameId="g1"
         stage={1}
+        maxStage={6}
         durationSeconds={1}
         nextDurationSeconds={null}
         answerWindowMs={30000}
@@ -422,6 +435,7 @@ describe('GamePlay', () => {
       <GamePlay
         gameId="g1"
         stage={1}
+        maxStage={6}
         durationSeconds={1}
         nextDurationSeconds={null}
         answerWindowMs={30000}
@@ -460,6 +474,7 @@ describe('GamePlay', () => {
       <GamePlay
         gameId="g1"
         stage={3}
+        maxStage={6}
         durationSeconds={1}
         nextDurationSeconds={null}
         answerWindowMs={30000}
@@ -488,6 +503,7 @@ describe('GamePlay', () => {
       <GamePlay
         gameId="g1"
         stage={3}
+        maxStage={6}
         durationSeconds={1}
         nextDurationSeconds={null}
         answerWindowMs={12000}
@@ -518,6 +534,7 @@ describe('GamePlay', () => {
       <GamePlay
         gameId="g1"
         stage={1}
+        maxStage={6}
         durationSeconds={1}
         nextDurationSeconds={null}
         answerWindowMs={30000}
@@ -549,6 +566,7 @@ describe('GamePlay', () => {
       <GamePlay
         gameId="g1"
         stage={1}
+        maxStage={6}
         durationSeconds={1}
         nextDurationSeconds={null}
         answerWindowMs={30000}
@@ -579,6 +597,7 @@ describe('GamePlay', () => {
       <GamePlay
         gameId="g1"
         stage={1}
+        maxStage={6}
         durationSeconds={1}
         nextDurationSeconds={null}
         answerWindowMs={30000}
@@ -607,6 +626,7 @@ describe('GamePlay', () => {
       <GamePlay
         gameId="g1"
         stage={1}
+        maxStage={6}
         durationSeconds={1}
         nextDurationSeconds={null}
         answerWindowMs={30000}
@@ -639,6 +659,7 @@ describe('GamePlay', () => {
       <GamePlay
         gameId="g1"
         stage={1}
+        maxStage={6}
         durationSeconds={1}
         nextDurationSeconds={null}
         answerWindowMs={30000}
@@ -668,6 +689,7 @@ describe('GamePlay', () => {
       <GamePlay
         gameId="g1"
         stage={3}
+        maxStage={6}
         durationSeconds={4}
         nextDurationSeconds={7}
         answerWindowMs={30000}
@@ -687,8 +709,8 @@ describe('GamePlay', () => {
       />
     );
 
-    expect(screen.getByText(/Étape 3/).closest('p')).toHaveTextContent('Étape 34s');
-    expect(screen.getByText('(7s — étape suivante)')).toBeInTheDocument();
+    expect(screen.getByText(/Étape 3/).closest('p')).toHaveTextContent('Étape 3 sur 64s');
+    expect(screen.getByText('(étape suivante — 7s)')).toBeInTheDocument();
   });
 
   test('does not show a next stage duration at the last stage', () => {
@@ -697,6 +719,7 @@ describe('GamePlay', () => {
       <GamePlay
         gameId="g1"
         stage={6}
+        maxStage={6}
         durationSeconds={16}
         nextDurationSeconds={null}
         answerWindowMs={30000}
@@ -716,7 +739,140 @@ describe('GamePlay', () => {
       />
     );
 
-    expect(screen.getByText(/Étape 6/).closest('p')).toHaveTextContent('Étape 616s');
+    expect(screen.getByText(/Étape 6/).closest('p')).toHaveTextContent('Étape 6 sur 616s');
     expect(screen.queryByText(/^\(\d+s/)).not.toBeInTheDocument();
+  });
+
+  test('shows a score recap in the sidebar with each player\'s live status and score, in join order', () => {
+    vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
+    render(
+      <GamePlay
+        gameId="g1"
+        stage={1}
+        maxStage={6}
+        durationSeconds={1}
+        nextDurationSeconds={null}
+        answerWindowMs={30000}
+        startedAt={Date.now()}
+        songIndex={2}
+        songCount={3}
+        songReveal={null}
+        scores={{ p1: 6, p2: 16 }}
+        onSubmitAnswer={vi.fn()}
+        answerFeedback={null}
+        forfeited={false}
+        onForfeit={vi.fn()}
+        answerPending={false}
+        forfeitPending={false}
+        players={[
+          { playerId: 'p1', nickname: 'Alice', status: 'found' },
+          { playerId: 'p2', nickname: 'Bob', status: 'active' },
+        ]}
+        onLeave={vi.fn()}
+      />
+    );
+
+    const recap = screen.getByText('Scores').closest('aside');
+    const items = recap ? Array.from(recap.querySelectorAll('li')).map((li) => li.textContent) : [];
+    expect(items).toEqual(['Alice — a trouvé — 6 pts', 'Bob — cherche encore — 16 pts']);
+  });
+
+  test('shows the score recap from the very start of play, before any song has finished', () => {
+    vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
+    render(
+      <GamePlay
+        gameId="g1"
+        stage={1}
+        maxStage={6}
+        durationSeconds={1}
+        nextDurationSeconds={null}
+        answerWindowMs={30000}
+        startedAt={Date.now()}
+        songIndex={1}
+        songCount={1}
+        songReveal={null}
+        scores={{}}
+        onSubmitAnswer={vi.fn()}
+        answerFeedback={null}
+        forfeited={false}
+        onForfeit={vi.fn()}
+        answerPending={false}
+        forfeitPending={false}
+        players={[{ playerId: 'p1', nickname: 'Alice', status: 'active' }]}
+        onLeave={vi.fn()}
+      />
+    );
+
+    const recap = screen.getByText('Scores').closest('aside');
+    expect(recap).toHaveTextContent('Alice — cherche encore');
+  });
+
+  test('shows a reveal-gated results list on the right once a song has ended', () => {
+    vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
+    render(
+      <GamePlay
+        gameId="g1"
+        stage={1}
+        maxStage={6}
+        durationSeconds={1}
+        nextDurationSeconds={2}
+        answerWindowMs={30000}
+        startedAt={Date.now()}
+        songIndex={2}
+        songCount={2}
+        songReveal={{
+          song: { title: 'Some Song', artist: 'Some Artist', coverUrl: '/covers/x.png' },
+          players: [
+            { playerId: 'p1', nickname: 'Alice', foundStage: 3, score: 12 },
+            { playerId: 'p2', nickname: 'Bob', foundStage: null, score: 0 },
+          ],
+        }}
+        scores={{ p1: 12, p2: 0 }}
+        onSubmitAnswer={vi.fn()}
+        answerFeedback={null}
+        forfeited={false}
+        onForfeit={vi.fn()}
+        answerPending={false}
+        forfeitPending={false}
+        players={[
+          { playerId: 'p1', nickname: 'Alice', status: 'active' },
+          { playerId: 'p2', nickname: 'Bob', status: 'active' },
+        ]}
+        onLeave={vi.fn()}
+      />
+    );
+
+    const answers = screen.getByText('Réponses').closest('aside');
+    expect(answers).toHaveTextContent('Alice — étape 3 (12 pts)');
+    expect(answers).toHaveTextContent("Bob — n'a pas trouvé");
+  });
+
+  test('does not show the reveal-gated results list while no song has ended yet', () => {
+    vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
+    render(
+      <GamePlay
+        gameId="g1"
+        stage={1}
+        maxStage={6}
+        durationSeconds={1}
+        nextDurationSeconds={2}
+        answerWindowMs={30000}
+        startedAt={Date.now()}
+        songIndex={1}
+        songCount={1}
+        songReveal={null}
+        scores={{}}
+        onSubmitAnswer={vi.fn()}
+        answerFeedback={null}
+        forfeited={false}
+        onForfeit={vi.fn()}
+        answerPending={false}
+        forfeitPending={false}
+        players={[{ playerId: 'p1', nickname: 'Alice', status: 'active' }]}
+        onLeave={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByText('Réponses')).not.toBeInTheDocument();
   });
 });

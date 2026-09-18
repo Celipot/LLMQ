@@ -41,17 +41,19 @@ function broadcastToGame(gameId, message) {
 // "durée de l'étape + marge de timeout" (backlog MP-08) was superseded by a
 // fixed per-stage answer window (see prompt/user-stories-multiplayer.md
 // conversation log) once audio playback stopped being clock-synchronized.
-const STAGE_ANSWER_WINDOW_MS = 30000;
+// Now host-configurable per game (backlog: "le slider de durée... devrait
+// correspondre au temps accordé pour deviner une étape") via
+// multiplayerGames' game.answerWindowSeconds — this is only the default
+// seed value for new games and scheduleStageTimeout's fallback.
+const DEFAULT_ANSWER_WINDOW_MS = 60000;
 
 // Reuses the single-player tier list so stage N's clip length always matches
 // gameState.js's own progression, instead of maintaining a second table.
-// scale is the host-configurable multiplier from multiplayerGames'
-// game.stageOneSeconds (backlog: "un slider... pour paramétrer la durée
-// d'une étape") — 1 (the default) reproduces today's exact durations, since
-// TIERS_SECONDS[0] === 1.
-function stageDurationFor(stage, scale = 1) {
+// Fixed, not host-configurable — the host's duration slider controls the
+// answer window (above), not the clip length.
+function stageDurationFor(stage) {
   const tierIndex = Math.min(stage - 1, gameState.TIERS_SECONDS.length - 1);
-  return Math.round(gameState.TIERS_SECONDS[tierIndex] * scale);
+  return gameState.TIERS_SECONDS[tierIndex];
 }
 
 // Preview of what's coming after the current stage (backlog: "afficher...
@@ -59,8 +61,8 @@ function stageDurationFor(stage, scale = 1) {
 // is no next stage within it, the song ends there instead. Unlike
 // stageDurationFor, this must NOT clamp past the tier table, so it can't
 // reuse that function's Math.min directly for the bounds check.
-function nextStageDurationFor(stage, scale = 1) {
-  return stage < gameState.TIERS_SECONDS.length ? stageDurationFor(stage + 1, scale) : null;
+function nextStageDurationFor(stage) {
+  return stage < gameState.TIERS_SECONDS.length ? stageDurationFor(stage + 1) : null;
 }
 
 // "délai de grâce" (backlog MP-13): a dropped connection during an active
@@ -91,7 +93,7 @@ function cancelDisconnectGrace(gameId, playerId) {
   }
 }
 
-function scheduleStageTimeout(gameId, stage, delayMs = STAGE_ANSWER_WINDOW_MS) {
+function scheduleStageTimeout(gameId, stage, delayMs = DEFAULT_ANSWER_WINDOW_MS) {
   // unref: this timer must never be the reason the process (or a test run)
   // stays alive — it's a best-effort cleanup, not core work.
   const timer = setTimeout(() => {
@@ -116,17 +118,19 @@ function scheduleSongTransition(gameId, delayMs = SONG_REVEAL_DELAY_MS) {
   const timer = setTimeout(() => {
     const game = multiplayerGames.getGame(gameId);
     if (!game || game.status !== 'in_progress') return;
+    const answerWindowMs = game.answerWindowSeconds * 1000;
     broadcast(gameId, {
       type: 'stage:start',
       stage: game.stage,
-      durationSeconds: stageDurationFor(game.stage, game.stageOneSeconds),
+      maxStage: gameState.TIERS_SECONDS.length,
+      durationSeconds: stageDurationFor(game.stage),
       serverTimestamp: Date.now(),
       songIndex: game.songIndex,
       songCount: game.songCount,
-      answerWindowMs: STAGE_ANSWER_WINDOW_MS,
-      nextDurationSeconds: nextStageDurationFor(game.stage, game.stageOneSeconds),
+      answerWindowMs,
+      nextDurationSeconds: nextStageDurationFor(game.stage),
     });
-    scheduleStageTimeout(gameId, game.stage);
+    scheduleStageTimeout(gameId, game.stage, answerWindowMs);
   }, delayMs);
   timer.unref();
 }
@@ -151,10 +155,11 @@ function notifyHostTransfer(gameId, removedPlayerId) {
 // next song (still the same game), or ends the game. Called after any event
 // that could be the last missing status.
 function handleStageProgress(gameId) {
-  const scale = multiplayerGames.getGame(gameId)?.stageOneSeconds ?? 1;
+  const game = multiplayerGames.getGame(gameId);
+  const answerWindowMs = (game?.answerWindowSeconds ?? DEFAULT_ANSWER_WINDOW_MS / 1000) * 1000;
   const result = multiplayerGames.checkStageProgress(
     gameId,
-    (stage) => stageDurationFor(stage, scale),
+    stageDurationFor,
     gameState.TIERS_SECONDS.length,
     songs.pickRandomSongId
   );
@@ -162,12 +167,13 @@ function handleStageProgress(gameId) {
     broadcast(gameId, {
       type: 'stage:start',
       stage: result.stage,
+      maxStage: gameState.TIERS_SECONDS.length,
       durationSeconds: result.durationSeconds,
       serverTimestamp: Date.now(),
-      answerWindowMs: STAGE_ANSWER_WINDOW_MS,
-      nextDurationSeconds: nextStageDurationFor(result.stage, scale),
+      answerWindowMs,
+      nextDurationSeconds: nextStageDurationFor(result.stage),
     });
-    scheduleStageTimeout(gameId, result.stage);
+    scheduleStageTimeout(gameId, result.stage, answerWindowMs);
   } else if (result.type === 'songAdvanced') {
     const finishedSong = songs.getSongById(result.finishedSongId);
     // Reveal the song that just ended, then hold it on screen for
@@ -224,7 +230,7 @@ function attachWebSocketServer(httpServer) {
           type: 'lobby:state',
           players: game.players,
           songCount: game.songCount,
-          stageOneSeconds: game.stageOneSeconds,
+          answerWindowSeconds: game.answerWindowSeconds,
         })
       );
     } else {
@@ -236,12 +242,13 @@ function attachWebSocketServer(httpServer) {
           type: 'game:state',
           status: game.status,
           stage: game.stage,
-          durationSeconds: stageDurationFor(game.stage, game.stageOneSeconds),
-          remainingMs: Math.max(0, STAGE_ANSWER_WINDOW_MS - elapsed),
+          maxStage: gameState.TIERS_SECONDS.length,
+          durationSeconds: stageDurationFor(game.stage),
+          remainingMs: Math.max(0, game.answerWindowSeconds * 1000 - elapsed),
           players: game.players,
           songIndex: game.songIndex,
           songCount: game.songCount,
-          nextDurationSeconds: nextStageDurationFor(game.stage, game.stageOneSeconds),
+          nextDurationSeconds: nextStageDurationFor(game.stage),
         })
       );
     }
@@ -287,7 +294,7 @@ function attachWebSocketServer(httpServer) {
             type: 'game:reset',
             players: updatedGame.players,
             songCount: updatedGame.songCount,
-            stageOneSeconds: updatedGame.stageOneSeconds,
+            answerWindowSeconds: updatedGame.answerWindowSeconds,
           });
         } catch (err) {
           socket.send(JSON.stringify({ type: 'player:returnToLobby:error', error: err.code || 'RETURN_FAILED' }));
@@ -364,6 +371,6 @@ module.exports = {
   nextStageDurationFor,
   scheduleDisconnectGrace,
   scheduleSongTransition,
-  STAGE_ANSWER_WINDOW_MS,
+  DEFAULT_ANSWER_WINDOW_MS,
   SONG_REVEAL_DELAY_MS,
 };
