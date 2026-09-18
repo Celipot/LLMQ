@@ -674,3 +674,89 @@ test('a game is purged once its last player leaves', async () => {
 
   socket.close();
 });
+
+async function endGame(gameId, aliceSocket, bobSocket, correctTitle) {
+  multiplayerGames.getGame(gameId).stage = 6; // last stage (TIERS_SECONDS has 6 entries)
+
+  const aliceResultPromise = aliceSocket.nextMessage();
+  const bobFoundStatusPromise = bobSocket.nextMessage();
+  aliceSocket.send(JSON.stringify({ type: 'answer:submit', value: correctTitle }));
+  await aliceResultPromise;
+  await bobFoundStatusPromise;
+
+  const aliceForfeitedStatusPromise = aliceSocket.nextMessage();
+  const bobForfeitedStatusPromise = bobSocket.nextMessage();
+  bobSocket.send(JSON.stringify({ type: 'stage:forfeit' }));
+  await aliceForfeitedStatusPromise;
+  await bobForfeitedStatusPromise;
+
+  await aliceSocket.nextMessage(); // game:ended
+  await bobSocket.nextMessage(); // game:ended
+}
+
+test('player:returnToLobby resets the game to lobby and broadcasts the updated players to everyone', async () => {
+  const { gameId, aliceId, bobId, aliceSocket, bobSocket, correctTitle } = await createStartedGameWithSockets();
+  await endGame(gameId, aliceSocket, bobSocket, correctTitle);
+
+  const aliceResetPromise = aliceSocket.nextMessage();
+  const bobResetPromise = bobSocket.nextMessage();
+  aliceSocket.send(JSON.stringify({ type: 'player:returnToLobby' }));
+
+  const aliceReset = await aliceResetPromise;
+  const bobReset = await bobResetPromise;
+  for (const message of [aliceReset, bobReset]) {
+    assert.equal(message.type, 'game:reset');
+    const alicePlayer = message.players.find((p) => p.playerId === aliceId);
+    const bobPlayer = message.players.find((p) => p.playerId === bobId);
+    assert.equal(alicePlayer.returnedToLobby, true);
+    assert.equal(bobPlayer.returnedToLobby, false);
+    assert.equal(alicePlayer.status, 'active');
+  }
+
+  const res = await fetch(`${baseUrl}/games/${gameId}`);
+  assert.equal((await res.json()).status, 'lobby');
+
+  aliceSocket.close();
+  bobSocket.close();
+});
+
+test('a second player confirming return only updates their own returnedToLobby flag', async () => {
+  const { gameId, aliceId, bobId, aliceSocket, bobSocket, correctTitle } = await createStartedGameWithSockets();
+  await endGame(gameId, aliceSocket, bobSocket, correctTitle);
+
+  const aliceOwnResetPromise = aliceSocket.nextMessage();
+  const bobResetPromise1 = bobSocket.nextMessage();
+  aliceSocket.send(JSON.stringify({ type: 'player:returnToLobby' }));
+  await aliceOwnResetPromise; // game:reset echoed back to Alice herself
+  await bobResetPromise1;
+
+  const aliceResetPromise = aliceSocket.nextMessage();
+  const bobResetPromise2 = bobSocket.nextMessage();
+  bobSocket.send(JSON.stringify({ type: 'player:returnToLobby' }));
+
+  const aliceReset = await aliceResetPromise;
+  const bobReset = await bobResetPromise2;
+  for (const message of [aliceReset, bobReset]) {
+    const alicePlayer = message.players.find((p) => p.playerId === aliceId);
+    const bobPlayer = message.players.find((p) => p.playerId === bobId);
+    assert.equal(alicePlayer.returnedToLobby, true);
+    assert.equal(bobPlayer.returnedToLobby, true);
+  }
+
+  aliceSocket.close();
+  bobSocket.close();
+});
+
+test('player:returnToLobby is rejected while the game is still in progress', async () => {
+  const { aliceSocket, bobSocket } = await createStartedGameWithSockets();
+
+  const aliceErrorPromise = aliceSocket.nextMessage();
+  aliceSocket.send(JSON.stringify({ type: 'player:returnToLobby' }));
+  const aliceError = await aliceErrorPromise;
+
+  assert.equal(aliceError.type, 'player:returnToLobby:error');
+  assert.equal(aliceError.error, 'GAME_NOT_ENDED');
+
+  aliceSocket.close();
+  bobSocket.close();
+});

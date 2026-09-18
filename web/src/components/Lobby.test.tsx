@@ -363,4 +363,105 @@ describe('Lobby', () => {
     expect(socket.sent).toContainEqual(JSON.stringify({ type: 'player:leave' }));
     expect(onLeave).toHaveBeenCalledOnce();
   });
+
+  test('clicking "Retour au lobby" sends player:returnToLobby and navigates only this client back to the lobby', async () => {
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
+    await screen.findByText('Alice');
+    socket.emit({
+      type: 'game:ended',
+      song: { title: 'Some Song', artist: 'Some Artist', coverUrl: '/covers/x.png' },
+      players: [{ playerId: 'p1', nickname: 'Alice', foundStage: 1, score: 6 }],
+    });
+    await screen.findByText(/Some Song — Some Artist/);
+
+    await userEvent.click(screen.getByText('Retour au lobby'));
+
+    expect(socket.sent).toContainEqual(JSON.stringify({ type: 'player:returnToLobby' }));
+    expect(await screen.findByText('En attente du lancement de la partie...')).toBeInTheDocument();
+  });
+
+  test('a game:reset from another player does not navigate this client away from the results screen', async () => {
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({
+      type: 'lobby:state',
+      players: [
+        { playerId: 'p1', nickname: 'Alice' },
+        { playerId: 'p2', nickname: 'Bob' },
+      ],
+    });
+    await screen.findByText('Alice');
+    socket.emit({
+      type: 'game:ended',
+      song: { title: 'Some Song', artist: 'Some Artist', coverUrl: '/covers/x.png' },
+      players: [
+        { playerId: 'p1', nickname: 'Alice', foundStage: 1, score: 6 },
+        { playerId: 'p2', nickname: 'Bob', foundStage: null, score: 0 },
+      ],
+    });
+    await screen.findByText(/Some Song — Some Artist/);
+
+    socket.emit({
+      type: 'game:reset',
+      players: [
+        { playerId: 'p1', nickname: 'Alice', status: 'active', returnedToLobby: false },
+        { playerId: 'p2', nickname: 'Bob', status: 'active', returnedToLobby: true },
+      ],
+    });
+
+    expect(screen.getByText(/Some Song — Some Artist/)).toBeInTheDocument();
+  });
+
+  test('shows "(en attente)" in the lobby for a player who has not confirmed return', async () => {
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({
+      type: 'lobby:state',
+      players: [
+        { playerId: 'p1', nickname: 'Alice' },
+        { playerId: 'p2', nickname: 'Bob' },
+      ],
+    });
+    await screen.findByText('Alice');
+    socket.emit({
+      type: 'game:ended',
+      song: { title: 'Some Song', artist: 'Some Artist', coverUrl: '/covers/x.png' },
+      players: [
+        { playerId: 'p1', nickname: 'Alice', foundStage: 1, score: 6 },
+        { playerId: 'p2', nickname: 'Bob', foundStage: null, score: 0 },
+      ],
+    });
+    await screen.findByText(/Some Song — Some Artist/);
+
+    await userEvent.click(screen.getByText('Retour au lobby'));
+    socket.emit({
+      type: 'game:reset',
+      players: [
+        { playerId: 'p1', nickname: 'Alice', status: 'active', returnedToLobby: true },
+        { playerId: 'p2', nickname: 'Bob', status: 'active', returnedToLobby: false },
+      ],
+    });
+
+    expect(await screen.findByText(/Bob/)).toHaveTextContent('(en attente)');
+    expect(screen.getByText(/Alice/)).not.toHaveTextContent('(en attente)');
+  });
+
+  test('a straggler stuck on results is pulled into the new round once stage:start arrives', async () => {
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
+    await screen.findByText('Alice');
+    socket.emit({
+      type: 'game:ended',
+      song: { title: 'Some Song', artist: 'Some Artist', coverUrl: '/covers/x.png' },
+      players: [{ playerId: 'p1', nickname: 'Alice', foundStage: 1, score: 6 }],
+    });
+    await screen.findByText(/Some Song — Some Artist/);
+
+    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now() });
+
+    expect(await screen.findByText(/Étape 1/)).toBeInTheDocument();
+  });
 });

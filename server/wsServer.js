@@ -195,6 +195,13 @@ function attachWebSocketServer(httpServer) {
         } catch (err) {
           socket.send(JSON.stringify({ type: 'stage:forfeit:error', error: err.code || 'FORFEIT_FAILED' }));
         }
+      } else if (payload.type === 'player:returnToLobby') {
+        try {
+          const updatedGame = multiplayerGames.confirmReturnToLobby(gameId, playerId);
+          broadcast(gameId, { type: 'game:reset', players: updatedGame.players });
+        } catch (err) {
+          socket.send(JSON.stringify({ type: 'player:returnToLobby:error', error: err.code || 'RETURN_FAILED' }));
+        }
       } else if (payload.type === 'player:leave') {
         // Deliberate exit (backlog MP-15): unlike a dropped connection
         // (MP-08/13, player kept for a possible reconnect), the player is

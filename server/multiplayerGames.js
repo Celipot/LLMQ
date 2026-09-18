@@ -166,6 +166,41 @@ function checkStageProgress(gameId, getDurationForStage, maxStage) {
   return { type: 'advanced', stage: game.stage, durationSeconds: getDurationForStage(game.stage) };
 }
 
+// Any single player confirming (backlog: "chaque joueur doit appuyer sur le
+// bouton") is enough to flip the whole game back to lobby — there's only one
+// shared status. Each player's own returnedToLobby flag is tracked purely so
+// the lobby screen can show "(en attente)" for stragglers; it doesn't gate
+// anything.
+function confirmReturnToLobby(gameId, playerId) {
+  const game = games.get(gameId);
+  if (!game) {
+    throw fail('GAME_NOT_FOUND');
+  }
+  const player = game.players.find((p) => p.playerId === playerId);
+  if (!player) {
+    throw fail('PLAYER_NOT_FOUND');
+  }
+
+  if (game.status === 'ended') {
+    game.status = 'lobby';
+    game.stage = 0;
+    delete game.songId;
+    delete game.stageStartedAt;
+    for (const p of game.players) {
+      p.status = 'active';
+      p.returnedToLobby = false;
+      delete p.foundStage;
+      delete p.score;
+      delete p.forfeitReason;
+    }
+  } else if (game.status !== 'lobby') {
+    throw fail('GAME_NOT_ENDED');
+  }
+
+  player.returnedToLobby = true;
+  return game;
+}
+
 function markConnected(gameId, playerId) {
   const game = games.get(gameId);
   const player = game && game.players.find((p) => p.playerId === playerId);
@@ -190,4 +225,5 @@ module.exports = {
   checkStageProgress,
   markConnected,
   markDisconnected,
+  confirmReturnToLobby,
 };

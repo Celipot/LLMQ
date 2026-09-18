@@ -94,6 +94,9 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         setStageInfo({ stage: message.stage, durationSeconds: message.durationSeconds });
         setAnswerFeedback(null);
         setForfeited(false);
+        // A straggler who never clicked "Retour au lobby" must not stay
+        // stuck on the old results screen once a new round actually starts.
+        setGameResult(null);
         // "found" is permanent for the whole game — only forfeited players
         // get another try once the stage advances (see server-side
         // multiplayerGames.checkStageProgress for the matching rule).
@@ -102,6 +105,13 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         );
       } else if (message.type === 'game:ended') {
         setGameResult({ song: message.song, players: message.players });
+      } else if (message.type === 'game:reset') {
+        // Broadcast to everyone whenever any player confirms "Retour au
+        // lobby" — only refreshes the shared player list (so those already
+        // in the lobby see who's still waiting). It does NOT navigate
+        // anyone away from their results screen; only clicking your own
+        // button does that (see confirmReturnToLobby below).
+        setPlayers(message.players);
       } else if (message.type === 'answer:result' && typeof message.correct === 'boolean') {
         setAnswerFeedback({ correct: message.correct });
         // The server excludes the sender from the "found" broadcast (they
@@ -151,6 +161,13 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
     onLeave();
   }
 
+  function confirmReturnToLobby() {
+    socketRef.current?.send(JSON.stringify({ type: 'player:returnToLobby' }));
+    // Only this client navigates — others stay on their own results screen
+    // until they click their own button (see the game:reset handler above).
+    setGameResult(null);
+  }
+
   async function handleLaunch() {
     const hostToken = localStorage.getItem(`hostToken:${gameId}`);
     if (!hostToken) return;
@@ -170,7 +187,14 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
   }
 
   if (gameResult) {
-    return <GameResult song={gameResult.song} players={gameResult.players} />;
+    return (
+      <>
+        <GameResult song={gameResult.song} players={gameResult.players} />
+        <button type="button" onClick={confirmReturnToLobby}>
+          Retour au lobby
+        </button>
+      </>
+    );
   }
 
   if (stageInfo) {
@@ -198,7 +222,10 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
       <p className="subtitle">En attente du lancement de la partie...</p>
       <ul className="lobby-players">
         {players.map((player) => (
-          <li key={player.playerId}>{player.nickname}</li>
+          <li key={player.playerId}>
+            {player.nickname}
+            {player.returnedToLobby === false && <span className="player-waiting"> (en attente)</span>}
+          </li>
         ))}
       </ul>
       {isHost && (

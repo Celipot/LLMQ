@@ -345,3 +345,56 @@ test('markDisconnected is a no-op for an unknown player or game', () => {
   assert.doesNotThrow(() => multiplayerGames.markDisconnected(game.gameId, 'unknown-player'));
   assert.doesNotThrow(() => multiplayerGames.markDisconnected('unknown-game', 'unknown-player'));
 });
+
+function endedGameWithTwoPlayers() {
+  const game = startedGameWithTwoPlayers();
+  const stored = multiplayerGames.getGame(game.gameId);
+  const [alice, bob] = stored.players;
+  multiplayerGames.submitAnswer(game.gameId, alice.playerId, 'Correct Title', findSongByTitle, computeScore);
+  multiplayerGames.forfeitStage(game.gameId, bob.playerId);
+  stored.stage = 6;
+  multiplayerGames.checkStageProgress(game.gameId, durationForStage, 6);
+  return { gameId: game.gameId, alice, bob };
+}
+
+test('confirmReturnToLobby resets the game and marks the caller returned, others waiting', () => {
+  const { gameId, alice, bob } = endedGameWithTwoPlayers();
+  const game = multiplayerGames.confirmReturnToLobby(gameId, alice.playerId);
+
+  assert.equal(game.status, 'lobby');
+  assert.equal(game.stage, 0);
+  assert.equal(game.songId, undefined);
+  assert.equal(game.stageStartedAt, undefined);
+  assert.equal(alice.status, 'active');
+  assert.equal(alice.returnedToLobby, true);
+  assert.equal(alice.foundStage, undefined);
+  assert.equal(alice.score, undefined);
+  assert.equal(bob.status, 'active');
+  assert.equal(bob.returnedToLobby, false);
+  assert.equal(bob.forfeitReason, undefined);
+});
+
+test('confirmReturnToLobby from a second player only marks that player, once the game is already lobby', () => {
+  const { gameId, alice, bob } = endedGameWithTwoPlayers();
+  multiplayerGames.confirmReturnToLobby(gameId, alice.playerId);
+  multiplayerGames.confirmReturnToLobby(gameId, bob.playerId);
+
+  assert.equal(alice.returnedToLobby, true);
+  assert.equal(bob.returnedToLobby, true);
+  assert.equal(multiplayerGames.getGame(gameId).status, 'lobby');
+});
+
+test('confirmReturnToLobby throws GAME_NOT_FOUND for an unknown gameId', () => {
+  assert.throws(() => multiplayerGames.confirmReturnToLobby('unknown-game', 'p1'), /GAME_NOT_FOUND/);
+});
+
+test('confirmReturnToLobby throws PLAYER_NOT_FOUND for an unknown playerId', () => {
+  const { gameId } = endedGameWithTwoPlayers();
+  assert.throws(() => multiplayerGames.confirmReturnToLobby(gameId, 'unknown-player'), /PLAYER_NOT_FOUND/);
+});
+
+test('confirmReturnToLobby throws GAME_NOT_ENDED while the game is still in progress', () => {
+  const game = startedGameWithTwoPlayers();
+  const alice = multiplayerGames.getGame(game.gameId).players[0];
+  assert.throws(() => multiplayerGames.confirmReturnToLobby(game.gameId, alice.playerId), /GAME_NOT_ENDED/);
+});
