@@ -417,9 +417,10 @@ test('a stage timeout armed for a previous song does not forfeit players of the 
   const game = multiplayerGames.getGame(gameId);
   game.songCount = 2;
 
-  // Stage 1's timer of song 1 is still pending when everyone forfeits and
-  // the song ends early; song 2 then restarts at stage 1.
+  // Stage 1's timer of song 1 is still pending when the song ends (here by
+  // jumping to its last stage); song 2 then restarts at stage 1.
   scheduleStageTimeout(gameId, 1, 60);
+  game.stage = 6;
   aliceSocket.send(JSON.stringify({ type: 'stage:forfeit' }));
   bobSocket.send(JSON.stringify({ type: 'stage:forfeit' }));
   for (;;) {
@@ -439,7 +440,9 @@ test('a stage timeout armed for a previous song does not forfeit players of the 
 
 test('a forfeit during the song reveal is rejected, and accepted once the next song starts', async () => {
   const { gameId, aliceId, aliceSocket, bobSocket } = await createStartedGameWithSockets();
-  multiplayerGames.getGame(gameId).songCount = 2;
+  const game = multiplayerGames.getGame(gameId);
+  game.songCount = 2;
+  game.stage = 6;
 
   aliceSocket.send(JSON.stringify({ type: 'stage:forfeit' }));
   bobSocket.send(JSON.stringify({ type: 'stage:forfeit' }));

@@ -217,23 +217,13 @@ function checkStageProgress(gameId, getDurationForStage, maxStage, pickSongId) {
     return { type: 'none' };
   }
 
-  // Skip straight to the end instead of advancing one stage at a time when
-  // there's nobody left who'd meaningfully benefit from a fresh try:
-  // - everyone already found the song (only forfeited players are reset to
-  //   active on advance — backlog: "si tout le monde a trouvé, les étapes
-  //   devraient être skip"), or
-  // - everyone unanimously forfeited (nobody found it and nobody is still
-  //   trying — backlog: "la dernière étape devrait être sautée quand tout
-  //   le monde abandonne"). A *mix* of found and forfeited still advances
-  //   normally below: a forfeited player may still want a longer clip next
-  //   stage regardless of whether someone else already found it.
+  // Skip straight to the end once everyone already found the song: only
+  // forfeited players are reset to active on advance, so nobody would be
+  // left to play the remaining stages (backlog: "si tout le monde a trouvé,
+  // les étapes devraient être skip"). Forfeiting — even unanimously — always
+  // just advances one stage: those players still want a longer clip.
   const everyoneFound = game.players.every((player) => player.status === 'found');
-  // length > 1: a lone remaining player (e.g. solo testing, or after
-  // everyone else left) forfeiting is just their normal retry flow, not a
-  // group unanimously giving up — must not short-circuit their own
-  // stage-by-stage progression.
-  const everyoneForfeited = game.players.length > 1 && game.players.every((player) => player.status === 'forfeited');
-  if (everyoneFound || everyoneForfeited) {
+  if (everyoneFound) {
     game.stage = maxStage;
     game.stageStartedAt = Date.now();
   }

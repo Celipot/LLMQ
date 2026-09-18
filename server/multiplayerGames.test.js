@@ -443,25 +443,35 @@ test('checkStageProgress does not skip while a player is still forfeited (not ev
   assert.equal(result.stage, 2);
 });
 
-test('checkStageProgress skips straight to the end once everyone has unanimously forfeited (backlog: skip on abandon)', () => {
+test('checkStageProgress advances to the next stage when everyone forfeits, instead of skipping the rest', () => {
   const game = startedGameWithTwoPlayers();
   const [alice, bob] = multiplayerGames.getGame(game.gameId).players;
-  // Both give up at stage 1 — nobody found it and nobody is still trying,
-  // so continuing to cycle through stages 2-6 offers nothing.
+  multiplayerGames.forfeitStage(game.gameId, alice.playerId);
+  multiplayerGames.forfeitStage(game.gameId, bob.playerId);
+
+  const result = multiplayerGames.checkStageProgress(game.gameId, durationForStage, 6);
+
+  assert.equal(result.type, 'advanced');
+  assert.equal(result.stage, 2);
+  assert.equal(alice.status, 'active');
+  assert.equal(bob.status, 'active');
+});
+
+test('checkStageProgress ends the song when everyone forfeits the last stage', () => {
+  const game = startedGameWithTwoPlayers();
+  const stored = multiplayerGames.getGame(game.gameId);
+  stored.stage = 6;
+  const [alice, bob] = stored.players;
   multiplayerGames.forfeitStage(game.gameId, alice.playerId);
   multiplayerGames.forfeitStage(game.gameId, bob.playerId);
 
   const result = multiplayerGames.checkStageProgress(game.gameId, durationForStage, 6);
 
   assert.equal(result.type, 'ended');
-  assert.equal(multiplayerGames.getGame(game.gameId).stage, 6);
-  const aliceResult = result.players.find((p) => p.playerId === alice.playerId);
-  const bobResult = result.players.find((p) => p.playerId === bob.playerId);
-  assert.equal(aliceResult.score, 0);
-  assert.equal(bobResult.score, 0);
+  assert.ok(result.players.every((p) => p.score === 0));
 });
 
-test('checkStageProgress does not skip a solo remaining player who forfeits — that is their normal retry, not a group giving up', () => {
+test('checkStageProgress advances a solo remaining player who forfeits', () => {
   const game = multiplayerGames.createGame();
   multiplayerGames.joinGame(game.gameId, 'Alice');
   multiplayerGames.startGame(game.gameId, game.hostToken, () => 42);
