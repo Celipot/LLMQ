@@ -26,6 +26,7 @@ describe('GamePlay', () => {
         answerFeedback={null}
         forfeited={false}
         onForfeit={vi.fn()}
+        onLeave={vi.fn()}
         players={[]}
       />
     );
@@ -45,6 +46,7 @@ describe('GamePlay', () => {
         answerFeedback={null}
         forfeited={false}
         onForfeit={vi.fn()}
+        onLeave={vi.fn()}
         players={[]}
       />
     );
@@ -67,6 +69,7 @@ describe('GamePlay', () => {
         answerFeedback={null}
         forfeited={false}
         onForfeit={vi.fn()}
+        onLeave={vi.fn()}
         players={[]}
       />
     );
@@ -90,6 +93,7 @@ describe('GamePlay', () => {
         answerFeedback={{ correct: true }}
         forfeited={false}
         onForfeit={vi.fn()}
+        onLeave={vi.fn()}
         players={[]}
       />
     );
@@ -110,6 +114,7 @@ describe('GamePlay', () => {
         answerFeedback={{ correct: false }}
         forfeited={false}
         onForfeit={vi.fn()}
+        onLeave={vi.fn()}
         players={[]}
       />
     );
@@ -130,6 +135,7 @@ describe('GamePlay', () => {
         answerFeedback={null}
         forfeited={false}
         onForfeit={onForfeit}
+        onLeave={vi.fn()}
         players={[]}
       />
     );
@@ -150,6 +156,7 @@ describe('GamePlay', () => {
         answerFeedback={null}
         forfeited={true}
         onForfeit={vi.fn()}
+        onLeave={vi.fn()}
         players={[]}
       />
     );
@@ -171,6 +178,7 @@ describe('GamePlay', () => {
         answerFeedback={null}
         forfeited={false}
         onForfeit={vi.fn()}
+        onLeave={vi.fn()}
         players={[
           { playerId: 'p1', nickname: 'Alice', status: 'active' },
           { playerId: 'p2', nickname: 'Bob', status: 'found' },
@@ -195,6 +203,7 @@ describe('GamePlay', () => {
         answerFeedback={null}
         forfeited={false}
         onForfeit={vi.fn()}
+        onLeave={vi.fn()}
         players={[{ playerId: 'p1', nickname: 'Alice', status: 'found' }]}
       />
     );
@@ -213,6 +222,7 @@ describe('GamePlay', () => {
         answerFeedback={null}
         forfeited={false}
         onForfeit={vi.fn()}
+        onLeave={vi.fn()}
         players={[
           { playerId: 'p1', nickname: 'Alice', status: 'active', connected: false },
           { playerId: 'p2', nickname: 'Bob', status: 'active', connected: true },
@@ -222,5 +232,27 @@ describe('GamePlay', () => {
 
     expect(screen.getByText(/Alice — cherche encore/)).toHaveTextContent('(déconnecté)');
     expect(screen.getByText(/Bob — cherche encore/)).not.toHaveTextContent('(déconnecté)');
+  });
+
+  test('clicking "Quitter la partie" calls onLeave', async () => {
+    vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
+    const onLeave = vi.fn();
+    render(
+      <GamePlay
+        gameId="g1"
+        stage={1}
+        durationSeconds={1}
+        onSubmitAnswer={vi.fn()}
+        answerFeedback={null}
+        forfeited={false}
+        onForfeit={vi.fn()}
+        players={[]}
+        onLeave={onLeave}
+      />
+    );
+
+    await userEvent.click(screen.getByText('Quitter la partie'));
+
+    expect(onLeave).toHaveBeenCalledOnce();
   });
 });

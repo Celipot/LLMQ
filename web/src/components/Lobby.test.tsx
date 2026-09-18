@@ -58,7 +58,7 @@ afterEach(() => {
 
 describe('Lobby', () => {
   test('renders players received via the lobby:state snapshot', async () => {
-    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} />);
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     const socket = MockWebSocket.instances[0];
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
 
@@ -66,7 +66,7 @@ describe('Lobby', () => {
   });
 
   test('adds a player on player:joined and removes it on player:left', async () => {
-    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} />);
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     const socket = MockWebSocket.instances[0];
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
     await screen.findByText('Alice');
@@ -79,7 +79,7 @@ describe('Lobby', () => {
   });
 
   test('does not duplicate a player who reconnects (repeated player:joined for the same playerId)', async () => {
-    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} />);
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     const socket = MockWebSocket.instances[0];
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
     await screen.findByText('Alice');
@@ -92,13 +92,13 @@ describe('Lobby', () => {
   });
 
   test('does not show the launch button for a non-host player', async () => {
-    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} />);
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     expect(screen.queryByText('Lancer la partie')).not.toBeInTheDocument();
   });
 
   test('shows a disabled launch button for the host with fewer than 2 players', async () => {
     localStorage.setItem('hostToken:g1', 'token');
-    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} />);
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     const socket = MockWebSocket.instances[0];
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
 
@@ -107,7 +107,7 @@ describe('Lobby', () => {
 
   test('enables the launch button for the host once at least 2 players are present', async () => {
     localStorage.setItem('hostToken:g1', 'token');
-    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} />);
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     const socket = MockWebSocket.instances[0];
     socket.emit({
       type: 'lobby:state',
@@ -123,7 +123,7 @@ describe('Lobby', () => {
   test('clicking launch calls startMultiplayerGame with the stored hostToken', async () => {
     localStorage.setItem('hostToken:g1', 'the-host-token');
     vi.mocked(api.startMultiplayerGame).mockResolvedValue({ status: 'in_progress' });
-    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} />);
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     const socket = MockWebSocket.instances[0];
     socket.emit({
       type: 'lobby:state',
@@ -141,7 +141,7 @@ describe('Lobby', () => {
   test('shows an error when launching fails because there are not enough players', async () => {
     localStorage.setItem('hostToken:g1', 'the-host-token');
     vi.mocked(api.startMultiplayerGame).mockRejectedValue(new ApiError('NOT_ENOUGH_PLAYERS'));
-    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} />);
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     const socket = MockWebSocket.instances[0];
     socket.emit({
       type: 'lobby:state',
@@ -157,7 +157,7 @@ describe('Lobby', () => {
   });
 
   test('shows the starting message once game:started is received', async () => {
-    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} />);
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     const socket = MockWebSocket.instances[0];
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
     await screen.findByText('Alice');
@@ -168,7 +168,7 @@ describe('Lobby', () => {
   });
 
   test('renders GamePlay once stage:start is received', async () => {
-    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} />);
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     const socket = MockWebSocket.instances[0];
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
     await screen.findByText('Alice');
@@ -180,7 +180,7 @@ describe('Lobby', () => {
   });
 
   test('sends answer:submit over the socket and shows the result once received', async () => {
-    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} />);
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     const socket = MockWebSocket.instances[0];
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
     await screen.findByText('Alice');
@@ -199,7 +199,7 @@ describe('Lobby', () => {
   });
 
   test('sends stage:forfeit over the socket and shows the forfeited message once acknowledged', async () => {
-    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} />);
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     const socket = MockWebSocket.instances[0];
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
     await screen.findByText('Alice');
@@ -216,7 +216,7 @@ describe('Lobby', () => {
   });
 
   test('reflects another player found/forfeited status live during the stage', async () => {
-    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} />);
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     const socket = MockWebSocket.instances[0];
     socket.emit({
       type: 'lobby:state',
@@ -237,7 +237,7 @@ describe('Lobby', () => {
   });
 
   test('reflects its own found status in the shared player list once answer:result arrives', async () => {
-    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} />);
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     const socket = MockWebSocket.instances[0];
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice', status: 'active' }] });
     await screen.findByText('Alice');
@@ -250,7 +250,7 @@ describe('Lobby', () => {
   });
 
   test('does not reset a found player back to active when the stage advances', async () => {
-    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} />);
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     const socket = MockWebSocket.instances[0];
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice', status: 'active' }] });
     await screen.findByText('Alice');
@@ -266,7 +266,7 @@ describe('Lobby', () => {
   });
 
   test('renders GameResult once game:ended is received', async () => {
-    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} />);
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     const socket = MockWebSocket.instances[0];
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice', status: 'active' }] });
     await screen.findByText('Alice');
@@ -284,7 +284,7 @@ describe('Lobby', () => {
 
   test('reconnects automatically after an unexpected close and resyncs via game:state', async () => {
     vi.useFakeTimers();
-    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} />);
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     const firstSocket = MockWebSocket.instances[0];
     firstSocket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice', status: 'active' }] });
 
@@ -309,7 +309,7 @@ describe('Lobby', () => {
 
   test('calls onSessionInvalid and does not retry when the socket closes with code 4004', async () => {
     const onSessionInvalid = vi.fn();
-    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={onSessionInvalid} />);
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={onSessionInvalid} onLeave={vi.fn()} />);
     const socket = MockWebSocket.instances[0];
 
     socket.triggerClose(4004);
@@ -318,7 +318,7 @@ describe('Lobby', () => {
   });
 
   test('reflects a live player:connection update in GamePlay', async () => {
-    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} />);
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     const socket = MockWebSocket.instances[0];
     socket.emit({
       type: 'lobby:state',
@@ -334,5 +334,33 @@ describe('Lobby', () => {
     socket.emit({ type: 'player:connection', playerId: 'p2', connected: false });
 
     expect(await screen.findByText(/Bob — cherche encore/)).toHaveTextContent('(déconnecté)');
+  });
+
+  test('clicking "Quitter la partie" in the waiting room sends player:leave and calls onLeave', async () => {
+    const onLeave = vi.fn();
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={onLeave} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
+    await screen.findByText('Alice');
+
+    await userEvent.click(screen.getByText('Quitter la partie'));
+
+    expect(socket.sent).toContainEqual(JSON.stringify({ type: 'player:leave' }));
+    expect(onLeave).toHaveBeenCalledOnce();
+  });
+
+  test('clicking "Quitter la partie" during a stage sends player:leave and calls onLeave', async () => {
+    const onLeave = vi.fn();
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={onLeave} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
+    await screen.findByText('Alice');
+    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now() });
+    await screen.findByText(/Étape 1/);
+
+    await userEvent.click(screen.getByText('Quitter la partie'));
+
+    expect(socket.sent).toContainEqual(JSON.stringify({ type: 'player:leave' }));
+    expect(onLeave).toHaveBeenCalledOnce();
   });
 });

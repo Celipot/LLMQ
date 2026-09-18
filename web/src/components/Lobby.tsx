@@ -8,6 +8,7 @@ interface LobbyProps {
   gameId: string;
   playerId: string;
   onSessionInvalid: () => void;
+  onLeave: () => void;
 }
 
 interface StageInfo {
@@ -29,7 +30,7 @@ const MIN_PLAYERS_TO_START = 2;
 // bounds reconnection; this is just how often the client retries within it.
 const RECONNECT_DELAY_MS = 2000;
 
-export default function Lobby({ gameId, playerId, onSessionInvalid }: LobbyProps) {
+export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: LobbyProps) {
   const [players, setPlayers] = useState<MultiplayerPlayer[]>([]);
   const [started, setStarted] = useState(false);
   const [stageInfo, setStageInfo] = useState<StageInfo | null>(null);
@@ -145,6 +146,11 @@ export default function Lobby({ gameId, playerId, onSessionInvalid }: LobbyProps
     socketRef.current?.send(JSON.stringify({ type: 'stage:forfeit' }));
   }
 
+  function leaveGame() {
+    socketRef.current?.send(JSON.stringify({ type: 'player:leave' }));
+    onLeave();
+  }
+
   async function handleLaunch() {
     const hostToken = localStorage.getItem(`hostToken:${gameId}`);
     if (!hostToken) return;
@@ -178,6 +184,7 @@ export default function Lobby({ gameId, playerId, onSessionInvalid }: LobbyProps
         forfeited={forfeited}
         onForfeit={forfeitStage}
         players={players}
+        onLeave={leaveGame}
       />
     );
   }
@@ -206,6 +213,9 @@ export default function Lobby({ gameId, playerId, onSessionInvalid }: LobbyProps
           )}
         </>
       )}
+      <button type="button" className="secondary" onClick={leaveGame}>
+        Quitter la partie
+      </button>
     </section>
   );
 }

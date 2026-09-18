@@ -195,11 +195,28 @@ function attachWebSocketServer(httpServer) {
         } catch (err) {
           socket.send(JSON.stringify({ type: 'stage:forfeit:error', error: err.code || 'FORFEIT_FAILED' }));
         }
+      } else if (payload.type === 'player:leave') {
+        // Deliberate exit (backlog MP-15): unlike a dropped connection
+        // (MP-08/13, player kept for a possible reconnect), the player is
+        // fully removed. They simply disappear from game.players, so
+        // checkStageProgress's "everyone resolved" check already treats
+        // that as counting toward progression — no special status needed.
+        socketsFor(gameId).delete(socket);
+        multiplayerGames.removePlayer(gameId, playerId);
+        broadcast(gameId, { type: 'player:left', playerId }, socket);
+        if (game.status === 'in_progress') {
+          handleStageProgress(gameId);
+        }
       }
     });
 
     socket.on('close', () => {
       socketsFor(gameId).delete(socket);
+      // Nothing left to do if the player already left voluntarily
+      // (player:leave above) — avoid scheduling a pointless grace timer or
+      // re-broadcasting player:left for someone who's already gone.
+      const stillPresent = multiplayerGames.getGame(gameId)?.players.some((p) => p.playerId === playerId);
+      if (!stillPresent) return;
       // Once a game has started, a dropped connection must not erase the
       // player's progress — they may reconnect with the same playerId and
       // should find their status (active/found/forfeited) unchanged. Only

@@ -14,6 +14,7 @@ interface GamePlayProps {
   forfeited: boolean;
   onForfeit: () => void;
   players: MultiplayerPlayer[];
+  onLeave: () => void;
 }
 
 const STATUS_LABEL: Record<PlayerStageStatus, string> = {
@@ -31,6 +32,7 @@ export default function GamePlay({
   forfeited,
   onForfeit,
   players,
+  onLeave,
 }: GamePlayProps) {
   const [titles, setTitles] = useState<PlayableSong[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -104,6 +106,9 @@ export default function GamePlay({
           </li>
         ))}
       </ul>
+      <button type="button" className="secondary" onClick={onLeave}>
+        Quitter la partie
+      </button>
     </section>
   );
 }

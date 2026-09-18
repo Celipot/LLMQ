@@ -86,6 +86,14 @@ export default function App() {
     setScreen('join');
   }
 
+  function handleLeave() {
+    if (gameId) localStorage.removeItem(`playerId:${gameId}`);
+    window.history.pushState(null, '', '/');
+    setGameId(null);
+    setPlayerId(null);
+    setScreen('home');
+  }
+
   return (
     <main className="app">
       <div className="app-header">
@@ -110,7 +118,7 @@ export default function App() {
       {screen === 'join' && gameId && <JoinGame gameId={gameId} onJoined={handleJoined} />}
 
       {screen === 'lobby' && gameId && playerId && (
-        <Lobby gameId={gameId} playerId={playerId} onSessionInvalid={handleSessionInvalid} />
+        <Lobby gameId={gameId} playerId={playerId} onSessionInvalid={handleSessionInvalid} onLeave={handleLeave} />
       )}
 
       {(screen === 'random' || screen === 'list') && (

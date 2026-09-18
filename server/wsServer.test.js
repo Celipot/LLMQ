@@ -579,3 +579,84 @@ test('does not broadcast player:connection for an ordinary first-time join', asy
   aliceSocket.close();
   bobSocket.close();
 });
+
+test('player:leave removes the player from the lobby and broadcasts player:left', async () => {
+  const { gameId, playerId: aliceId } = await createGameWithPlayer('Alice');
+  const bob = await (
+    await fetch(`${baseUrl}/games/${gameId}/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nickname: 'Bob' }),
+    })
+  ).json();
+
+  const aliceSocket = await openSocket(gameId, aliceId);
+  await aliceSocket.nextMessage(); // lobby:state
+  const bobSocket = await openSocket(gameId, bob.playerId);
+  await aliceSocket.nextMessage(); // player:joined for Bob
+  await bobSocket.nextMessage(); // lobby:state
+
+  const bobLeftPromise = bobSocket.nextMessage();
+  aliceSocket.send(JSON.stringify({ type: 'player:leave' }));
+  const bobLeft = await bobLeftPromise;
+
+  assert.equal(bobLeft.type, 'player:left');
+  assert.equal(bobLeft.playerId, aliceId);
+  assert.ok(!multiplayerGames.getGame(gameId).players.some((p) => p.playerId === aliceId));
+
+  aliceSocket.close();
+  bobSocket.close();
+});
+
+test('player:leave during a stage counts as resolving it for progression', async () => {
+  const { gameId, aliceId, bobId, aliceSocket, bobSocket } = await createStartedGameWithSockets();
+
+  const bobLeftPromise = bobSocket.nextMessage();
+  aliceSocket.send(JSON.stringify({ type: 'player:leave' }));
+  await bobLeftPromise;
+
+  const bobStagePromise = bobSocket.nextMessage();
+  bobSocket.send(JSON.stringify({ type: 'stage:forfeit' }));
+  await bobStagePromise; // player:status forfeited for Bob himself
+
+  const bobNextStage = await bobSocket.nextMessage();
+  assert.equal(bobNextStage.type, 'stage:start');
+  assert.equal(bobNextStage.stage, 2);
+  assert.equal(multiplayerGames.getGame(gameId).players.length, 1);
+  assert.equal(multiplayerGames.getGame(gameId).players[0].playerId, bobId);
+
+  void aliceId;
+  bobSocket.close();
+});
+
+test('closing the socket after an explicit player:leave does not re-broadcast player:left', async () => {
+  const { gameId, playerId: aliceId } = await createGameWithPlayer('Alice');
+  const bob = await (
+    await fetch(`${baseUrl}/games/${gameId}/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nickname: 'Bob' }),
+    })
+  ).json();
+
+  const aliceSocket = await openSocket(gameId, aliceId);
+  await aliceSocket.nextMessage(); // lobby:state
+  const bobSocket = await openSocket(gameId, bob.playerId);
+  await aliceSocket.nextMessage(); // player:joined for Bob
+  await bobSocket.nextMessage(); // lobby:state
+
+  const bobLeftPromise = bobSocket.nextMessage();
+  aliceSocket.send(JSON.stringify({ type: 'player:leave' }));
+  await bobLeftPromise;
+
+  let bobReceivedAnotherMessage = false;
+  bobSocket.onmessage = () => {
+    bobReceivedAnotherMessage = true;
+  };
+  aliceSocket.close();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+
+  assert.equal(bobReceivedAnotherMessage, false);
+
+  bobSocket.close();
+});
