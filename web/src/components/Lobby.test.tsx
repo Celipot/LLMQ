@@ -520,19 +520,62 @@ describe('Lobby', () => {
     expect(onLeave).toHaveBeenCalledOnce();
   });
 
-  test('clicking "Quitter la partie" during a stage sends player:leave and calls onLeave', async () => {
-    const onLeave = vi.fn();
-    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={onLeave} />);
+  test('shows a song in the history sidebar once a song:ended arrives during a stage', async () => {
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     const socket = MockWebSocket.instances[0];
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
     await screen.findByText('Alice');
     socket.emit({ type: 'stage:start', maxStage: 6, stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
     await screen.findByText(/Étape 1/);
+    socket.emit({
+      type: 'song:ended',
+      song: { title: 'Some Song', artist: 'Some Artist', coverUrl: '/covers/x.png' },
+      players: [{ playerId: 'p1', nickname: 'Alice', foundStage: 1, score: 6, totalScore: 6 }],
+    });
+    socket.emit({ type: 'stage:start', maxStage: 6, stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
+    await screen.findByText(/Étape 1/);
 
-    await userEvent.click(screen.getByText('Quitter la partie'));
+    const history = screen.getByText('Historique').closest('aside');
+    expect(history).toHaveTextContent('Some Song');
+    expect(history).toHaveTextContent('Some Artist');
+  });
 
-    expect(socket.sent).toContainEqual(JSON.stringify({ type: 'player:leave' }));
-    expect(onLeave).toHaveBeenCalledOnce();
+  test('accumulates multiple song:ended entries in the history and resets it on game:reset', async () => {
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
+    await screen.findByText('Alice');
+    socket.emit({ type: 'stage:start', maxStage: 6, stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
+    await screen.findByText(/Étape 1/);
+    socket.emit({
+      type: 'song:ended',
+      song: { title: 'First Song', artist: 'Artist A', coverUrl: '/covers/a.png' },
+      players: [{ playerId: 'p1', nickname: 'Alice', foundStage: 1, score: 6, totalScore: 6 }],
+    });
+    socket.emit({ type: 'stage:start', maxStage: 6, stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000, songIndex: 2 });
+    await screen.findByText(/Musique 2/);
+    socket.emit({
+      type: 'song:ended',
+      song: { title: 'Second Song', artist: 'Artist B', coverUrl: '/covers/b.png' },
+      players: [{ playerId: 'p1', nickname: 'Alice', foundStage: 1, score: 4, totalScore: 10 }],
+    });
+    socket.emit({ type: 'stage:start', maxStage: 6, stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000, songIndex: 3 });
+    await screen.findByText(/Musique 3/);
+
+    const history = screen.getByText('Historique').closest('aside');
+    expect(history).toHaveTextContent('First Song');
+    expect(history).toHaveTextContent('Second Song');
+
+    socket.emit({ type: 'game:ended', song: { title: 'Second Song', artist: 'Artist B', coverUrl: '/covers/b.png' }, players: [] });
+    await screen.findByText(/Second Song — Artist B/);
+    await userEvent.click(screen.getByText('Retour au lobby'));
+    socket.emit({ type: 'game:reset', players: [{ playerId: 'p1', nickname: 'Alice', status: 'active' }] });
+    await screen.findByText('En attente du lancement de la partie...');
+
+    socket.emit({ type: 'stage:start', maxStage: 6, stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000, songIndex: 1 });
+    await screen.findByText(/Étape 1/);
+
+    expect(screen.queryByText('Historique')).not.toBeInTheDocument();
   });
 
   test('clicking "Retour au lobby" sends player:returnToLobby and navigates only this client back to the lobby', async () => {

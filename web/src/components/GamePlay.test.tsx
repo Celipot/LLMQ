@@ -34,7 +34,7 @@ describe('GamePlay', () => {
         answerFeedback={null}
         forfeited={false}
         onForfeit={vi.fn()}
-        onLeave={vi.fn()}
+        songHistory={[]}
         answerPending={false}
         forfeitPending={false}
         players={[]}
@@ -64,7 +64,7 @@ describe('GamePlay', () => {
         answerFeedback={null}
         forfeited={false}
         onForfeit={vi.fn()}
-        onLeave={vi.fn()}
+        songHistory={[]}
         answerPending={false}
         forfeitPending={false}
         players={[]}
@@ -96,7 +96,7 @@ describe('GamePlay', () => {
         answerFeedback={null}
         forfeited={false}
         onForfeit={vi.fn()}
-        onLeave={vi.fn()}
+        songHistory={[]}
         answerPending={false}
         forfeitPending={false}
         players={[]}
@@ -125,7 +125,7 @@ describe('GamePlay', () => {
         answerFeedback={null}
         forfeited={false}
         onForfeit={vi.fn()}
-        onLeave={vi.fn()}
+        songHistory={[]}
         answerPending={false}
         forfeitPending={false}
         players={[]}
@@ -158,7 +158,7 @@ describe('GamePlay', () => {
         answerFeedback={null}
         forfeited={false}
         onForfeit={vi.fn()}
-        onLeave={vi.fn()}
+        songHistory={[]}
         answerPending={false}
         forfeitPending={false}
         players={[]}
@@ -192,7 +192,7 @@ describe('GamePlay', () => {
         answerFeedback={{ correct: true }}
         forfeited={false}
         onForfeit={vi.fn()}
-        onLeave={vi.fn()}
+        songHistory={[]}
         answerPending={false}
         forfeitPending={false}
         players={[]}
@@ -224,7 +224,7 @@ describe('GamePlay', () => {
         answerFeedback={{ correct: false }}
         forfeited={false}
         onForfeit={vi.fn()}
-        onLeave={vi.fn()}
+        songHistory={[]}
         answerPending={false}
         forfeitPending={false}
         players={[]}
@@ -255,7 +255,7 @@ describe('GamePlay', () => {
         answerFeedback={null}
         forfeited={false}
         onForfeit={onForfeit}
-        onLeave={vi.fn()}
+        songHistory={[]}
         answerPending={false}
         forfeitPending={false}
         players={[]}
@@ -286,7 +286,7 @@ describe('GamePlay', () => {
         answerFeedback={null}
         forfeited={true}
         onForfeit={vi.fn()}
-        onLeave={vi.fn()}
+        songHistory={[]}
         answerPending={false}
         forfeitPending={false}
         players={[]}
@@ -318,7 +318,7 @@ describe('GamePlay', () => {
         answerFeedback={null}
         forfeited={false}
         onForfeit={vi.fn()}
-        onLeave={vi.fn()}
+        songHistory={[]}
         answerPending={false}
         forfeitPending={false}
         players={[
@@ -353,7 +353,7 @@ describe('GamePlay', () => {
         answerFeedback={null}
         forfeited={false}
         onForfeit={vi.fn()}
-        onLeave={vi.fn()}
+        songHistory={[]}
         answerPending={false}
         forfeitPending={false}
         players={[{ playerId: 'p1', nickname: 'Alice', status: 'found' }]}
@@ -382,7 +382,7 @@ describe('GamePlay', () => {
         answerFeedback={null}
         forfeited={false}
         onForfeit={vi.fn()}
-        onLeave={vi.fn()}
+        songHistory={[]}
         answerPending={false}
         forfeitPending={false}
         players={[
@@ -394,38 +394,6 @@ describe('GamePlay', () => {
 
     expect(screen.getByText(/Alice — cherche encore/)).toHaveTextContent('(déconnecté)');
     expect(screen.getByText(/Bob — cherche encore/)).not.toHaveTextContent('(déconnecté)');
-  });
-
-  test('clicking "Quitter la partie" calls onLeave', async () => {
-    vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
-    const onLeave = vi.fn();
-    render(
-      <GamePlay
-        gameId="g1"
-        stage={1}
-        maxStage={6}
-        durationSeconds={1}
-        nextDurationSeconds={null}
-        answerWindowMs={30000}
-        startedAt={Date.now()}
-        songIndex={1}
-        songCount={1}
-        songReveal={null}
-        scores={{}}
-        onSubmitAnswer={vi.fn()}
-        answerFeedback={null}
-        forfeited={false}
-        onForfeit={vi.fn()}
-        answerPending={false}
-        forfeitPending={false}
-        players={[]}
-        onLeave={onLeave}
-      />
-    );
-
-    await userEvent.click(screen.getByText('Quitter la partie'));
-
-    expect(onLeave).toHaveBeenCalledOnce();
   });
 
   test('shows a countdown that ticks down from the answer window', () => {
@@ -451,7 +419,7 @@ describe('GamePlay', () => {
         answerPending={false}
         forfeitPending={false}
         players={[]}
-        onLeave={vi.fn()}
+        songHistory={[]}
       />
     );
 
@@ -490,7 +458,7 @@ describe('GamePlay', () => {
         answerPending={false}
         forfeitPending={false}
         players={[]}
-        onLeave={vi.fn()}
+        songHistory={[]}
       />
     );
     act(() => {
@@ -519,7 +487,7 @@ describe('GamePlay', () => {
         answerPending={false}
         forfeitPending={false}
         players={[]}
-        onLeave={vi.fn()}
+        songHistory={[]}
       />
     );
 
@@ -550,7 +518,7 @@ describe('GamePlay', () => {
         answerPending={true}
         forfeitPending={false}
         players={[]}
-        onLeave={vi.fn()}
+        songHistory={[]}
       />
     );
 
@@ -582,7 +550,7 @@ describe('GamePlay', () => {
         answerPending={false}
         forfeitPending={true}
         players={[]}
-        onLeave={vi.fn()}
+        songHistory={[]}
       />
     );
 
@@ -613,7 +581,7 @@ describe('GamePlay', () => {
         answerPending={false}
         forfeitPending={false}
         players={[]}
-        onLeave={vi.fn()}
+        songHistory={[]}
       />
     );
 
@@ -645,7 +613,7 @@ describe('GamePlay', () => {
           { playerId: 'p1', nickname: 'Alice', status: 'active' },
           { playerId: 'p2', nickname: 'Bob', status: 'active' },
         ]}
-        onLeave={vi.fn()}
+        songHistory={[]}
       />
     );
 
@@ -675,7 +643,7 @@ describe('GamePlay', () => {
         answerPending={false}
         forfeitPending={false}
         players={[{ playerId: 'p1', nickname: 'Alice', status: 'active' }]}
-        onLeave={vi.fn()}
+        songHistory={[]}
       />
     );
 
@@ -705,7 +673,7 @@ describe('GamePlay', () => {
         answerPending={false}
         forfeitPending={false}
         players={[]}
-        onLeave={vi.fn()}
+        songHistory={[]}
       />
     );
 
@@ -735,7 +703,7 @@ describe('GamePlay', () => {
         answerPending={false}
         forfeitPending={false}
         players={[]}
-        onLeave={vi.fn()}
+        songHistory={[]}
       />
     );
 
@@ -768,7 +736,7 @@ describe('GamePlay', () => {
           { playerId: 'p1', nickname: 'Alice', status: 'found' },
           { playerId: 'p2', nickname: 'Bob', status: 'active' },
         ]}
-        onLeave={vi.fn()}
+        songHistory={[]}
       />
     );
 
@@ -799,7 +767,7 @@ describe('GamePlay', () => {
         answerPending={false}
         forfeitPending={false}
         players={[{ playerId: 'p1', nickname: 'Alice', status: 'active' }]}
-        onLeave={vi.fn()}
+        songHistory={[]}
       />
     );
 
@@ -807,7 +775,7 @@ describe('GamePlay', () => {
     expect(recap).toHaveTextContent('Alice — cherche encore');
   });
 
-  test('shows a reveal-gated results list on the right once a song has ended', () => {
+  test('shows the song history on the right once a song has ended', () => {
     vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
     render(
       <GamePlay
@@ -820,13 +788,7 @@ describe('GamePlay', () => {
         startedAt={Date.now()}
         songIndex={2}
         songCount={2}
-        songReveal={{
-          song: { title: 'Some Song', artist: 'Some Artist', coverUrl: '/covers/x.png' },
-          players: [
-            { playerId: 'p1', nickname: 'Alice', foundStage: 3, score: 12 },
-            { playerId: 'p2', nickname: 'Bob', foundStage: null, score: 0 },
-          ],
-        }}
+        songReveal={null}
         scores={{ p1: 12, p2: 0 }}
         onSubmitAnswer={vi.fn()}
         answerFeedback={null}
@@ -838,16 +800,51 @@ describe('GamePlay', () => {
           { playerId: 'p1', nickname: 'Alice', status: 'active' },
           { playerId: 'p2', nickname: 'Bob', status: 'active' },
         ]}
-        onLeave={vi.fn()}
+        songHistory={[{ title: 'Some Song', artist: 'Some Artist', coverUrl: '/covers/x.png' }]}
       />
     );
 
-    const answers = screen.getByText('Réponses').closest('aside');
-    expect(answers).toHaveTextContent('Alice — étape 3 (12 pts)');
-    expect(answers).toHaveTextContent("Bob — n'a pas trouvé");
+    const history = screen.getByText('Historique').closest('aside');
+    expect(history).toHaveTextContent('Some Song');
+    expect(history).toHaveTextContent('Some Artist');
+    expect(history?.querySelector('img')).toHaveAttribute('src', '/covers/x.png');
   });
 
-  test('does not show the reveal-gated results list while no song has ended yet', () => {
+  test('accumulates every finished song in the history, oldest first', () => {
+    vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
+    render(
+      <GamePlay
+        gameId="g1"
+        stage={1}
+        maxStage={6}
+        durationSeconds={1}
+        nextDurationSeconds={2}
+        answerWindowMs={30000}
+        startedAt={Date.now()}
+        songIndex={3}
+        songCount={3}
+        songReveal={null}
+        scores={{}}
+        onSubmitAnswer={vi.fn()}
+        answerFeedback={null}
+        forfeited={false}
+        onForfeit={vi.fn()}
+        answerPending={false}
+        forfeitPending={false}
+        players={[]}
+        songHistory={[
+          { title: 'First Song', artist: 'Artist A', coverUrl: '/covers/a.png' },
+          { title: 'Second Song', artist: 'Artist B', coverUrl: '/covers/b.png' },
+        ]}
+      />
+    );
+
+    const history = screen.getByText('Historique').closest('aside');
+    const titles = history ? Array.from(history.querySelectorAll('li')).map((li) => li.textContent) : [];
+    expect(titles).toEqual(['First SongArtist A', 'Second SongArtist B']);
+  });
+
+  test('does not show the song history while no song has ended yet', () => {
     vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
     render(
       <GamePlay
@@ -869,10 +866,10 @@ describe('GamePlay', () => {
         answerPending={false}
         forfeitPending={false}
         players={[{ playerId: 'p1', nickname: 'Alice', status: 'active' }]}
-        onLeave={vi.fn()}
+        songHistory={[]}
       />
     );
 
-    expect(screen.queryByText('Réponses')).not.toBeInTheDocument();
+    expect(screen.queryByText('Historique')).not.toBeInTheDocument();
   });
 });

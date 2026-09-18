@@ -64,6 +64,10 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
   const [answerWindowError, setAnswerWindowError] = useState<string | null>(null);
   const [songIndex, setSongIndex] = useState(1);
   const [songReveal, setSongReveal] = useState<GameResultData | null>(null);
+  // Every song played so far this game, appended to on each `song:ended` —
+  // unlike songReveal (cleared at the next stage:start), this persists for
+  // the whole game so the sidebar history keeps growing.
+  const [songHistory, setSongHistory] = useState<GameEndedSong[]>([]);
   // Running total per player, updated at the end of each song (backlog:
   // "afficher le score au fur et à mesure"). Keyed by playerId rather than
   // kept on MultiplayerPlayer itself since it only exists once at least one
@@ -182,6 +186,7 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         );
       } else if (message.type === 'song:ended') {
         setSongReveal({ song: message.song, players: message.players });
+        setSongHistory((prev) => [...prev, message.song]);
         setScores((prev) => {
           const next = { ...prev };
           for (const player of message.players as GameEndedPlayer[]) {
@@ -202,6 +207,7 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         if (typeof message.answerWindowSeconds === 'number') setAnswerWindowSeconds(message.answerWindowSeconds);
         setSongIndex(1);
         setScores({});
+        setSongHistory([]);
         // Without this, the last game's stale stageInfo/started stay truthy
         // and the render logic (gameResult -> stageInfo -> started -> lobby)
         // falls straight back into GamePlay instead of the lobby screen —
@@ -360,7 +366,7 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         answerPending={answerPending}
         forfeitPending={forfeitPending}
         players={players}
-        onLeave={leaveGame}
+        songHistory={songHistory}
       />
     );
   }

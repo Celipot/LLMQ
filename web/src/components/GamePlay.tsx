@@ -43,7 +43,7 @@ interface GamePlayProps {
   answerPending: boolean;
   forfeitPending: boolean;
   players: MultiplayerPlayer[];
-  onLeave: () => void;
+  songHistory: GameEndedSong[];
 }
 
 const COUNTDOWN_TICK_MS = 250;
@@ -77,7 +77,7 @@ export default function GamePlay({
   answerPending,
   forfeitPending,
   players,
-  onLeave,
+  songHistory,
 }: GamePlayProps) {
   const [titles, setTitles] = useState<PlayableSong[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -213,19 +213,18 @@ export default function GamePlay({
             {found ? 'Bravo, tu as trouvé !' : "Ce n'est pas ça, retente ta chance."}
           </p>
         )}
-        <button type="button" className="secondary" onClick={onLeave}>
-          Quitter la partie
-        </button>
       </section>
-      {songReveal && (
-        <aside className="song-answers">
-          <p className="song-answers-title">Réponses</p>
+      {songHistory.length > 0 && (
+        <aside className="song-history">
+          <p className="song-history-title">Historique</p>
           <ul>
-            {songReveal.players.map((player) => (
-              <li key={player.playerId}>
-                {player.nickname} —{' '}
-                {player.foundStage !== null ? `étape ${player.foundStage}` : "n'a pas trouvé"}
-                {player.score > 0 && ` (${player.score} pt${player.score > 1 ? 's' : ''})`}
+            {songHistory.map((song, index) => (
+              <li key={index}>
+                {song.coverUrl && <img className="song-history-cover" src={song.coverUrl} alt={song.title} />}
+                <span className="song-history-info">
+                  <span className="song-history-title-text">{song.title}</span>
+                  <span className="song-history-artist">{song.artist}</span>
+                </span>
               </li>
             ))}
           </ul>
