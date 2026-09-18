@@ -50,6 +50,15 @@ function stageDurationFor(stage) {
   return gameState.TIERS_SECONDS[tierIndex];
 }
 
+// Preview of what's coming after the current stage (backlog: "afficher...
+// le temps de l'étape suivante"). null at the last stage of a song — there
+// is no next stage within it, the song ends there instead. Unlike
+// stageDurationFor, this must NOT clamp past the tier table, so it can't
+// reuse that function's Math.min directly for the bounds check.
+function nextStageDurationFor(stage) {
+  return stage < gameState.TIERS_SECONDS.length ? stageDurationFor(stage + 1) : null;
+}
+
 // "délai de grâce" (backlog MP-13): a dropped connection during an active
 // game doesn't remove the player (see the close handler below); this only
 // tracks the visible connected/disconnected flag (MP-14 broadcasts it),
@@ -124,6 +133,7 @@ function handleStageProgress(gameId) {
       durationSeconds: result.durationSeconds,
       serverTimestamp: Date.now(),
       answerWindowMs: STAGE_ANSWER_WINDOW_MS,
+      nextDurationSeconds: nextStageDurationFor(result.stage),
     });
     scheduleStageTimeout(gameId, result.stage);
   } else if (result.type === 'songAdvanced') {
@@ -147,6 +157,7 @@ function handleStageProgress(gameId) {
       songIndex: result.songIndex,
       songCount: result.songCount,
       answerWindowMs: STAGE_ANSWER_WINDOW_MS,
+      nextDurationSeconds: nextStageDurationFor(result.stage),
     });
     scheduleStageTimeout(gameId, result.stage);
   } else if (result.type === 'ended') {
@@ -203,6 +214,7 @@ function attachWebSocketServer(httpServer) {
           players: game.players,
           songIndex: game.songIndex,
           songCount: game.songCount,
+          nextDurationSeconds: nextStageDurationFor(game.stage),
         })
       );
     }
@@ -321,6 +333,7 @@ module.exports = {
   broadcastToGame,
   scheduleStageTimeout,
   stageDurationFor,
+  nextStageDurationFor,
   scheduleDisconnectGrace,
   STAGE_ANSWER_WINDOW_MS,
 };

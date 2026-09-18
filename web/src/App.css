@@ -174,7 +174,17 @@ body {
 
 .stage-info-stage {
   margin: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
   font-weight: 600;
+}
+
+.stage-info-next-duration {
+  margin: -0.2rem 0 0;
+  text-align: right;
+  color: var(--muted);
+  font-size: 0.85rem;
 }
 
 .stage-timer {

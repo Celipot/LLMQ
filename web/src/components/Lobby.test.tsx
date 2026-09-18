@@ -234,10 +234,19 @@ describe('Lobby', () => {
     await screen.findByText('Alice');
 
     socket.emit({ type: 'game:started' });
-    socket.emit({ type: 'stage:start', stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
+    socket.emit({
+      type: 'stage:start',
+      stage: 1,
+      durationSeconds: 1,
+      serverTimestamp: Date.now(),
+      answerWindowMs: 30000,
+      nextDurationSeconds: 2,
+    });
 
     expect(await screen.findByText(/Étape 1/)).toBeInTheDocument();
     expect(screen.getByRole('timer')).toHaveTextContent('Temps restant : 30s');
+    expect(screen.getByText(/Étape 1/).closest('p')).toHaveTextContent('Étape 11s');
+    expect(screen.getByText('(2s)')).toBeInTheDocument();
   });
 
   test('sends answer:submit over the socket and shows the result once received', async () => {

@@ -11,6 +11,8 @@ const {
   scheduleStageTimeout,
   scheduleDisconnectGrace,
   STAGE_ANSWER_WINDOW_MS,
+  stageDurationFor,
+  nextStageDurationFor,
 } = require('./wsServer');
 
 let server;
@@ -33,6 +35,13 @@ after(async () => {
   }
   await new Promise((resolve) => wss.close(resolve));
   await new Promise((resolve) => server.close(resolve));
+});
+
+test('nextStageDurationFor previews the next tier for every stage except the last, which has none', () => {
+  for (let stage = 1; stage < gameState.TIERS_SECONDS.length; stage += 1) {
+    assert.equal(nextStageDurationFor(stage), stageDurationFor(stage + 1));
+  }
+  assert.equal(nextStageDurationFor(gameState.TIERS_SECONDS.length), null);
 });
 
 async function createGameWithPlayer(nickname) {
@@ -183,6 +192,7 @@ test('starting the game broadcasts game:started then stage:start to connected so
   assert.equal(typeof stageMessage.durationSeconds, 'number');
   assert.equal(typeof stageMessage.serverTimestamp, 'number');
   assert.equal(stageMessage.answerWindowMs, STAGE_ANSWER_WINDOW_MS);
+  assert.equal(stageMessage.nextDurationSeconds, gameState.TIERS_SECONDS[1]);
 
   aliceSocket.close();
   bobSocket.close();
@@ -420,6 +430,7 @@ test('advances to the next stage once every player has resolved the current one'
     assert.equal(message.type, 'stage:start');
     assert.equal(message.stage, 2);
     assert.equal(message.answerWindowMs, STAGE_ANSWER_WINDOW_MS);
+    assert.equal(message.nextDurationSeconds, gameState.TIERS_SECONDS[2]);
   }
   assert.equal(multiplayerGames.getGame(gameId).stage, 2);
 
@@ -542,6 +553,7 @@ test('a multi-song game reveals the finished song then starts the next one, endi
     assert.equal(message.songIndex, 2);
     assert.equal(message.songCount, 2);
     assert.equal(message.answerWindowMs, STAGE_ANSWER_WINDOW_MS);
+    assert.equal(message.nextDurationSeconds, gameState.TIERS_SECONDS[1]);
   }
   const secondSongId = multiplayerGames.getGame(created.gameId).songId;
   assert.notEqual(secondSongId, firstSongId);
@@ -591,6 +603,7 @@ test('reconnecting mid-game sends a game:state resync with stage, players and re
   assert.equal(typeof snapshot.durationSeconds, 'number');
   assert.equal(typeof snapshot.remainingMs, 'number');
   assert.ok(snapshot.remainingMs <= 30000);
+  assert.equal(snapshot.nextDurationSeconds, gameState.TIERS_SECONDS[1]);
   assert.ok(snapshot.players.some((p) => p.playerId === aliceId));
 
   reconnectedSocket.close();

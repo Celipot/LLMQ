@@ -5,6 +5,7 @@ const app = require('./index');
 const songs = require('./songs');
 const multiplayerGames = require('./multiplayerGames');
 const wsServer = require('./wsServer');
+const gameState = require('./gameState');
 
 let server;
 let baseUrl;
@@ -440,6 +441,7 @@ test('POST /games/:id/start broadcasts the answer window duration alongside stag
     });
     const stageStartCall = calls.find(([, message]) => message.type === 'stage:start');
     assert.equal(stageStartCall[1].answerWindowMs, wsServer.STAGE_ANSWER_WINDOW_MS);
+    assert.equal(stageStartCall[1].nextDurationSeconds, gameState.TIERS_SECONDS[1]);
   } finally {
     wsServer.broadcastToGame = original;
   }

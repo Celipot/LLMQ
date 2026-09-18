@@ -14,6 +14,9 @@ interface LobbyProps {
 interface StageInfo {
   stage: number;
   durationSeconds: number;
+  // Preview of the next stage's clip length, or null at the last stage of a
+  // song (there is no next stage within it — the song ends there instead).
+  nextDurationSeconds: number | null;
   answerWindowMs: number;
   // Client-captured Date.now() when this StageInfo was set, not a value from
   // the server — see GamePlay's countdown: it avoids needing a clock-sync
@@ -109,6 +112,7 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
           setStageInfo({
             stage: message.stage,
             durationSeconds: message.durationSeconds,
+            nextDurationSeconds: message.nextDurationSeconds ?? null,
             answerWindowMs: message.remainingMs,
             startedAt: Date.now(),
           });
@@ -132,6 +136,7 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         setStageInfo({
           stage: message.stage,
           durationSeconds: message.durationSeconds,
+          nextDurationSeconds: message.nextDurationSeconds ?? null,
           answerWindowMs: message.answerWindowMs,
           startedAt: Date.now(),
         });
@@ -308,6 +313,7 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         gameId={gameId}
         stage={stageInfo.stage}
         durationSeconds={stageInfo.durationSeconds}
+        nextDurationSeconds={stageInfo.nextDurationSeconds}
         answerWindowMs={stageInfo.answerWindowMs}
         startedAt={stageInfo.startedAt}
         songIndex={songIndex}

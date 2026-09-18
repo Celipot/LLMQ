@@ -21,6 +21,9 @@ interface GamePlayProps {
   gameId: string;
   stage: number;
   durationSeconds: number;
+  // Preview of the next stage's clip length, or null at the last stage of a
+  // song (there is no next stage within it — the song ends there instead).
+  nextDurationSeconds: number | null;
   answerWindowMs: number;
   // Date.now() at the moment this stage's countdown should start from —
   // changing this value (even if stage/answerWindowMs didn't) restarts the
@@ -58,6 +61,7 @@ export default function GamePlay({
   gameId,
   stage,
   durationSeconds,
+  nextDurationSeconds,
   answerWindowMs,
   startedAt,
   songIndex,
@@ -123,7 +127,13 @@ export default function GamePlay({
         <p className="stage-info-song">
           Musique {songIndex}/{songCount}
         </p>
-        <p className="stage-info-stage">Étape {stage}</p>
+        <p className="stage-info-stage">
+          <span>Étape {stage}</span>
+          <span>{durationSeconds}s</span>
+        </p>
+        {nextDurationSeconds !== null && (
+          <p className="stage-info-next-duration">({nextDurationSeconds}s)</p>
+        )}
         <p className="stage-timer" role="timer">
           Temps restant : {formatRemainingSeconds(remainingMs)}s
         </p>

@@ -22,6 +22,7 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={2}
         durationSeconds={4}
+        nextDurationSeconds={null}
         answerWindowMs={30000}
         startedAt={Date.now()}
         songIndex={1}
@@ -50,6 +51,7 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={1}
         durationSeconds={1}
+        nextDurationSeconds={null}
         answerWindowMs={30000}
         startedAt={Date.now()}
         songIndex={2}
@@ -77,6 +79,7 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={1}
         durationSeconds={1}
+        nextDurationSeconds={null}
         answerWindowMs={30000}
         startedAt={Date.now()}
         songIndex={2}
@@ -107,6 +110,7 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={1}
         durationSeconds={1}
+        nextDurationSeconds={null}
         answerWindowMs={30000}
         startedAt={Date.now()}
         songIndex={1}
@@ -138,6 +142,7 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={1}
         durationSeconds={1}
+        nextDurationSeconds={null}
         answerWindowMs={30000}
         startedAt={Date.now()}
         songIndex={1}
@@ -170,6 +175,7 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={1}
         durationSeconds={1}
+        nextDurationSeconds={null}
         answerWindowMs={30000}
         startedAt={Date.now()}
         songIndex={1}
@@ -200,6 +206,7 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={1}
         durationSeconds={1}
+        nextDurationSeconds={null}
         answerWindowMs={30000}
         startedAt={Date.now()}
         songIndex={1}
@@ -229,6 +236,7 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={1}
         durationSeconds={1}
+        nextDurationSeconds={null}
         answerWindowMs={30000}
         startedAt={Date.now()}
         songIndex={1}
@@ -258,6 +266,7 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={1}
         durationSeconds={1}
+        nextDurationSeconds={null}
         answerWindowMs={30000}
         startedAt={Date.now()}
         songIndex={1}
@@ -288,6 +297,7 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={1}
         durationSeconds={1}
+        nextDurationSeconds={null}
         answerWindowMs={30000}
         startedAt={Date.now()}
         songIndex={1}
@@ -321,6 +331,7 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={1}
         durationSeconds={1}
+        nextDurationSeconds={null}
         answerWindowMs={30000}
         startedAt={Date.now()}
         songIndex={1}
@@ -348,6 +359,7 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={1}
         durationSeconds={1}
+        nextDurationSeconds={null}
         answerWindowMs={30000}
         startedAt={Date.now()}
         songIndex={1}
@@ -380,6 +392,7 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={1}
         durationSeconds={1}
+        nextDurationSeconds={null}
         answerWindowMs={30000}
         startedAt={Date.now()}
         songIndex={1}
@@ -410,6 +423,7 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={1}
         durationSeconds={1}
+        nextDurationSeconds={null}
         answerWindowMs={30000}
         startedAt={Date.now()}
         songIndex={1}
@@ -447,6 +461,7 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={3}
         durationSeconds={1}
+        nextDurationSeconds={null}
         answerWindowMs={30000}
         startedAt={initialStartedAt}
         songIndex={1}
@@ -474,6 +489,7 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={3}
         durationSeconds={1}
+        nextDurationSeconds={null}
         answerWindowMs={12000}
         startedAt={Date.now()}
         songIndex={1}
@@ -503,6 +519,7 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={1}
         durationSeconds={1}
+        nextDurationSeconds={null}
         answerWindowMs={30000}
         startedAt={Date.now()}
         songIndex={1}
@@ -533,6 +550,7 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={1}
         durationSeconds={1}
+        nextDurationSeconds={null}
         answerWindowMs={30000}
         startedAt={Date.now()}
         songIndex={1}
@@ -562,6 +580,7 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={1}
         durationSeconds={1}
+        nextDurationSeconds={null}
         answerWindowMs={30000}
         startedAt={Date.now()}
         songIndex={1}
@@ -589,6 +608,7 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={1}
         durationSeconds={1}
+        nextDurationSeconds={null}
         answerWindowMs={30000}
         startedAt={Date.now()}
         songIndex={2}
@@ -620,6 +640,7 @@ describe('GamePlay', () => {
         gameId="g1"
         stage={1}
         durationSeconds={1}
+        nextDurationSeconds={null}
         answerWindowMs={30000}
         startedAt={Date.now()}
         songIndex={1}
@@ -639,5 +660,63 @@ describe('GamePlay', () => {
 
     expect(screen.getByText('Alice — cherche encore')).toBeInTheDocument();
     expect(screen.queryByText(/pt/)).not.toBeInTheDocument();
+  });
+
+  test('shows the current stage duration next to the stage number and the next stage duration below', () => {
+    vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
+    render(
+      <GamePlay
+        gameId="g1"
+        stage={3}
+        durationSeconds={4}
+        nextDurationSeconds={7}
+        answerWindowMs={30000}
+        startedAt={Date.now()}
+        songIndex={1}
+        songCount={1}
+        songReveal={null}
+        scores={{}}
+        onSubmitAnswer={vi.fn()}
+        answerFeedback={null}
+        forfeited={false}
+        onForfeit={vi.fn()}
+        answerPending={false}
+        forfeitPending={false}
+        players={[]}
+        onLeave={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText(/Étape 3/).closest('p')).toHaveTextContent('Étape 34s');
+    expect(screen.getByText('(7s)')).toBeInTheDocument();
+  });
+
+  test('does not show a next stage duration at the last stage', () => {
+    vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
+    render(
+      <GamePlay
+        gameId="g1"
+        stage={6}
+        durationSeconds={16}
+        nextDurationSeconds={null}
+        answerWindowMs={30000}
+        startedAt={Date.now()}
+        songIndex={1}
+        songCount={1}
+        songReveal={null}
+        scores={{}}
+        onSubmitAnswer={vi.fn()}
+        answerFeedback={null}
+        forfeited={false}
+        onForfeit={vi.fn()}
+        answerPending={false}
+        forfeitPending={false}
+        players={[]}
+        onLeave={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText(/Étape 6/).closest('p')).toHaveTextContent('Étape 616s');
+    expect(screen.queryByText(/^\(\d+s\)$/)).not.toBeInTheDocument();
   });
 });

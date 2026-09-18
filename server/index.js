@@ -211,6 +211,7 @@ app.post('/games/:id/start', (req, res) => {
       songIndex: game.songIndex,
       songCount: game.songCount,
       answerWindowMs: wsServer.STAGE_ANSWER_WINDOW_MS,
+      nextDurationSeconds: wsServer.nextStageDurationFor(game.stage),
     });
     wsServer.scheduleStageTimeout(game.gameId, game.stage);
     res.json({ status: game.status });
