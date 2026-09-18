@@ -28,7 +28,7 @@ function fail(code) {
   return err;
 }
 
-function joinGame(gameId, nickname) {
+function joinGame(gameId, nickname, hostToken) {
   const game = games.get(gameId);
   if (!game) {
     throw fail('GAME_NOT_FOUND');
@@ -41,6 +41,14 @@ function joinGame(gameId, nickname) {
   }
   const player = { playerId: crypto.randomUUID(), nickname, status: 'active', connected: true };
   game.players.push(player);
+  // Links the creator's secret hostToken to their own playerId, the only way
+  // the server can later tell "the host" apart from any other player (e.g.
+  // to promote someone when they leave — see reassignHostIfNeeded). Only
+  // the first join carrying a matching token claims it, so a stale/guessed
+  // token can't hijack an already-claimed host slot.
+  if (hostToken && hostToken === game.hostToken && !game.hostPlayerId) {
+    game.hostPlayerId = player.playerId;
+  }
   return { playerId: player.playerId, players: game.players };
 }
 
@@ -222,6 +230,27 @@ function kickPlayer(gameId, hostToken, requesterPlayerId, targetPlayerId) {
   return game;
 }
 
+// Called after any removal (voluntary leave, lobby disconnect, kick). If the
+// removed player was the host, promotes the oldest remaining player
+// (game.players[0] — join order is preserved by push/filter) and rotates
+// hostToken so the old, now-orphaned secret stops working. Returns the new
+// {hostPlayerId, hostToken} for the caller to deliver privately, or null if
+// there was nothing to reassign.
+function reassignHostIfNeeded(gameId, removedPlayerId) {
+  const game = games.get(gameId);
+  if (!game || game.hostPlayerId !== removedPlayerId) {
+    return null;
+  }
+  if (game.players.length === 0) {
+    game.hostPlayerId = undefined;
+    return null;
+  }
+  const newHost = game.players[0];
+  game.hostToken = crypto.randomUUID();
+  game.hostPlayerId = newHost.playerId;
+  return { hostPlayerId: newHost.playerId, hostToken: game.hostToken };
+}
+
 function markConnected(gameId, playerId) {
   const game = games.get(gameId);
   const player = game && game.players.find((p) => p.playerId === playerId);
@@ -248,4 +277,5 @@ module.exports = {
   markDisconnected,
   confirmReturnToLobby,
   kickPlayer,
+  reassignHostIfNeeded,
 };

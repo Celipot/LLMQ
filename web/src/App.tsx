@@ -87,7 +87,10 @@ export default function App() {
   }
 
   function handleLeave() {
-    if (gameId) localStorage.removeItem(`playerId:${gameId}`);
+    if (gameId) {
+      localStorage.removeItem(`playerId:${gameId}`);
+      localStorage.removeItem(`hostToken:${gameId}`);
+    }
     window.history.pushState(null, '', '/');
     setGameId(null);
     setPlayerId(null);

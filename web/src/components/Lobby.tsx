@@ -41,7 +41,7 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
   const [launching, setLaunching] = useState(false);
   const [kickError, setKickError] = useState<string | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
-  const isHost = localStorage.getItem(`hostToken:${gameId}`) !== null;
+  const [isHost, setIsHost] = useState(() => localStorage.getItem(`hostToken:${gameId}`) !== null);
 
   useEffect(() => {
     let cancelled = false;
@@ -139,6 +139,9 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         onLeave();
       } else if (message.type === 'player:kick:error') {
         setKickError('Impossible de retirer ce joueur.');
+      } else if (message.type === 'host:transferred') {
+        localStorage.setItem(`hostToken:${gameId}`, message.hostToken);
+        setIsHost(true);
       }
     }
 

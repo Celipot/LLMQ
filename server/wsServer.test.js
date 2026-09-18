@@ -835,3 +835,98 @@ test('a non-host attempting to kick receives a private NOT_HOST error', async ()
   aliceSocket.close();
   bobSocket.close();
 });
+
+// Unlike createLobbyWithSockets (whose Alice joins without a hostToken, since
+// the kick tests only need hostToken as a bearer secret), host-transfer needs
+// game.hostPlayerId actually linked to Alice, which only happens when her
+// join request carries the game's hostToken.
+async function createLobbyWithLinkedHost() {
+  const created = await (await fetch(`${baseUrl}/games`, { method: 'POST' })).json();
+  const { gameId, hostToken } = created;
+  const alice = await (
+    await fetch(`${baseUrl}/games/${gameId}/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nickname: 'Alice', hostToken }),
+    })
+  ).json();
+  const bob = await (
+    await fetch(`${baseUrl}/games/${gameId}/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nickname: 'Bob' }),
+    })
+  ).json();
+
+  const aliceSocket = await openSocket(gameId, alice.playerId);
+  await aliceSocket.nextMessage(); // lobby:state
+  const bobSocket = await openSocket(gameId, bob.playerId);
+  await aliceSocket.nextMessage(); // player:joined for Bob
+  await bobSocket.nextMessage(); // lobby:state
+
+  return { gameId, hostToken, aliceId: alice.playerId, bobId: bob.playerId, aliceSocket, bobSocket };
+}
+
+test('when the host leaves, the oldest remaining player is privately promoted with a new hostToken', async () => {
+  const { gameId, hostToken, bobId, aliceSocket, bobSocket } = await createLobbyWithLinkedHost();
+
+  const bobLeftPromise = bobSocket.nextMessage(); // player:left for Alice
+  const bobTransferPromise = bobSocket.nextMessage();
+  aliceSocket.send(JSON.stringify({ type: 'player:leave' }));
+
+  const bobLeft = await bobLeftPromise;
+  assert.equal(bobLeft.type, 'player:left');
+  const bobTransfer = await bobTransferPromise;
+  assert.equal(bobTransfer.type, 'host:transferred');
+  assert.notEqual(bobTransfer.hostToken, hostToken);
+
+  const game = multiplayerGames.getGame(gameId);
+  assert.equal(game.hostPlayerId, bobId);
+  assert.equal(game.hostToken, bobTransfer.hostToken);
+
+  bobSocket.close();
+});
+
+test('the new hostToken works for host actions while the old one no longer does', async () => {
+  const { gameId, hostToken, aliceSocket, bobSocket } = await createLobbyWithLinkedHost();
+
+  const bobTransferPromise = (async () => {
+    await bobSocket.nextMessage(); // player:left for Alice
+    return bobSocket.nextMessage();
+  })();
+  aliceSocket.send(JSON.stringify({ type: 'player:leave' }));
+  const bobTransfer = await bobTransferPromise;
+
+  const oldTokenResponse = await fetch(`${baseUrl}/games/${gameId}/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken }),
+  });
+  assert.equal(oldTokenResponse.status, 403);
+
+  const newTokenResponse = await fetch(`${baseUrl}/games/${gameId}/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken: bobTransfer.hostToken }),
+  });
+  assert.equal(newTokenResponse.status, 200);
+
+  bobSocket.close();
+});
+
+test('a lobby disconnect of the host also promotes the oldest remaining player', async () => {
+  const { gameId, bobId, aliceSocket, bobSocket } = await createLobbyWithLinkedHost();
+
+  const bobLeftPromise = bobSocket.nextMessage(); // player:left for Alice
+  const bobTransferPromise = bobSocket.nextMessage();
+  aliceSocket.close();
+
+  await bobLeftPromise;
+  const bobTransfer = await bobTransferPromise;
+  assert.equal(bobTransfer.type, 'host:transferred');
+
+  const game = multiplayerGames.getGame(gameId);
+  assert.equal(game.hostPlayerId, bobId);
+
+  bobSocket.close();
+});

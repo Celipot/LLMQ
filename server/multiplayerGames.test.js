@@ -451,3 +451,56 @@ test('kickPlayer throws PLAYER_NOT_FOUND for an unknown targetPlayerId', () => {
     /PLAYER_NOT_FOUND/
   );
 });
+
+test('joinGame links the joining player as host when the hostToken matches', () => {
+  const game = multiplayerGames.createGame();
+  const { playerId } = multiplayerGames.joinGame(game.gameId, 'Alice', game.hostToken);
+  assert.equal(multiplayerGames.getGame(game.gameId).hostPlayerId, playerId);
+});
+
+test('joinGame does not link a player as host without a matching hostToken', () => {
+  const game = multiplayerGames.createGame();
+  multiplayerGames.joinGame(game.gameId, 'Alice');
+  multiplayerGames.joinGame(game.gameId, 'Bob', 'wrong-token');
+  assert.equal(multiplayerGames.getGame(game.gameId).hostPlayerId, undefined);
+});
+
+test('joinGame does not let a later join overwrite an already-claimed host slot', () => {
+  const game = multiplayerGames.createGame();
+  const { playerId: aliceId } = multiplayerGames.joinGame(game.gameId, 'Alice', game.hostToken);
+  multiplayerGames.joinGame(game.gameId, 'Bob', game.hostToken);
+  assert.equal(multiplayerGames.getGame(game.gameId).hostPlayerId, aliceId);
+});
+
+test('reassignHostIfNeeded promotes the oldest remaining player and rotates hostToken', () => {
+  const game = multiplayerGames.createGame();
+  const originalToken = game.hostToken;
+  const { playerId: aliceId } = multiplayerGames.joinGame(game.gameId, 'Alice', game.hostToken);
+  const { playerId: bobId } = multiplayerGames.joinGame(game.gameId, 'Bob');
+  multiplayerGames.removePlayer(game.gameId, aliceId);
+
+  const result = multiplayerGames.reassignHostIfNeeded(game.gameId, aliceId);
+
+  assert.equal(result.hostPlayerId, bobId);
+  assert.notEqual(result.hostToken, originalToken);
+  const stored = multiplayerGames.getGame(game.gameId);
+  assert.equal(stored.hostPlayerId, bobId);
+  assert.equal(stored.hostToken, result.hostToken);
+});
+
+test('reassignHostIfNeeded returns null when the removed player was not the host', () => {
+  const game = multiplayerGames.createGame();
+  multiplayerGames.joinGame(game.gameId, 'Alice', game.hostToken);
+  const { playerId: bobId } = multiplayerGames.joinGame(game.gameId, 'Bob');
+  multiplayerGames.removePlayer(game.gameId, bobId);
+
+  assert.equal(multiplayerGames.reassignHostIfNeeded(game.gameId, bobId), null);
+});
+
+test('reassignHostIfNeeded returns null once the game itself has been purged', () => {
+  const game = multiplayerGames.createGame();
+  const { playerId: aliceId } = multiplayerGames.joinGame(game.gameId, 'Alice', game.hostToken);
+  multiplayerGames.removePlayer(game.gameId, aliceId); // last player — purges the game
+
+  assert.equal(multiplayerGames.reassignHostIfNeeded(game.gameId, aliceId), null);
+});

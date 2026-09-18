@@ -34,6 +34,19 @@ describe('JoinGame', () => {
     await waitFor(() => expect(onJoined).toHaveBeenCalledWith('p1'));
   });
 
+  test('passes the stored hostToken along when the joining player created the game', async () => {
+    localStorage.setItem('hostToken:g1', 'secret-token');
+    vi.mocked(api.fetchGameStatus).mockResolvedValue({ gameId: 'g1', status: 'lobby' });
+    vi.mocked(api.joinGame).mockResolvedValue({ playerId: 'p1', players: [{ playerId: 'p1', nickname: 'Alice' }] });
+    render(<JoinGame gameId="g1" onJoined={vi.fn()} />);
+
+    await userEvent.type(await screen.findByLabelText('Pseudo'), 'Alice');
+    await userEvent.click(screen.getByText('Rejoindre'));
+
+    await waitFor(() => expect(api.joinGame).toHaveBeenCalledWith('g1', 'Alice', 'secret-token'));
+    localStorage.removeItem('hostToken:g1');
+  });
+
   test('shows an error asking for another nickname when it is already taken', async () => {
     vi.mocked(api.fetchGameStatus).mockResolvedValue({ gameId: 'g1', status: 'lobby' });
     vi.mocked(api.joinGame).mockRejectedValue(new ApiError('NICKNAME_TAKEN'));

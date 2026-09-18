@@ -96,6 +96,18 @@ describe('Lobby', () => {
     expect(screen.queryByText('Lancer la partie')).not.toBeInTheDocument();
   });
 
+  test('becomes host and persists the new hostToken on host:transferred', async () => {
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
+    expect(screen.queryByText('Lancer la partie')).not.toBeInTheDocument();
+
+    socket.emit({ type: 'host:transferred', hostToken: 'new-token' });
+
+    expect(await screen.findByText('Lancer la partie')).toBeEnabled();
+    expect(localStorage.getItem('hostToken:g1')).toBe('new-token');
+  });
+
   test('enables the launch button for the host alone in the lobby (solo)', async () => {
     localStorage.setItem('hostToken:g1', 'token');
     render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);

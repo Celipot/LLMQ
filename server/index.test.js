@@ -239,6 +239,18 @@ test('POST /games/:id/join requires a non-empty nickname', async () => {
   assert.equal(res.status, 400);
 });
 
+test('POST /games/:id/join links the joining player as host when hostToken matches', async () => {
+  const created = await (await fetch(`${baseUrl}/games`, { method: 'POST' })).json();
+  const res = await fetch(`${baseUrl}/games/${created.gameId}/join`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nickname: 'Alice', hostToken: created.hostToken }),
+  });
+  const body = await res.json();
+  assert.equal(res.status, 200);
+  assert.equal(multiplayerGames.getGame(created.gameId).hostPlayerId, body.playerId);
+});
+
 async function createLobbyWithTwoPlayers() {
   const created = await (await fetch(`${baseUrl}/games`, { method: 'POST' })).json();
   await fetch(`${baseUrl}/games/${created.gameId}/join`, {

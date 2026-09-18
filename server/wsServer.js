@@ -91,6 +91,21 @@ function scheduleStageTimeout(gameId, stage, delayMs = STAGE_ANSWER_WINDOW_MS) {
   timer.unref();
 }
 
+// After any removal, checks whether the removed player was the host and, if
+// so, privately hands the rotated hostToken to whoever got promoted (see
+// multiplayerGames.reassignHostIfNeeded). Everyone else isn't told who the
+// new host is — no host indicator exists in the UI to show it to them yet.
+function notifyHostTransfer(gameId, removedPlayerId) {
+  const result = multiplayerGames.reassignHostIfNeeded(gameId, removedPlayerId);
+  if (!result) return;
+  for (const s of socketsFor(gameId)) {
+    if (s.playerId === result.hostPlayerId) {
+      s.send(JSON.stringify({ type: 'host:transferred', hostToken: result.hostToken }));
+      break;
+    }
+  }
+}
+
 // Checks whether every player has resolved the current stage (found or
 // forfeited) and, if so, either advances to the next stage or ends the game.
 // Called after any event that could be the last missing status.
@@ -223,6 +238,10 @@ function attachWebSocketServer(httpServer) {
           if (targetSocket) {
             targetSocket.close();
           }
+          // A kicked target is never the host (self-kick is blocked and
+          // only the host can kick), but this stays a harmless no-op if
+          // that ever changes rather than silently leaving no host.
+          notifyHostTransfer(gameId, payload.targetPlayerId);
         } catch (err) {
           socket.send(JSON.stringify({ type: 'player:kick:error', error: err.code || 'KICK_FAILED' }));
         }
@@ -235,6 +254,7 @@ function attachWebSocketServer(httpServer) {
         socketsFor(gameId).delete(socket);
         multiplayerGames.removePlayer(gameId, playerId);
         broadcast(gameId, { type: 'player:left', playerId }, socket);
+        notifyHostTransfer(gameId, playerId);
         if (game.status === 'in_progress') {
           handleStageProgress(gameId);
         }
@@ -255,6 +275,7 @@ function attachWebSocketServer(httpServer) {
       if (game.status === 'lobby') {
         multiplayerGames.removePlayer(gameId, playerId);
         broadcast(gameId, { type: 'player:left', playerId });
+        notifyHostTransfer(gameId, playerId);
       } else if (game.status === 'in_progress') {
         scheduleDisconnectGrace(gameId, playerId);
       }

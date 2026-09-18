@@ -37,7 +37,8 @@ export default function JoinGame({ gameId, onJoined }: JoinGameProps) {
     setSubmitting(true);
     setError(null);
     try {
-      const { playerId } = await joinGame(gameId, nickname.trim());
+      const hostToken = localStorage.getItem(`hostToken:${gameId}`) ?? undefined;
+      const { playerId } = await joinGame(gameId, nickname.trim(), hostToken);
       localStorage.setItem(`playerId:${gameId}`, playerId);
       onJoined(playerId);
     } catch (err) {

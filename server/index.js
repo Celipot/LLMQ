@@ -176,13 +176,13 @@ const JOIN_ERROR_STATUS = {
 };
 
 app.post('/games/:id/join', (req, res) => {
-  const { nickname } = req.body || {};
+  const { nickname, hostToken } = req.body || {};
   if (typeof nickname !== 'string' || nickname.trim() === '') {
     return res.status(400).json({ error: 'NICKNAME_REQUIRED' });
   }
 
   try {
-    const result = multiplayerGames.joinGame(req.params.id, nickname.trim());
+    const result = multiplayerGames.joinGame(req.params.id, nickname.trim(), hostToken);
     res.json(result);
   } catch (err) {
     const status = JOIN_ERROR_STATUS[err.code] || 500;
