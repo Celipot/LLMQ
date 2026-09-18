@@ -206,12 +206,12 @@ app.post('/games/:id/start', (req, res) => {
     wsServer.broadcastToGame(game.gameId, {
       type: 'stage:start',
       stage: game.stage,
-      durationSeconds: wsServer.stageDurationFor(game.stage),
+      durationSeconds: wsServer.stageDurationFor(game.stage, game.stageOneSeconds),
       serverTimestamp: Date.now(),
       songIndex: game.songIndex,
       songCount: game.songCount,
       answerWindowMs: wsServer.STAGE_ANSWER_WINDOW_MS,
-      nextDurationSeconds: wsServer.nextStageDurationFor(game.stage),
+      nextDurationSeconds: wsServer.nextStageDurationFor(game.stage, game.stageOneSeconds),
     });
     wsServer.scheduleStageTimeout(game.gameId, game.stage);
     res.json({ status: game.status });
@@ -241,13 +241,36 @@ app.post('/games/:id/songCount', (req, res) => {
   }
 });
 
+const STAGE_DURATION_ERROR_STATUS = {
+  GAME_NOT_FOUND: 404,
+  NOT_HOST: 403,
+  GAME_NOT_IN_LOBBY: 409,
+  INVALID_STAGE_DURATION: 400,
+};
+
+app.post('/games/:id/stageDuration', (req, res) => {
+  const { hostToken, seconds } = req.body || {};
+
+  try {
+    const game = multiplayerGames.setStageOneSeconds(req.params.id, hostToken, seconds);
+    wsServer.broadcastToGame(game.gameId, {
+      type: 'lobby:stageDuration',
+      stageOneSeconds: game.stageOneSeconds,
+    });
+    res.json({ stageOneSeconds: game.stageOneSeconds });
+  } catch (err) {
+    const status = STAGE_DURATION_ERROR_STATUS[err.code] || 500;
+    res.status(status).json({ error: err.code || 'STAGE_DURATION_FAILED' });
+  }
+});
+
 app.get('/games/:id/audio', async (req, res) => {
   const game = multiplayerGames.getGame(req.params.id);
   if (!game || game.songId == null || game.stage < 1) {
     return res.status(404).json({ error: 'GAME_NOT_FOUND' });
   }
 
-  const seconds = wsServer.stageDurationFor(game.stage);
+  const seconds = wsServer.stageDurationFor(game.stage, game.stageOneSeconds);
   const filePath = songs.getAudioPath(game.songId);
   res.set('Content-Type', 'audio/wav');
   res.set('Cache-Control', 'no-store');

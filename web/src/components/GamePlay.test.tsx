@@ -688,7 +688,7 @@ describe('GamePlay', () => {
     );
 
     expect(screen.getByText(/Étape 3/).closest('p')).toHaveTextContent('Étape 34s');
-    expect(screen.getByText('(7s)')).toBeInTheDocument();
+    expect(screen.getByText('(7s — étape suivante)')).toBeInTheDocument();
   });
 
   test('does not show a next stage duration at the last stage', () => {
@@ -717,6 +717,6 @@ describe('GamePlay', () => {
     );
 
     expect(screen.getByText(/Étape 6/).closest('p')).toHaveTextContent('Étape 616s');
-    expect(screen.queryByText(/^\(\d+s\)$/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^\(\d+s/)).not.toBeInTheDocument();
   });
 });

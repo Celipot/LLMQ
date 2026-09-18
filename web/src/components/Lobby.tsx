@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ApiError, startMultiplayerGame, updateSongCount } from '../api';
+import { ApiError, startMultiplayerGame, updateSongCount, updateStageDuration } from '../api';
 import type { AnswerFeedback, GameEndedPlayer, GameEndedSong, MultiplayerPlayer } from '../types';
 import GamePlay from './GamePlay';
 import GameResult from './GameResult';
@@ -34,6 +34,10 @@ const DEFAULT_SONG_COUNT = 1;
 const MIN_SONG_COUNT = 1;
 const MAX_SONG_COUNT = 100;
 
+const DEFAULT_STAGE_ONE_SECONDS = 1;
+const MIN_STAGE_ONE_SECONDS = 1;
+const MAX_STAGE_ONE_SECONDS = 5;
+
 // Solo testing/practice is allowed: the host alone is enough to start.
 // Kept as a named constant since the backlog (MP-03 note technique) flagged
 // this threshold as configurable, even though nothing else reads it.
@@ -55,6 +59,8 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
   const [kickError, setKickError] = useState<string | null>(null);
   const [songCount, setSongCount] = useState(DEFAULT_SONG_COUNT);
   const [songCountError, setSongCountError] = useState<string | null>(null);
+  const [stageOneSeconds, setStageOneSeconds] = useState(DEFAULT_STAGE_ONE_SECONDS);
+  const [stageDurationError, setStageDurationError] = useState<string | null>(null);
   const [songIndex, setSongIndex] = useState(1);
   const [songReveal, setSongReveal] = useState<GameResultData | null>(null);
   // Running total per player, updated at the end of each song (backlog:
@@ -98,8 +104,11 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
       if (message.type === 'lobby:state') {
         setPlayers(message.players);
         if (typeof message.songCount === 'number') setSongCount(message.songCount);
+        if (typeof message.stageOneSeconds === 'number') setStageOneSeconds(message.stageOneSeconds);
       } else if (message.type === 'lobby:songCount') {
         setSongCount(message.songCount);
+      } else if (message.type === 'lobby:stageDuration') {
+        setStageOneSeconds(message.stageOneSeconds);
       } else if (message.type === 'game:state') {
         // Full resync after a reconnect mid-game (backlog MP-13).
         setPlayers(message.players);
@@ -187,6 +196,7 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         // button does that (see confirmReturnToLobby below).
         setPlayers(message.players);
         if (typeof message.songCount === 'number') setSongCount(message.songCount);
+        if (typeof message.stageOneSeconds === 'number') setStageOneSeconds(message.stageOneSeconds);
         setSongIndex(1);
         setScores({});
       } else if (message.type === 'answer:result' && typeof message.correct === 'boolean') {
@@ -278,6 +288,19 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
     }
   }
 
+  async function handleStageDurationChange(value: number) {
+    const hostToken = localStorage.getItem(`hostToken:${gameId}`);
+    if (!hostToken || Number.isNaN(value)) return;
+    const clamped = Math.min(MAX_STAGE_ONE_SECONDS, Math.max(MIN_STAGE_ONE_SECONDS, Math.round(value)));
+    setStageOneSeconds(clamped);
+    setStageDurationError(null);
+    try {
+      await updateStageDuration(gameId, hostToken, clamped);
+    } catch {
+      setStageDurationError("Impossible de mettre à jour la durée d'une étape.");
+    }
+  }
+
   async function handleLaunch() {
     const hostToken = localStorage.getItem(`hostToken:${gameId}`);
     if (!hostToken) return;
@@ -357,6 +380,27 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         {songCountError && (
           <p className="error-msg" role="alert">
             {songCountError}
+          </p>
+        )}
+      </div>
+      <div className="stage-duration-setting">
+        {isHost ? (
+          <label>
+            Durée de l'étape 1 : {stageOneSeconds}s
+            <input
+              type="range"
+              min={MIN_STAGE_ONE_SECONDS}
+              max={MAX_STAGE_ONE_SECONDS}
+              value={stageOneSeconds}
+              onChange={(event) => handleStageDurationChange(Number(event.target.value))}
+            />
+          </label>
+        ) : (
+          <p>Durée de l'étape 1 : {stageOneSeconds}s</p>
+        )}
+        {stageDurationError && (
+          <p className="error-msg" role="alert">
+            {stageDurationError}
           </p>
         )}
       </div>

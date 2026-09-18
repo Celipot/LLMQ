@@ -44,6 +44,13 @@ test('nextStageDurationFor previews the next tier for every stage except the las
   assert.equal(nextStageDurationFor(gameState.TIERS_SECONDS.length), null);
 });
 
+test('stageDurationFor and nextStageDurationFor scale every tier by the given factor', () => {
+  assert.equal(stageDurationFor(1, 3), gameState.TIERS_SECONDS[0] * 3);
+  assert.equal(stageDurationFor(4, 3), Math.round(gameState.TIERS_SECONDS[3] * 3));
+  assert.equal(nextStageDurationFor(1, 3), Math.round(gameState.TIERS_SECONDS[1] * 3));
+  assert.equal(nextStageDurationFor(gameState.TIERS_SECONDS.length, 3), null);
+});
+
 async function createGameWithPlayer(nickname) {
   const created = await (await fetch(`${baseUrl}/games`, { method: 'POST' })).json();
   const joined = await (
@@ -196,6 +203,39 @@ test('starting the game broadcasts game:started then stage:start to connected so
 
   aliceSocket.close();
   bobSocket.close();
+});
+
+test('a host-configured stage duration scales every stage broadcast, including the lobby-wide preview', async () => {
+  const { gameId, playerId: aliceId } = await createGameWithPlayer('Alice');
+  const { hostToken } = multiplayerGames.getGame(gameId);
+
+  const aliceSocket = await openSocket(gameId, aliceId);
+  const lobbyStatePromise = aliceSocket.nextMessage();
+  await fetch(`${baseUrl}/games/${gameId}/stageDuration`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken, seconds: 3 }),
+  });
+  const initialSnapshot = await lobbyStatePromise;
+  assert.equal(initialSnapshot.stageOneSeconds, 1); // pre-change snapshot
+
+  const stageDurationMessage = await aliceSocket.nextMessage();
+  assert.equal(stageDurationMessage.type, 'lobby:stageDuration');
+  assert.equal(stageDurationMessage.stageOneSeconds, 3);
+
+  const startedPromise = aliceSocket.nextMessage();
+  await fetch(`${baseUrl}/games/${gameId}/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken }),
+  });
+  await startedPromise; // game:started
+  const stageMessage = await aliceSocket.nextMessage();
+
+  assert.equal(stageMessage.durationSeconds, gameState.TIERS_SECONDS[0] * 3);
+  assert.equal(stageMessage.nextDurationSeconds, gameState.TIERS_SECONDS[1] * 3);
+
+  aliceSocket.close();
 });
 
 async function createStartedGameWithSockets() {

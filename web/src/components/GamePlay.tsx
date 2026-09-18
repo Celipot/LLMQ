@@ -132,7 +132,7 @@ export default function GamePlay({
           <span>{durationSeconds}s</span>
         </p>
         {nextDurationSeconds !== null && (
-          <p className="stage-info-next-duration">({nextDurationSeconds}s)</p>
+          <p className="stage-info-next-duration">({nextDurationSeconds}s — étape suivante)</p>
         )}
         <p className="stage-timer" role="timer">
           Temps restant : {formatRemainingSeconds(remainingMs)}s

@@ -8,6 +8,7 @@ import type {
   PlayableSong,
   SkipResponse,
   SongCountResponse,
+  StageDurationResponse,
 } from './types';
 
 export class ApiError extends Error {
@@ -80,6 +81,18 @@ export function updateSongCount(gameId: string, hostToken: string, count: number
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ hostToken, count }),
   }).then((res) => parseOrThrow<SongCountResponse>(res));
+}
+
+export function updateStageDuration(
+  gameId: string,
+  hostToken: string,
+  seconds: number
+): Promise<StageDurationResponse> {
+  return fetch(`/games/${gameId}/stageDuration`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken, seconds }),
+  }).then((res) => parseOrThrow<StageDurationResponse>(res));
 }
 
 export function startMultiplayerGame(gameId: string, hostToken: string): Promise<{ status: string }> {

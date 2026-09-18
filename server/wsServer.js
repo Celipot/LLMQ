@@ -45,9 +45,13 @@ const STAGE_ANSWER_WINDOW_MS = 30000;
 
 // Reuses the single-player tier list so stage N's clip length always matches
 // gameState.js's own progression, instead of maintaining a second table.
-function stageDurationFor(stage) {
+// scale is the host-configurable multiplier from multiplayerGames'
+// game.stageOneSeconds (backlog: "un slider... pour paramétrer la durée
+// d'une étape") — 1 (the default) reproduces today's exact durations, since
+// TIERS_SECONDS[0] === 1.
+function stageDurationFor(stage, scale = 1) {
   const tierIndex = Math.min(stage - 1, gameState.TIERS_SECONDS.length - 1);
-  return gameState.TIERS_SECONDS[tierIndex];
+  return Math.round(gameState.TIERS_SECONDS[tierIndex] * scale);
 }
 
 // Preview of what's coming after the current stage (backlog: "afficher...
@@ -55,8 +59,8 @@ function stageDurationFor(stage) {
 // is no next stage within it, the song ends there instead. Unlike
 // stageDurationFor, this must NOT clamp past the tier table, so it can't
 // reuse that function's Math.min directly for the bounds check.
-function nextStageDurationFor(stage) {
-  return stage < gameState.TIERS_SECONDS.length ? stageDurationFor(stage + 1) : null;
+function nextStageDurationFor(stage, scale = 1) {
+  return stage < gameState.TIERS_SECONDS.length ? stageDurationFor(stage + 1, scale) : null;
 }
 
 // "délai de grâce" (backlog MP-13): a dropped connection during an active
@@ -120,9 +124,10 @@ function notifyHostTransfer(gameId, removedPlayerId) {
 // next song (still the same game), or ends the game. Called after any event
 // that could be the last missing status.
 function handleStageProgress(gameId) {
+  const scale = multiplayerGames.getGame(gameId)?.stageOneSeconds ?? 1;
   const result = multiplayerGames.checkStageProgress(
     gameId,
-    stageDurationFor,
+    (stage) => stageDurationFor(stage, scale),
     gameState.TIERS_SECONDS.length,
     songs.pickRandomSongId
   );
@@ -133,7 +138,7 @@ function handleStageProgress(gameId) {
       durationSeconds: result.durationSeconds,
       serverTimestamp: Date.now(),
       answerWindowMs: STAGE_ANSWER_WINDOW_MS,
-      nextDurationSeconds: nextStageDurationFor(result.stage),
+      nextDurationSeconds: nextStageDurationFor(result.stage, scale),
     });
     scheduleStageTimeout(gameId, result.stage);
   } else if (result.type === 'songAdvanced') {
@@ -157,7 +162,7 @@ function handleStageProgress(gameId) {
       songIndex: result.songIndex,
       songCount: result.songCount,
       answerWindowMs: STAGE_ANSWER_WINDOW_MS,
-      nextDurationSeconds: nextStageDurationFor(result.stage),
+      nextDurationSeconds: nextStageDurationFor(result.stage, scale),
     });
     scheduleStageTimeout(gameId, result.stage);
   } else if (result.type === 'ended') {
@@ -199,7 +204,14 @@ function attachWebSocketServer(httpServer) {
     }
 
     if (game.status === 'lobby') {
-      socket.send(JSON.stringify({ type: 'lobby:state', players: game.players, songCount: game.songCount }));
+      socket.send(
+        JSON.stringify({
+          type: 'lobby:state',
+          players: game.players,
+          songCount: game.songCount,
+          stageOneSeconds: game.stageOneSeconds,
+        })
+      );
     } else {
       // Full resync for a (re)connect mid-game or after it ended (backlog
       // MP-13: "je reçois l'état courant... et me resynchronise").
@@ -209,12 +221,12 @@ function attachWebSocketServer(httpServer) {
           type: 'game:state',
           status: game.status,
           stage: game.stage,
-          durationSeconds: stageDurationFor(game.stage),
+          durationSeconds: stageDurationFor(game.stage, game.stageOneSeconds),
           remainingMs: Math.max(0, STAGE_ANSWER_WINDOW_MS - elapsed),
           players: game.players,
           songIndex: game.songIndex,
           songCount: game.songCount,
-          nextDurationSeconds: nextStageDurationFor(game.stage),
+          nextDurationSeconds: nextStageDurationFor(game.stage, game.stageOneSeconds),
         })
       );
     }
@@ -260,6 +272,7 @@ function attachWebSocketServer(httpServer) {
             type: 'game:reset',
             players: updatedGame.players,
             songCount: updatedGame.songCount,
+            stageOneSeconds: updatedGame.stageOneSeconds,
           });
         } catch (err) {
           socket.send(JSON.stringify({ type: 'player:returnToLobby:error', error: err.code || 'RETURN_FAILED' }));

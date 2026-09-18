@@ -12,6 +12,7 @@ vi.mock('../api', async () => {
     startMultiplayerGame: vi.fn(),
     fetchTitles: vi.fn(),
     updateSongCount: vi.fn(),
+    updateStageDuration: vi.fn(),
   };
 });
 
@@ -52,6 +53,7 @@ beforeEach(() => {
   localStorage.clear();
   vi.mocked(api.fetchTitles).mockResolvedValue([]);
   vi.mocked(api.updateSongCount).mockResolvedValue({ songCount: 1 });
+  vi.mocked(api.updateStageDuration).mockResolvedValue({ stageOneSeconds: 1 });
 });
 
 afterEach(() => {
@@ -216,6 +218,68 @@ describe('Lobby', () => {
     expect(await screen.findByText('Nombre de musiques : 12')).toBeInTheDocument();
   });
 
+  test('shows the host-chosen stage duration as read-only text for a non-host player', async () => {
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({
+      type: 'lobby:state',
+      players: [{ playerId: 'p1', nickname: 'Alice' }],
+      stageOneSeconds: 3,
+    });
+
+    expect(await screen.findByText("Durée de l'étape 1 : 3s")).toBeInTheDocument();
+    expect(screen.queryByRole('slider')).not.toBeInTheDocument();
+  });
+
+  test('the host can drag the stage duration slider, which calls updateStageDuration', async () => {
+    localStorage.setItem('hostToken:g1', 'the-host-token');
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({
+      type: 'lobby:state',
+      players: [{ playerId: 'p1', nickname: 'Alice' }],
+      stageOneSeconds: 1,
+    });
+    await screen.findByText('Alice');
+
+    const slider = screen.getByRole('slider');
+    fireEvent.change(slider, { target: { value: '4' } });
+
+    await waitFor(() => expect(api.updateStageDuration).toHaveBeenCalledWith('g1', 'the-host-token', 4));
+  });
+
+  test('clamps the stage duration to the 1-5 range for the host', async () => {
+    localStorage.setItem('hostToken:g1', 'the-host-token');
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({
+      type: 'lobby:state',
+      players: [{ playerId: 'p1', nickname: 'Alice' }],
+      stageOneSeconds: 1,
+    });
+    await screen.findByText('Alice');
+
+    const slider = screen.getByRole('slider');
+    fireEvent.change(slider, { target: { value: '9' } });
+
+    await waitFor(() => expect(api.updateStageDuration).toHaveBeenCalledWith('g1', 'the-host-token', 5));
+  });
+
+  test('updates the displayed stage duration for everyone on lobby:stageDuration', async () => {
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({
+      type: 'lobby:state',
+      players: [{ playerId: 'p1', nickname: 'Alice' }],
+      stageOneSeconds: 1,
+    });
+    await screen.findByText("Durée de l'étape 1 : 1s");
+
+    socket.emit({ type: 'lobby:stageDuration', stageOneSeconds: 4 });
+
+    expect(await screen.findByText("Durée de l'étape 1 : 4s")).toBeInTheDocument();
+  });
+
   test('shows the starting message once game:started is received', async () => {
     render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     const socket = MockWebSocket.instances[0];
@@ -246,7 +310,7 @@ describe('Lobby', () => {
     expect(await screen.findByText(/Étape 1/)).toBeInTheDocument();
     expect(screen.getByRole('timer')).toHaveTextContent('Temps restant : 30s');
     expect(screen.getByText(/Étape 1/).closest('p')).toHaveTextContent('Étape 11s');
-    expect(screen.getByText('(2s)')).toBeInTheDocument();
+    expect(screen.getByText('(2s — étape suivante)')).toBeInTheDocument();
   });
 
   test('sends answer:submit over the socket and shows the result once received', async () => {

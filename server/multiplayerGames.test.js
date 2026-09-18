@@ -10,6 +10,7 @@ test('createGame returns a lobby game with an id, host token, no players and sta
   assert.deepEqual(game.players, []);
   assert.equal(game.stage, 0);
   assert.equal(game.songCount, 1);
+  assert.equal(game.stageOneSeconds, 1);
 });
 
 test('createGame produces a distinct gameId and hostToken on each call', () => {
@@ -113,6 +114,35 @@ test('setSongCount throws INVALID_SONG_COUNT for 0, 101 and non-integer values',
   assert.throws(() => multiplayerGames.setSongCount(game.gameId, game.hostToken, 101), /INVALID_SONG_COUNT/);
   assert.throws(() => multiplayerGames.setSongCount(game.gameId, game.hostToken, 1.5), /INVALID_SONG_COUNT/);
   assert.throws(() => multiplayerGames.setSongCount(game.gameId, game.hostToken, 'abc'), /INVALID_SONG_COUNT/);
+});
+
+test('setStageOneSeconds accepts the boundaries 1 and 5', () => {
+  const game = createLobbyWithTwoPlayers();
+  assert.equal(multiplayerGames.setStageOneSeconds(game.gameId, game.hostToken, 1).stageOneSeconds, 1);
+  assert.equal(multiplayerGames.setStageOneSeconds(game.gameId, game.hostToken, 5).stageOneSeconds, 5);
+});
+
+test('setStageOneSeconds throws GAME_NOT_FOUND for an unknown gameId', () => {
+  assert.throws(() => multiplayerGames.setStageOneSeconds('unknown-id', 'token', 2), /GAME_NOT_FOUND/);
+});
+
+test('setStageOneSeconds throws NOT_HOST when the token does not match', () => {
+  const game = createLobbyWithTwoPlayers();
+  assert.throws(() => multiplayerGames.setStageOneSeconds(game.gameId, 'wrong-token', 2), /NOT_HOST/);
+});
+
+test('setStageOneSeconds throws GAME_NOT_IN_LOBBY once the game has started', () => {
+  const game = createLobbyWithTwoPlayers();
+  multiplayerGames.startGame(game.gameId, game.hostToken, () => 1);
+  assert.throws(() => multiplayerGames.setStageOneSeconds(game.gameId, game.hostToken, 2), /GAME_NOT_IN_LOBBY/);
+});
+
+test('setStageOneSeconds throws INVALID_STAGE_DURATION for 0, 6 and non-integer values', () => {
+  const game = createLobbyWithTwoPlayers();
+  assert.throws(() => multiplayerGames.setStageOneSeconds(game.gameId, game.hostToken, 0), /INVALID_STAGE_DURATION/);
+  assert.throws(() => multiplayerGames.setStageOneSeconds(game.gameId, game.hostToken, 6), /INVALID_STAGE_DURATION/);
+  assert.throws(() => multiplayerGames.setStageOneSeconds(game.gameId, game.hostToken, 1.5), /INVALID_STAGE_DURATION/);
+  assert.throws(() => multiplayerGames.setStageOneSeconds(game.gameId, game.hostToken, 'abc'), /INVALID_STAGE_DURATION/);
 });
 
 test('startGame moves a lobby with 2+ players to in_progress, sets stage 1 and picks a song', () => {

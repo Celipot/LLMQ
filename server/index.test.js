@@ -330,6 +330,69 @@ test('POST /games/:id/songCount returns 404 for an unknown gameId', async () => 
   assert.equal(res.status, 404);
 });
 
+test('POST /games/:id/stageDuration lets the host set the stage 1 duration', async () => {
+  const { gameId, hostToken } = await createLobbyWithTwoPlayers();
+  const res = await fetch(`${baseUrl}/games/${gameId}/stageDuration`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken, seconds: 3 }),
+  });
+  const body = await res.json();
+  assert.equal(res.status, 200);
+  assert.equal(body.stageOneSeconds, 3);
+  assert.equal(multiplayerGames.getGame(gameId).stageOneSeconds, 3);
+});
+
+test('POST /games/:id/stageDuration rejects a wrong hostToken', async () => {
+  const { gameId } = await createLobbyWithTwoPlayers();
+  const res = await fetch(`${baseUrl}/games/${gameId}/stageDuration`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken: 'wrong-token', seconds: 3 }),
+  });
+  const body = await res.json();
+  assert.equal(res.status, 403);
+  assert.equal(body.error, 'NOT_HOST');
+});
+
+test('POST /games/:id/stageDuration rejects a value outside 1-5', async () => {
+  const { gameId, hostToken } = await createLobbyWithTwoPlayers();
+  const res = await fetch(`${baseUrl}/games/${gameId}/stageDuration`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken, seconds: 6 }),
+  });
+  const body = await res.json();
+  assert.equal(res.status, 400);
+  assert.equal(body.error, 'INVALID_STAGE_DURATION');
+});
+
+test('POST /games/:id/stageDuration rejects once the game has started', async () => {
+  const { gameId, hostToken } = await createLobbyWithTwoPlayers();
+  await fetch(`${baseUrl}/games/${gameId}/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken }),
+  });
+  const res = await fetch(`${baseUrl}/games/${gameId}/stageDuration`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken, seconds: 3 }),
+  });
+  const body = await res.json();
+  assert.equal(res.status, 409);
+  assert.equal(body.error, 'GAME_NOT_IN_LOBBY');
+});
+
+test('POST /games/:id/stageDuration returns 404 for an unknown gameId', async () => {
+  const res = await fetch(`${baseUrl}/games/unknown-id/stageDuration`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken: 'whatever', seconds: 3 }),
+  });
+  assert.equal(res.status, 404);
+});
+
 test('POST /games/:id/start moves the game to in_progress with 2+ players and the correct hostToken', async () => {
   const { gameId, hostToken } = await createLobbyWithTwoPlayers();
   const res = await fetch(`${baseUrl}/games/${gameId}/start`, {
@@ -471,6 +534,31 @@ test('GET /games/:id/audio serves audio truncated to stage 1 duration once the g
   assert.equal(res.headers.get('content-type'), 'audio/wav');
   const bytes = await res.arrayBuffer();
   assert.ok(bytes.byteLength > 0);
+});
+
+test('GET /games/:id/audio respects a host-configured stage duration', async () => {
+  const defaultGame = await createLobbyWithTwoPlayers();
+  await fetch(`${baseUrl}/games/${defaultGame.gameId}/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken: defaultGame.hostToken }),
+  });
+  const defaultBytes = await (await fetch(`${baseUrl}/games/${defaultGame.gameId}/audio`)).arrayBuffer();
+
+  const scaledGame = await createLobbyWithTwoPlayers();
+  await fetch(`${baseUrl}/games/${scaledGame.gameId}/stageDuration`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken: scaledGame.hostToken, seconds: 3 }),
+  });
+  await fetch(`${baseUrl}/games/${scaledGame.gameId}/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken: scaledGame.hostToken }),
+  });
+  const scaledBytes = await (await fetch(`${baseUrl}/games/${scaledGame.gameId}/audio`)).arrayBuffer();
+
+  assert.ok(scaledBytes.byteLength > defaultBytes.byteLength);
 });
 
 test('List mode guesses never affect the concurrent Random mode round for the same song', async () => {

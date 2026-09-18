@@ -93,3 +93,7 @@ export interface GameEndedPlayer {
 export interface SongCountResponse {
   songCount: number;
 }
+
+export interface StageDurationResponse {
+  stageOneSeconds: number;
+}

@@ -14,6 +14,7 @@ function createGame() {
     players: [],
     stage: 0,
     songCount: 1,
+    stageOneSeconds: 1,
   };
   games.set(game.gameId, game);
   return game;
@@ -80,6 +81,29 @@ function setSongCount(gameId, hostToken, count) {
     throw fail('INVALID_SONG_COUNT');
   }
   game.songCount = count;
+  return game;
+}
+
+// Host-only, lobby-only (backlog: "un slider... pour paramétrer la durée
+// d'une étape"). Scales the whole fixed tier shape proportionally rather
+// than letting the host pick 6 independent numbers — see
+// wsServer.stageDurationFor, which multiplies gameState.TIERS_SECONDS by
+// this value. 1 (the default) reproduces today's exact durations.
+function setStageOneSeconds(gameId, hostToken, seconds) {
+  const game = games.get(gameId);
+  if (!game) {
+    throw fail('GAME_NOT_FOUND');
+  }
+  if (game.hostToken !== hostToken) {
+    throw fail('NOT_HOST');
+  }
+  if (game.status !== 'lobby') {
+    throw fail('GAME_NOT_IN_LOBBY');
+  }
+  if (!Number.isInteger(seconds) || seconds < 1 || seconds > 5) {
+    throw fail('INVALID_STAGE_DURATION');
+  }
+  game.stageOneSeconds = seconds;
   return game;
 }
 
@@ -344,6 +368,7 @@ module.exports = {
   joinGame,
   removePlayer,
   setSongCount,
+  setStageOneSeconds,
   startGame,
   submitAnswer,
   forfeitStage,
