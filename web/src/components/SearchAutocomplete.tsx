@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import type { PlayableSong } from '../types';
+import { rankMatches } from '../fuzzySearch';
 
 interface SearchAutocompleteProps {
   titles: PlayableSong[];
@@ -8,36 +9,6 @@ interface SearchAutocompleteProps {
   disabled: boolean;
   onChange: (value: string) => void;
   onSubmit: () => void;
-}
-
-const MAX_RESULTS = 8;
-
-function normalize(str: string): string {
-  return str
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .trim();
-}
-
-// Ranks title/artist-starts-with matches above mid-string matches (so a cap
-// doesn't just show arbitrary hits), preserving each group's relative order.
-function rankMatches(titles: PlayableSong[], query: string): PlayableSong[] {
-  const normalizedQuery = normalize(query);
-  const starts: PlayableSong[] = [];
-  const contains: PlayableSong[] = [];
-
-  for (const t of titles) {
-    const normalizedTitle = normalize(t.title);
-    const normalizedArtist = normalize(t.artist);
-    if (normalizedTitle.startsWith(normalizedQuery) || normalizedArtist.startsWith(normalizedQuery)) {
-      starts.push(t);
-    } else if (`${normalizedTitle} ${normalizedArtist}`.includes(normalizedQuery)) {
-      contains.push(t);
-    }
-  }
-
-  return [...starts, ...contains].slice(0, MAX_RESULTS);
 }
 
 export default function SearchAutocomplete({ titles, value, disabled, onChange, onSubmit }: SearchAutocompleteProps) {

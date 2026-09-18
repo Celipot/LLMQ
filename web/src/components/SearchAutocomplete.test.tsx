@@ -41,6 +41,13 @@ describe('SearchAutocomplete', () => {
     expect(screen.queryByText('Placeholder Track')).not.toBeInTheDocument();
   });
 
+  test('suggests a title despite a typo in the query', async () => {
+    const user = userEvent.setup();
+    setup({ value: 'placeholdr trak' });
+    await user.type(screen.getByRole('textbox'), 'x');
+    expect(screen.getByText('Placeholder Track — LLMQ Dev')).toBeInTheDocument();
+  });
+
   test('selecting a suggestion calls onChange with the exact title, not onSubmit', async () => {
     const user = userEvent.setup();
     const { onChange, onSubmit } = setup({ value: 'place' });
