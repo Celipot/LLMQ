@@ -104,6 +104,33 @@ function scheduleStageTimeout(gameId, stage, delayMs = STAGE_ANSWER_WINDOW_MS) {
   timer.unref();
 }
 
+// How long the revealed song (song:ended) stays on screen before the next
+// song's first stage starts (backlog: "la solution devrait être affichée
+// 10s avant la prochaine musique").
+const SONG_REVEAL_DELAY_MS = 10000;
+
+// Re-reads live game state at fire time rather than trusting a snapshot
+// captured 10s earlier — also gives a natural no-op if the game was purged
+// (last player left) during the reveal window.
+function scheduleSongTransition(gameId, delayMs = SONG_REVEAL_DELAY_MS) {
+  const timer = setTimeout(() => {
+    const game = multiplayerGames.getGame(gameId);
+    if (!game || game.status !== 'in_progress') return;
+    broadcast(gameId, {
+      type: 'stage:start',
+      stage: game.stage,
+      durationSeconds: stageDurationFor(game.stage, game.stageOneSeconds),
+      serverTimestamp: Date.now(),
+      songIndex: game.songIndex,
+      songCount: game.songCount,
+      answerWindowMs: STAGE_ANSWER_WINDOW_MS,
+      nextDurationSeconds: nextStageDurationFor(game.stage, game.stageOneSeconds),
+    });
+    scheduleStageTimeout(gameId, game.stage);
+  }, delayMs);
+  timer.unref();
+}
+
 // After any removal, checks whether the removed player was the host and, if
 // so, privately hands the rotated hostToken to whoever got promoted (see
 // multiplayerGames.reassignHostIfNeeded). Everyone else isn't told who the
@@ -143,10 +170,8 @@ function handleStageProgress(gameId) {
     scheduleStageTimeout(gameId, result.stage);
   } else if (result.type === 'songAdvanced') {
     const finishedSong = songs.getSongById(result.finishedSongId);
-    // Reveal the song that just ended, then immediately open the next one —
-    // no server-side delay/timer between the two (see the plan's design
-    // notes): the answer window hasn't started for the new song yet, so a
-    // client racing the two messages can't gain anything by answering early.
+    // Reveal the song that just ended, then hold it on screen for
+    // SONG_REVEAL_DELAY_MS before the next song's first stage starts.
     broadcast(gameId, {
       type: 'song:ended',
       song: { title: finishedSong.title, artist: finishedSong.artist, coverUrl: finishedSong.coverUrl },
@@ -154,17 +179,7 @@ function handleStageProgress(gameId) {
       songIndex: result.songIndex - 1,
       songCount: result.songCount,
     });
-    broadcast(gameId, {
-      type: 'stage:start',
-      stage: result.stage,
-      durationSeconds: result.durationSeconds,
-      serverTimestamp: Date.now(),
-      songIndex: result.songIndex,
-      songCount: result.songCount,
-      answerWindowMs: STAGE_ANSWER_WINDOW_MS,
-      nextDurationSeconds: nextStageDurationFor(result.stage, scale),
-    });
-    scheduleStageTimeout(gameId, result.stage);
+    scheduleSongTransition(gameId);
   } else if (result.type === 'ended') {
     const song = songs.getSongById(result.songId);
     broadcast(gameId, {
@@ -348,5 +363,7 @@ module.exports = {
   stageDurationFor,
   nextStageDurationFor,
   scheduleDisconnectGrace,
+  scheduleSongTransition,
   STAGE_ANSWER_WINDOW_MS,
+  SONG_REVEAL_DELAY_MS,
 };
