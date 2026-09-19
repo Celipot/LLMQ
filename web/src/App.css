@@ -246,6 +246,21 @@ body {
   margin-top: 0.25rem;
 }
 
+.song-count-setting,
+.answer-window-setting {
+  margin-top: 1rem;
+}
+
+.setting-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.setting-field input {
+  max-width: 8rem;
+}
+
 .generations-setting {
   margin-top: 0.75rem;
 }

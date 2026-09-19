@@ -63,10 +63,16 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
   const [songCount, setSongCount] = useState(DEFAULT_SONG_COUNT);
   const [songCountError, setSongCountError] = useState<string | null>(null);
   const [answerWindowSeconds, setAnswerWindowSeconds] = useState(DEFAULT_ANSWER_WINDOW_SECONDS);
+  const [answerWindowDraft, setAnswerWindowDraft] = useState(String(DEFAULT_ANSWER_WINDOW_SECONDS));
   const [answerWindowError, setAnswerWindowError] = useState<string | null>(null);
   const generationOptions = useGenerationOptions();
   const [generations, setGenerations] = useState<string[] | null>(null);
   const [generationsError, setGenerationsError] = useState<string | null>(null);
+
+  // Follows the value chosen elsewhere (lobby:state, lobby:answerWindow, resync).
+  useEffect(() => {
+    setAnswerWindowDraft(String(answerWindowSeconds));
+  }, [answerWindowSeconds]);
   const [songIndex, setSongIndex] = useState(1);
   // Every song played so far this game, appended to on each `song:ended` —
   // this persists for the whole game so the sidebar history keeps growing.
@@ -336,10 +342,19 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
     }
   }
 
-  async function handleAnswerWindowChange(value: number) {
+  // The typed text is only bounded and sent once the host is done (blur or
+  // Enter): clamping on every keystroke would turn "45" into "10" as soon as
+  // the first digit is typed, since 4 is below the minimum.
+  async function commitAnswerWindow() {
     const hostToken = localStorage.getItem(`hostToken:${gameId}`);
-    if (!hostToken || Number.isNaN(value)) return;
+    const value = Number(answerWindowDraft);
+    if (!hostToken || answerWindowDraft.trim() === '' || Number.isNaN(value)) {
+      setAnswerWindowDraft(String(answerWindowSeconds));
+      return;
+    }
     const clamped = Math.min(MAX_ANSWER_WINDOW_SECONDS, Math.max(MIN_ANSWER_WINDOW_SECONDS, Math.round(value)));
+    setAnswerWindowDraft(String(clamped));
+    if (clamped === answerWindowSeconds) return;
     setAnswerWindowSeconds(clamped);
     setAnswerWindowError(null);
     try {
@@ -412,8 +427,8 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
       <p className="subtitle">En attente du lancement de la partie...</p>
       <div className="song-count-setting">
         {isHost ? (
-          <label>
-            Nombre de musiques
+          <label className="setting-field">
+            <span>Nombre de musiques</span>
             <input
               type="number"
               min={MIN_SONG_COUNT}
@@ -433,14 +448,18 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
       </div>
       <div className="answer-window-setting">
         {isHost ? (
-          <label>
-            Temps pour deviner : {answerWindowSeconds}s
+          <label className="setting-field">
+            <span>Temps pour deviner (secondes)</span>
             <input
-              type="range"
+              type="number"
               min={MIN_ANSWER_WINDOW_SECONDS}
               max={MAX_ANSWER_WINDOW_SECONDS}
-              value={answerWindowSeconds}
-              onChange={(event) => handleAnswerWindowChange(Number(event.target.value))}
+              value={answerWindowDraft}
+              onChange={(event) => setAnswerWindowDraft(event.target.value)}
+              onBlur={commitAnswerWindow}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') commitAnswerWindow();
+              }}
             />
           </label>
         ) : (

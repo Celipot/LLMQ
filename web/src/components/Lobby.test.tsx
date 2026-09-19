@@ -195,7 +195,7 @@ describe('Lobby', () => {
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }], songCount: 1 });
     await screen.findByText('Alice');
 
-    const input = screen.getByRole('spinbutton');
+    const input = screen.getByRole('spinbutton', { name: /Nombre de musiques/ });
     fireEvent.change(input, { target: { value: '25' } });
 
     await waitFor(() => expect(api.updateSongCount).toHaveBeenCalledWith('g1', 'the-host-token', 25));
@@ -208,7 +208,7 @@ describe('Lobby', () => {
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }], songCount: 1 });
     await screen.findByText('Alice');
 
-    const input = screen.getByRole('spinbutton');
+    const input = screen.getByRole('spinbutton', { name: /Nombre de musiques/ });
     fireEvent.change(input, { target: { value: '250' } });
 
     await waitFor(() => expect(api.updateSongCount).toHaveBeenCalledWith('g1', 'the-host-token', 100));
@@ -238,38 +238,96 @@ describe('Lobby', () => {
     expect(screen.queryByRole('slider')).not.toBeInTheDocument();
   });
 
-  test('the host can drag the answer window slider, which calls updateAnswerWindow', async () => {
-    localStorage.setItem('hostToken:g1', 'the-host-token');
-    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
-    const socket = MockWebSocket.instances[0];
-    socket.emit({
-      type: 'lobby:state',
-      players: [{ playerId: 'p1', nickname: 'Alice' }],
-      answerWindowSeconds: 60,
+  describe('answer window field (host)', () => {
+    async function renderAsHost(answerWindowSeconds = 60) {
+      localStorage.setItem('hostToken:g1', 'the-host-token');
+      render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+      const socket = MockWebSocket.instances[0];
+      socket.emit({
+        type: 'lobby:state',
+        players: [{ playerId: 'p1', nickname: 'Alice' }],
+        answerWindowSeconds,
+      });
+      await screen.findByText('Alice');
+      return { socket, input: screen.getByRole('spinbutton', { name: /Temps pour deviner/ }) };
+    }
+
+    test('is a number field capped at 300 seconds, not a slider', async () => {
+      const { input } = await renderAsHost(60);
+
+      expect(screen.queryByRole('slider')).not.toBeInTheDocument();
+      expect(input).toHaveValue(60);
+      expect(input).toHaveAttribute('max', '300');
     });
-    await screen.findByText('Alice');
 
-    const slider = screen.getByRole('slider');
-    fireEvent.change(slider, { target: { value: '90' } });
+    test('sends the typed value once the field loses focus', async () => {
+      const { input } = await renderAsHost();
 
-    await waitFor(() => expect(api.updateAnswerWindow).toHaveBeenCalledWith('g1', 'the-host-token', 90));
-  });
+      await userEvent.clear(input);
+      await userEvent.type(input, '90');
+      await userEvent.tab();
 
-  test('clamps the answer window to the 10-300 range for the host', async () => {
-    localStorage.setItem('hostToken:g1', 'the-host-token');
-    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
-    const socket = MockWebSocket.instances[0];
-    socket.emit({
-      type: 'lobby:state',
-      players: [{ playerId: 'p1', nickname: 'Alice' }],
-      answerWindowSeconds: 60,
+      await waitFor(() => expect(api.updateAnswerWindow).toHaveBeenCalledWith('g1', 'the-host-token', 90));
     });
-    await screen.findByText('Alice');
 
-    const slider = screen.getByRole('slider');
-    fireEvent.change(slider, { target: { value: '9000' } });
+    test('sends the typed value on Enter', async () => {
+      const { input } = await renderAsHost();
 
-    await waitFor(() => expect(api.updateAnswerWindow).toHaveBeenCalledWith('g1', 'the-host-token', 300));
+      await userEvent.clear(input);
+      await userEvent.type(input, '45{Enter}');
+
+      await waitFor(() => expect(api.updateAnswerWindow).toHaveBeenCalledWith('g1', 'the-host-token', 45));
+    });
+
+    test('lets the host type a value below the minimum without rewriting it while typing', async () => {
+      const { input } = await renderAsHost();
+
+      await userEvent.clear(input);
+      await userEvent.type(input, '4');
+
+      expect(input).toHaveValue(4);
+      expect(api.updateAnswerWindow).not.toHaveBeenCalled();
+    });
+
+    test('caps a value above 300 to 300', async () => {
+      const { input } = await renderAsHost();
+
+      await userEvent.clear(input);
+      await userEvent.type(input, '9000');
+      await userEvent.tab();
+
+      await waitFor(() => expect(api.updateAnswerWindow).toHaveBeenCalledWith('g1', 'the-host-token', 300));
+      expect(input).toHaveValue(300);
+    });
+
+    test('raises a value below 10 to 10', async () => {
+      const { input } = await renderAsHost();
+
+      await userEvent.clear(input);
+      await userEvent.type(input, '5');
+      await userEvent.tab();
+
+      await waitFor(() => expect(api.updateAnswerWindow).toHaveBeenCalledWith('g1', 'the-host-token', 10));
+      expect(input).toHaveValue(10);
+    });
+
+    test('goes back to the previous value when the field is left empty', async () => {
+      const { input } = await renderAsHost(60);
+
+      await userEvent.clear(input);
+      await userEvent.tab();
+
+      expect(input).toHaveValue(60);
+      expect(api.updateAnswerWindow).not.toHaveBeenCalled();
+    });
+
+    test('shows the value chosen elsewhere on lobby:answerWindow', async () => {
+      const { socket, input } = await renderAsHost(60);
+
+      socket.emit({ type: 'lobby:answerWindow', answerWindowSeconds: 45 });
+
+      await waitFor(() => expect(input).toHaveValue(45));
+    });
   });
 
   test('updates the displayed answer window for everyone on lobby:answerWindow', async () => {
