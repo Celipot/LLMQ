@@ -388,6 +388,26 @@ describe('Lobby', () => {
     expect(await screen.findByText('Alice — a trouvé')).toBeInTheDocument();
   });
 
+  test('marks a player who guessed wrong as "s\'est trompé", then active again on the next stage', async () => {
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice', status: 'active' }] });
+    await screen.findByText('Alice');
+    socket.emit({ type: 'stage:start', maxStage: 6, stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
+    await screen.findByText(/Étape 1/);
+
+    socket.emit({ type: 'answer:result', correct: false });
+    socket.emit({ type: 'player:status', playerId: 'p1', status: 'forfeited', stage: 1, reason: 'wrong' });
+
+    expect(await screen.findByText("Alice — s'est trompé")).toBeInTheDocument();
+    expect(screen.getByRole('textbox')).toBeDisabled();
+
+    socket.emit({ type: 'stage:start', maxStage: 6, stage: 2, durationSeconds: 2, serverTimestamp: Date.now(), answerWindowMs: 30000 });
+
+    expect(await screen.findByText('Alice — cherche encore')).toBeInTheDocument();
+    expect(screen.getByRole('textbox')).toBeEnabled();
+  });
+
   test('does not reset a found player back to active when the stage advances', async () => {
     render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     const socket = MockWebSocket.instances[0];
@@ -404,7 +424,7 @@ describe('Lobby', () => {
     expect(screen.getByText('Alice — a trouvé')).toBeInTheDocument();
   });
 
-  test('shows the song reveal banner on song:ended and starts the next song on the following stage:start', async () => {
+  test('shows no previous-song banner on song:ended, keeps the running score and starts the next song on the following stage:start', async () => {
     render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     const socket = MockWebSocket.instances[0];
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice', status: 'active' }] });
@@ -420,15 +440,12 @@ describe('Lobby', () => {
       songCount: 2,
     });
 
-    expect(await screen.findByText(/Some Song — Some Artist/)).toBeInTheDocument();
-    expect(screen.getByText(/Alice — cherche encore/)).toHaveTextContent('6 pts');
+    expect(await screen.findByText(/Alice — cherche encore/)).toHaveTextContent('6 pts');
+    expect(screen.queryByText(/Some Song — Some Artist/)).not.toBeInTheDocument();
 
     socket.emit({ type: 'stage:start', maxStage: 6, stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000, songIndex: 2, songCount: 2 });
 
     expect(await screen.findByText(/Musique 2\/2/)).toBeInTheDocument();
-    expect(screen.queryByText(/Some Song — Some Artist/)).not.toBeInTheDocument();
-    // The running score survives into the next song, unlike the transient
-    // reveal banner above.
     expect(screen.getByText(/Alice — cherche encore/)).toHaveTextContent('6 pts');
   });
 

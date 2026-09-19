@@ -5,17 +5,11 @@ import { useAudioPlayer } from '../hooks/useAudioPlayer';
 import { fetchTitles, multiplayerAudioTrackUrl } from '../api';
 import type {
   AnswerFeedback,
-  GameEndedPlayer,
   GameEndedSong,
   MultiplayerPlayer,
   PlayerStageStatus,
   PlayableSong,
 } from '../types';
-
-interface SongReveal {
-  song: GameEndedSong;
-  players: GameEndedPlayer[];
-}
 
 interface GamePlayProps {
   gameId: string;
@@ -32,7 +26,6 @@ interface GamePlayProps {
   startedAt: number;
   songIndex: number;
   songCount: number;
-  songReveal: SongReveal | null;
   // Running total per player, keyed by playerId. Only populated once a song
   // has finished (a player with no entry hasn't scored yet).
   scores: Record<string, number>;
@@ -68,7 +61,6 @@ export default function GamePlay({
   startedAt,
   songIndex,
   songCount,
-  songReveal,
   scores,
   onSubmitAnswer,
   answerFeedback,
@@ -92,6 +84,7 @@ export default function GamePlay({
     setRemainingMs(answerWindowMs);
   }
   const found = answerFeedback?.correct === true;
+  const wrong = answerFeedback?.correct === false;
   const locked = found || forfeited;
   const busy = answerPending || forfeitPending;
 
@@ -142,11 +135,6 @@ export default function GamePlay({
           <p className="stage-timer" role="timer">
             Temps restant : {formatRemainingSeconds(remainingMs)}s
           </p>
-          {songReveal && (
-            <p className="song-reveal" role="status">
-              Musique précédente : {songReveal.song.title} — {songReveal.song.artist}
-            </p>
-          )}
         </aside>
         {players.length > 0 && (
           <aside className="score-recap">
@@ -154,7 +142,10 @@ export default function GamePlay({
             <ul>
               {players.map((player) => (
                 <li key={player.playerId}>
-                  {player.nickname} — {STATUS_LABEL[player.status ?? 'active']}
+                  {player.nickname} —{' '}
+                  {player.status === 'forfeited' && player.forfeitReason === 'wrong'
+                    ? "s'est trompé"
+                    : STATUS_LABEL[player.status ?? 'active']}
                   {player.connected === false && <span className="player-disconnected"> (déconnecté)</span>}
                   {player.playerId in scores && (
                     <span className="player-score">
@@ -207,10 +198,10 @@ export default function GamePlay({
             {playError}
           </p>
         )}
-        {forfeited && <p className="subtitle">Tu as abandonné cette étape.</p>}
-        {!forfeited && answerFeedback && (
+        {forfeited && !wrong && <p className="subtitle">Tu as abandonné cette étape.</p>}
+        {answerFeedback && (
           <p className={found ? 'success-msg' : 'error-msg'} role={found ? 'status' : 'alert'}>
-            {found ? 'Bravo, tu as trouvé !' : "Ce n'est pas ça, retente ta chance."}
+            {found ? 'Bravo, tu as trouvé !' : "Ce n'est pas ça, étape passée."}
           </p>
         )}
       </section>

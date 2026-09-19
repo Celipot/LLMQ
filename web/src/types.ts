@@ -60,6 +60,7 @@ export interface MultiplayerPlayer {
   playerId: string;
   nickname: string;
   status?: PlayerStageStatus;
+  forfeitReason?: 'timeout' | 'wrong';
   connected?: boolean;
   returnedToLobby?: boolean;
 }

@@ -217,15 +217,50 @@ test('submitAnswer does not set a score on a wrong guess', () => {
   assert.equal(alice.score, undefined);
 });
 
-test('submitAnswer leaves the player active and allows retrying on a wrong guess', () => {
+test('submitAnswer marks the player forfeited with reason "wrong" on a wrong guess', () => {
   const game = startedGameWithTwoPlayers();
   const alicePlayerId = multiplayerGames.getGame(game.gameId).players[0].playerId;
   const result = multiplayerGames.submitAnswer(game.gameId, alicePlayerId, 'Wrong Title', findSongByTitle, computeScore);
   assert.equal(result.correct, false);
   const alice = multiplayerGames.getGame(game.gameId).players[0];
+  assert.equal(alice.status, 'forfeited');
+  assert.equal(alice.forfeitReason, 'wrong');
+});
+
+test('submitAnswer throws ALREADY_ANSWERED when retrying after a wrong guess in the same stage', () => {
+  const game = startedGameWithTwoPlayers();
+  const alicePlayerId = multiplayerGames.getGame(game.gameId).players[0].playerId;
+  multiplayerGames.submitAnswer(game.gameId, alicePlayerId, 'Wrong Title', findSongByTitle, computeScore);
+  assert.throws(
+    () => multiplayerGames.submitAnswer(game.gameId, alicePlayerId, 'Correct Title', findSongByTitle, computeScore),
+    /ALREADY_ANSWERED/
+  );
+});
+
+test('a player who guessed wrong is active again, without the reason, once the stage advances', () => {
+  const game = startedGameWithTwoPlayers();
+  const [alice, bob] = multiplayerGames.getGame(game.gameId).players;
+  multiplayerGames.submitAnswer(game.gameId, alice.playerId, 'Wrong Title', findSongByTitle, computeScore);
+  multiplayerGames.submitAnswer(game.gameId, bob.playerId, 'Correct Title', findSongByTitle, computeScore);
+
+  const result = multiplayerGames.checkStageProgress(game.gameId, durationForStage, 6);
+
+  assert.equal(result.type, 'advanced');
   assert.equal(alice.status, 'active');
-  const second = multiplayerGames.submitAnswer(game.gameId, alicePlayerId, 'Correct Title', findSongByTitle, computeScore);
-  assert.equal(second.correct, true);
+  assert.equal(alice.forfeitReason, undefined);
+});
+
+test('a lone player who guesses wrong moves on to the next stage', () => {
+  const game = multiplayerGames.createGame();
+  multiplayerGames.joinGame(game.gameId, 'Alice');
+  multiplayerGames.startGame(game.gameId, game.hostToken, () => 42);
+  const [alice] = multiplayerGames.getGame(game.gameId).players;
+  multiplayerGames.submitAnswer(game.gameId, alice.playerId, 'Wrong Title', findSongByTitle, computeScore);
+
+  const result = multiplayerGames.checkStageProgress(game.gameId, durationForStage, 6);
+
+  assert.equal(result.type, 'advanced');
+  assert.equal(result.stage, 2);
 });
 
 test('submitAnswer throws ALREADY_ANSWERED once the player has already found the answer', () => {
@@ -391,7 +426,7 @@ test('checkStageProgress skips straight to the next song once everyone has found
   assert.equal(stored.status, 'in_progress');
 });
 
-function gameRevealingNextSong() {
+test('players can act on the next song right after the previous one resolved', () => {
   const game = multiplayerGames.createGame();
   multiplayerGames.setSongCount(game.gameId, game.hostToken, 2);
   multiplayerGames.joinGame(game.gameId, 'Alice');
@@ -402,32 +437,9 @@ function gameRevealingNextSong() {
     multiplayerGames.submitAnswer(game.gameId, player.playerId, 'Correct Title', findSongByTitle, computeScore);
   }
   multiplayerGames.checkStageProgress(game.gameId, durationForStage, 6, () => 99);
-  return stored;
-}
 
-test('submitAnswer throws SONG_REVEALING while the finished song is being revealed', () => {
-  const game = gameRevealingNextSong();
-  assert.throws(
-    () => multiplayerGames.submitAnswer(game.gameId, game.players[0].playerId, 'Correct Title', findSongByTitle, computeScore),
-    /SONG_REVEALING/
-  );
-});
+  const result = multiplayerGames.forfeitStage(game.gameId, stored.players[0].playerId);
 
-test('forfeitStage throws SONG_REVEALING while the finished song is being revealed', () => {
-  const game = gameRevealingNextSong();
-  assert.throws(() => multiplayerGames.forfeitStage(game.gameId, game.players[0].playerId), /SONG_REVEALING/);
-});
-
-test('timeoutStage does nothing while the finished song is being revealed', () => {
-  const game = gameRevealingNextSong();
-  assert.deepEqual(multiplayerGames.timeoutStage(game.gameId, 1), []);
-  assert.ok(game.players.every((p) => p.status === 'active'));
-});
-
-test('endReveal lets players act on the next song again', () => {
-  const game = gameRevealingNextSong();
-  multiplayerGames.endReveal(game.gameId);
-  const result = multiplayerGames.forfeitStage(game.gameId, game.players[0].playerId);
   assert.equal(result.stage, 1);
 });
 
@@ -563,7 +575,6 @@ test('checkStageProgress ends the game only once the last song of a multi-song g
   multiplayerGames.forfeitStage(game.gameId, bob.playerId);
   const songOneResult = multiplayerGames.checkStageProgress(game.gameId, durationForStage, 6, () => 43);
   assert.equal(songOneResult.type, 'songAdvanced');
-  multiplayerGames.endReveal(game.gameId);
 
   // Song 2: Bob finds it at stage 6, Alice never finds it.
   stored.stage = 6;

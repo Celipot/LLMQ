@@ -63,10 +63,8 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
   const [answerWindowSeconds, setAnswerWindowSeconds] = useState(DEFAULT_ANSWER_WINDOW_SECONDS);
   const [answerWindowError, setAnswerWindowError] = useState<string | null>(null);
   const [songIndex, setSongIndex] = useState(1);
-  const [songReveal, setSongReveal] = useState<GameResultData | null>(null);
   // Every song played so far this game, appended to on each `song:ended` —
-  // unlike songReveal (cleared at the next stage:start), this persists for
-  // the whole game so the sidebar history keeps growing.
+  // this persists for the whole game so the sidebar history keeps growing.
   const [songHistory, setSongHistory] = useState<GameEndedSong[]>([]);
   // Running total per player, updated at the end of each song (backlog:
   // "afficher le score au fur et à mesure"). Keyed by playerId rather than
@@ -133,7 +131,9 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
           });
           const own = message.players.find((p: MultiplayerPlayer) => p.playerId === playerId);
           setForfeited(own?.status === 'forfeited');
-          setAnswerFeedback(own?.status === 'found' ? { correct: true } : null);
+          setAnswerFeedback(
+            own?.status === 'found' ? { correct: true } : own?.forfeitReason === 'wrong' ? { correct: false } : null
+          );
           setAnswerPending(false);
           setForfeitPending(false);
         }
@@ -167,9 +167,6 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         // A straggler who never clicked "Retour au lobby" must not stay
         // stuck on the old results screen once a new round actually starts.
         setGameResult(null);
-        // A song-transition reveal banner only applies to the song it
-        // announced; any later stage (same song or the next one) clears it.
-        setSongReveal(null);
         // "found" is permanent for the whole song — only forfeited players
         // get another try once the stage advances (see server-side
         // multiplayerGames.checkStageProgress for the matching rule).
@@ -180,12 +177,11 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         setPlayers((prev) =>
           prev.map((player) =>
             player.status === 'forfeited' || (isNewSong && player.status === 'found')
-              ? { ...player, status: 'active' }
+              ? { ...player, status: 'active', forfeitReason: undefined }
               : player
           )
         );
       } else if (message.type === 'song:ended') {
-        setSongReveal({ song: message.song, players: message.players });
         setSongHistory((prev) => [...prev, message.song]);
         setScores((prev) => {
           const next = { ...prev };
@@ -226,7 +222,11 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         }
       } else if (message.type === 'player:status') {
         setPlayers((prev) =>
-          prev.map((player) => (player.playerId === message.playerId ? { ...player, status: message.status } : player))
+          prev.map((player) =>
+            player.playerId === message.playerId
+              ? { ...player, status: message.status, forfeitReason: message.reason }
+              : player
+          )
         );
         if (message.playerId === playerId && message.status === 'forfeited') {
           setForfeited(true);
@@ -357,7 +357,6 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         startedAt={stageInfo.startedAt}
         songIndex={songIndex}
         songCount={songCount}
-        songReveal={songReveal}
         scores={scores}
         onSubmitAnswer={submitAnswer}
         answerFeedback={answerFeedback}

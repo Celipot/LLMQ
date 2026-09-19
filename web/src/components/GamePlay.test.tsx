@@ -28,7 +28,6 @@ describe('GamePlay', () => {
         startedAt={Date.now()}
         songIndex={1}
         songCount={1}
-        songReveal={null}
         scores={{}}
         onSubmitAnswer={vi.fn()}
         answerFeedback={null}
@@ -58,7 +57,6 @@ describe('GamePlay', () => {
         startedAt={Date.now()}
         songIndex={2}
         songCount={5}
-        songReveal={null}
         scores={{}}
         onSubmitAnswer={vi.fn()}
         answerFeedback={null}
@@ -74,38 +72,6 @@ describe('GamePlay', () => {
     expect(screen.getByText(/Musique 2\/5/)).toBeInTheDocument();
   });
 
-  test('shows a reveal banner for the previous song when songReveal is set', () => {
-    vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
-    render(
-      <GamePlay
-        gameId="g1"
-        stage={1}
-        maxStage={6}
-        durationSeconds={1}
-        nextDurationSeconds={null}
-        answerWindowMs={30000}
-        startedAt={Date.now()}
-        songIndex={2}
-        songCount={5}
-        songReveal={{
-          song: { title: 'Some Song', artist: 'Some Artist', coverUrl: '/covers/x.png' },
-          players: [{ playerId: 'p1', nickname: 'Alice', foundStage: 1, score: 6 }],
-        }}
-        scores={{}}
-        onSubmitAnswer={vi.fn()}
-        answerFeedback={null}
-        forfeited={false}
-        onForfeit={vi.fn()}
-        songHistory={[]}
-        answerPending={false}
-        forfeitPending={false}
-        players={[]}
-      />
-    );
-
-    expect(screen.getByText(/Some Song — Some Artist/)).toBeInTheDocument();
-  });
-
   test('points the audio element at the game-scoped multiplayer track once play is clicked', async () => {
     vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
     render(
@@ -119,7 +85,6 @@ describe('GamePlay', () => {
         startedAt={Date.now()}
         songIndex={1}
         songCount={1}
-        songReveal={null}
         scores={{}}
         onSubmitAnswer={vi.fn()}
         answerFeedback={null}
@@ -152,7 +117,6 @@ describe('GamePlay', () => {
         startedAt={Date.now()}
         songIndex={1}
         songCount={1}
-        songReveal={null}
         scores={{}}
         onSubmitAnswer={onSubmitAnswer}
         answerFeedback={null}
@@ -186,7 +150,6 @@ describe('GamePlay', () => {
         startedAt={Date.now()}
         songIndex={1}
         songCount={1}
-        songReveal={null}
         scores={{}}
         onSubmitAnswer={vi.fn()}
         answerFeedback={{ correct: true }}
@@ -205,7 +168,7 @@ describe('GamePlay', () => {
     expect(screen.getByText('Abandonner cette étape')).toBeDisabled();
   });
 
-  test('shows a retry message and keeps input enabled on a wrong answer', async () => {
+  test('shows a "stage skipped" message and locks the input on a wrong answer', async () => {
     vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
     render(
       <GamePlay
@@ -218,11 +181,10 @@ describe('GamePlay', () => {
         startedAt={Date.now()}
         songIndex={1}
         songCount={1}
-        songReveal={null}
         scores={{}}
         onSubmitAnswer={vi.fn()}
         answerFeedback={{ correct: false }}
-        forfeited={false}
+        forfeited={true}
         onForfeit={vi.fn()}
         songHistory={[]}
         answerPending={false}
@@ -231,8 +193,41 @@ describe('GamePlay', () => {
       />
     );
 
-    expect(await screen.findByRole('alert')).toHaveTextContent("Ce n'est pas ça");
-    expect(screen.getByRole('textbox')).toBeEnabled();
+    expect(await screen.findByRole('alert')).toHaveTextContent("Ce n'est pas ça, étape passée");
+    expect(screen.queryByText('Tu as abandonné cette étape.')).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox')).toBeDisabled();
+  });
+
+  test('labels a player who guessed wrong as "s\'est trompé" in the status list', () => {
+    vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
+    render(
+      <GamePlay
+        gameId="g1"
+        stage={1}
+        maxStage={6}
+        durationSeconds={1}
+        nextDurationSeconds={null}
+        answerWindowMs={30000}
+        startedAt={Date.now()}
+        songIndex={1}
+        songCount={1}
+        scores={{}}
+        onSubmitAnswer={vi.fn()}
+        answerFeedback={null}
+        forfeited={false}
+        onForfeit={vi.fn()}
+        songHistory={[]}
+        answerPending={false}
+        forfeitPending={false}
+        players={[
+          { playerId: 'p1', nickname: 'Alice', status: 'forfeited', forfeitReason: 'wrong' },
+          { playerId: 'p2', nickname: 'Bob', status: 'forfeited', forfeitReason: 'timeout' },
+        ]}
+      />
+    );
+
+    expect(screen.getByText(/Alice — s'est trompé/)).toBeInTheDocument();
+    expect(screen.getByText(/Bob — a abandonné/)).toBeInTheDocument();
   });
 
   test('clicking "Abandonner cette étape" calls onForfeit', async () => {
@@ -249,7 +244,6 @@ describe('GamePlay', () => {
         startedAt={Date.now()}
         songIndex={1}
         songCount={1}
-        songReveal={null}
         scores={{}}
         onSubmitAnswer={vi.fn()}
         answerFeedback={null}
@@ -280,7 +274,6 @@ describe('GamePlay', () => {
         startedAt={Date.now()}
         songIndex={1}
         songCount={1}
-        songReveal={null}
         scores={{}}
         onSubmitAnswer={vi.fn()}
         answerFeedback={null}
@@ -312,7 +305,6 @@ describe('GamePlay', () => {
         startedAt={Date.now()}
         songIndex={1}
         songCount={1}
-        songReveal={null}
         scores={{}}
         onSubmitAnswer={vi.fn()}
         answerFeedback={null}
@@ -347,7 +339,6 @@ describe('GamePlay', () => {
         startedAt={Date.now()}
         songIndex={1}
         songCount={1}
-        songReveal={null}
         scores={{}}
         onSubmitAnswer={vi.fn()}
         answerFeedback={null}
@@ -376,7 +367,6 @@ describe('GamePlay', () => {
         startedAt={Date.now()}
         songIndex={1}
         songCount={1}
-        songReveal={null}
         scores={{}}
         onSubmitAnswer={vi.fn()}
         answerFeedback={null}
@@ -410,7 +400,6 @@ describe('GamePlay', () => {
         startedAt={Date.now()}
         songIndex={1}
         songCount={1}
-        songReveal={null}
         scores={{}}
         onSubmitAnswer={vi.fn()}
         answerFeedback={null}
@@ -449,7 +438,6 @@ describe('GamePlay', () => {
         startedAt={initialStartedAt}
         songIndex={1}
         songCount={1}
-        songReveal={null}
         scores={{}}
         onSubmitAnswer={vi.fn()}
         answerFeedback={null}
@@ -478,7 +466,6 @@ describe('GamePlay', () => {
         startedAt={Date.now()}
         songIndex={1}
         songCount={1}
-        songReveal={null}
         scores={{}}
         onSubmitAnswer={vi.fn()}
         answerFeedback={null}
@@ -509,7 +496,6 @@ describe('GamePlay', () => {
         startedAt={Date.now()}
         songIndex={1}
         songCount={1}
-        songReveal={null}
         scores={{}}
         onSubmitAnswer={vi.fn()}
         answerFeedback={null}
@@ -541,7 +527,6 @@ describe('GamePlay', () => {
         startedAt={Date.now()}
         songIndex={1}
         songCount={1}
-        songReveal={null}
         scores={{}}
         onSubmitAnswer={vi.fn()}
         answerFeedback={null}
@@ -572,7 +557,6 @@ describe('GamePlay', () => {
         startedAt={Date.now()}
         songIndex={1}
         songCount={1}
-        songReveal={null}
         scores={{}}
         onSubmitAnswer={vi.fn()}
         answerFeedback={{ correct: true }}
@@ -601,7 +585,6 @@ describe('GamePlay', () => {
         startedAt={Date.now()}
         songIndex={2}
         songCount={3}
-        songReveal={null}
         scores={{ p1: 16, p2: 0 }}
         onSubmitAnswer={vi.fn()}
         answerFeedback={null}
@@ -634,7 +617,6 @@ describe('GamePlay', () => {
         startedAt={Date.now()}
         songIndex={1}
         songCount={3}
-        songReveal={null}
         scores={{}}
         onSubmitAnswer={vi.fn()}
         answerFeedback={null}
@@ -664,7 +646,6 @@ describe('GamePlay', () => {
         startedAt={Date.now()}
         songIndex={1}
         songCount={1}
-        songReveal={null}
         scores={{}}
         onSubmitAnswer={vi.fn()}
         answerFeedback={null}
@@ -694,7 +675,6 @@ describe('GamePlay', () => {
         startedAt={Date.now()}
         songIndex={1}
         songCount={1}
-        songReveal={null}
         scores={{}}
         onSubmitAnswer={vi.fn()}
         answerFeedback={null}
@@ -724,7 +704,6 @@ describe('GamePlay', () => {
         startedAt={Date.now()}
         songIndex={2}
         songCount={3}
-        songReveal={null}
         scores={{ p1: 6, p2: 16 }}
         onSubmitAnswer={vi.fn()}
         answerFeedback={null}
@@ -758,7 +737,6 @@ describe('GamePlay', () => {
         startedAt={Date.now()}
         songIndex={1}
         songCount={1}
-        songReveal={null}
         scores={{}}
         onSubmitAnswer={vi.fn()}
         answerFeedback={null}
@@ -788,7 +766,6 @@ describe('GamePlay', () => {
         startedAt={Date.now()}
         songIndex={2}
         songCount={2}
-        songReveal={null}
         scores={{ p1: 12, p2: 0 }}
         onSubmitAnswer={vi.fn()}
         answerFeedback={null}
@@ -823,7 +800,6 @@ describe('GamePlay', () => {
         startedAt={Date.now()}
         songIndex={3}
         songCount={3}
-        songReveal={null}
         scores={{}}
         onSubmitAnswer={vi.fn()}
         answerFeedback={null}
@@ -857,7 +833,6 @@ describe('GamePlay', () => {
         startedAt={Date.now()}
         songIndex={1}
         songCount={1}
-        songReveal={null}
         scores={{}}
         onSubmitAnswer={vi.fn()}
         answerFeedback={null}
