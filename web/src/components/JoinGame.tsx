@@ -4,12 +4,13 @@ import { ApiError, fetchGameStatus, joinGame } from '../api';
 interface JoinGameProps {
   gameId: string;
   defaultNickname?: string;
+  defaultAvatar?: string;
   onJoined: (playerId: string) => void;
 }
 
 type LoadState = 'loading' | 'joinable' | 'locked' | 'not_found';
 
-export default function JoinGame({ gameId, defaultNickname = '', onJoined }: JoinGameProps) {
+export default function JoinGame({ gameId, defaultNickname = '', defaultAvatar, onJoined }: JoinGameProps) {
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [nickname, setNickname] = useState(defaultNickname);
   // The profile username joins without asking: the form only appears when
@@ -40,7 +41,15 @@ export default function JoinGame({ gameId, defaultNickname = '', onJoined }: Joi
       setError(null);
       try {
         const hostToken = localStorage.getItem(`hostToken:${gameId}`) ?? undefined;
-        const { playerId } = await joinGame(gameId, name, hostToken);
+        let joined;
+        try {
+          joined = await joinGame(gameId, name, hostToken, defaultAvatar);
+        } catch (err) {
+          // A stale or corrupted stored picture must never keep the player out.
+          if (!(err instanceof ApiError && err.code === 'INVALID_AVATAR' && defaultAvatar)) throw err;
+          joined = await joinGame(gameId, name, hostToken, undefined);
+        }
+        const { playerId } = joined;
         localStorage.setItem(`playerId:${gameId}`, playerId);
         onJoined(playerId);
       } catch (err) {
@@ -56,7 +65,7 @@ export default function JoinGame({ gameId, defaultNickname = '', onJoined }: Joi
         setSubmitting(false);
       }
     },
-    [gameId, onJoined],
+    [gameId, onJoined, defaultAvatar],
   );
 
   useEffect(() => {

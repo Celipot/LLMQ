@@ -5,6 +5,7 @@ import type { AnswerFeedback, GameEndedPlayer, GameEndedSong, MultiplayerPlayer 
 import GamePlay from './GamePlay';
 import GameResult from './GameResult';
 import GenerationFilter from './GenerationFilter';
+import PlayerAvatar from './PlayerAvatar';
 
 interface LobbyProps {
   gameId: string;
@@ -425,6 +426,7 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         <ul className="lobby-players">
           {players.map((player) => (
             <li key={player.playerId}>
+              <PlayerAvatar nickname={player.nickname} avatarUrl={player.avatarUrl} />
               <span>
                 {player.nickname}
                 {player.returnedToLobby === false && <span className="player-waiting"> (en attente)</span>}

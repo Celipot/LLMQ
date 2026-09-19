@@ -243,6 +243,49 @@ body {
   gap: 0.3rem;
 }
 
+.player-avatar {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  vertical-align: middle;
+  margin-right: 0.5rem;
+}
+
+.player-avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--border);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.player-avatar-fallback::before {
+  content: attr(data-initial);
+}
+
+.lobby-players li > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-picture {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.profile-picture-preview {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
 .profile-button {
   margin-top: 1rem;
 }

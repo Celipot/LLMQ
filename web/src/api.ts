@@ -82,11 +82,16 @@ export function fetchGameStatus(gameId: string): Promise<GameSummary> {
   return fetch(`/games/${gameId}`).then((res) => parseOrThrow<GameSummary>(res));
 }
 
-export function joinGame(gameId: string, nickname: string, hostToken?: string): Promise<JoinGameResponse> {
+export function joinGame(
+  gameId: string,
+  nickname: string,
+  hostToken?: string,
+  avatar?: string
+): Promise<JoinGameResponse> {
   return fetch(`/games/${gameId}/join`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nickname, hostToken }),
+    body: JSON.stringify({ nickname, hostToken, avatar }),
   }).then((res) => parseOrThrow<JoinGameResponse>(res));
 }
 

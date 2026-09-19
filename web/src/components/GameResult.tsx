@@ -1,3 +1,4 @@
+import PlayerAvatar from './PlayerAvatar';
 import type { GameEndedPlayer, GameEndedSong } from '../types';
 
 interface GameResultProps {
@@ -40,6 +41,7 @@ export default function GameResult({ song, players }: GameResultProps) {
       <ol className="game-result-ranking">
         {ranked.map((player) => (
           <li key={player.playerId}>
+            <PlayerAvatar nickname={player.nickname} avatarUrl={player.avatarUrl} />
             #{player.rank} {player.nickname} — {player.score} pt{player.score > 1 ? 's' : ''}
           </li>
         ))}

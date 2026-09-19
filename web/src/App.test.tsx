@@ -3,6 +3,9 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import App from './App';
 import * as api from './api';
+import { resizeImageToDataUrl } from './imageResize';
+
+vi.mock('./imageResize', () => ({ resizeImageToDataUrl: vi.fn() }));
 
 vi.mock('./api', async () => {
   const actual = await vi.importActual<typeof import('./api')>('./api');
@@ -212,7 +215,29 @@ describe("App — profile", () => {
     render(<App />);
 
     expect(await screen.findByText("En attente du lancement de la partie...")).toBeInTheDocument();
-    expect(api.joinGame).toHaveBeenCalledWith("g1", "Alice", undefined);
+    expect(api.joinGame).toHaveBeenCalledWith("g1", "Alice", undefined, undefined);
+  });
+
+  test('choosing a picture stores it in the profile', async () => {
+    vi.mocked(resizeImageToDataUrl).mockResolvedValue('data:image/jpeg;base64,AAAA');
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Profil' }));
+    await userEvent.upload(await screen.findByLabelText('Photo de profil'), new File(['x'], 'me.png', { type: 'image/png' }));
+
+    await waitFor(() => expect(JSON.parse(localStorage.getItem('profile') ?? '{}').avatar).toBe('data:image/jpeg;base64,AAAA'));
+  });
+
+  test('joining a game link sends the profile picture too', async () => {
+    localStorage.setItem('profile', JSON.stringify({ username: 'Alice', avatar: 'data:image/jpeg;base64,AAAA' }));
+    window.history.pushState({}, '', '/game/g1');
+    vi.mocked(api.fetchGameStatus).mockResolvedValue({ gameId: 'g1', status: 'lobby' });
+    vi.mocked(api.joinGame).mockResolvedValue({ playerId: 'p1', players: [] });
+
+    render(<App />);
+
+    await screen.findByText('En attente du lancement de la partie...');
+    expect(api.joinGame).toHaveBeenCalledWith('g1', 'Alice', undefined, 'data:image/jpeg;base64,AAAA');
   });
 });
 

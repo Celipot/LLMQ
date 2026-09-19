@@ -51,4 +51,21 @@ describe('GameResult', () => {
     expect(screen.getByText(/^#1 Bob/)).toBeInTheDocument();
     expect(screen.getByText(/^#3 Chris/)).toBeInTheDocument();
   });
+
+  test("shows each player's picture to the left of their rank", () => {
+    render(
+      <GameResult
+        song={SONG}
+        players={[
+          { playerId: 'p1', nickname: 'Alice', foundStage: 1, score: 6, avatarUrl: '/games/g1/players/p1/avatar' },
+          { playerId: 'p2', nickname: 'Bob', foundStage: null, score: 0 },
+        ]}
+      />
+    );
+
+    const aliceRow = screen.getByText(/Alice/).closest('li') as HTMLElement;
+    const bobRow = screen.getByText(/Bob/).closest('li') as HTMLElement;
+    expect(aliceRow.firstElementChild).toHaveAttribute('src', '/games/g1/players/p1/avatar');
+    expect(bobRow.querySelector('.player-avatar-fallback')).toBeInTheDocument();
+  });
 });

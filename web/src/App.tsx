@@ -37,7 +37,7 @@ export default function App() {
     if (!urlGameId) return 'home';
     return getPersistedPlayerId(urlGameId) ? 'lobby' : 'join';
   });
-  const { profile, saveUsername } = useProfile();
+  const { profile, avatarError, saveUsername, chooseAvatar, removeAvatar } = useProfile();
   const { history, adaptive, setAdaptive, recordResult, clearHistory } = useSongHistory();
   const { state, titles, activeSongId, error, guess, skip, reset, startRandom, selectSong, clearError } =
     useGameState(recordResult);
@@ -142,7 +142,16 @@ export default function App() {
         />
       )}
 
-      {screen === 'profile' && <ProfileEditor username={profile.username} onSave={saveUsername} />}
+      {screen === 'profile' && (
+        <ProfileEditor
+          username={profile.username}
+          avatar={profile.avatar}
+          avatarError={avatarError}
+          onSave={saveUsername}
+          onAvatarFile={chooseAvatar}
+          onAvatarRemove={removeAvatar}
+        />
+      )}
 
       {screen === 'random-setup' && (
         <RandomSetup
@@ -156,7 +165,12 @@ export default function App() {
         />
       )}
 
-      {screen === 'join' && gameId && <JoinGame gameId={gameId} defaultNickname={profile.username} onJoined={handleJoined} />}
+      {screen === 'join' && gameId && <JoinGame
+          gameId={gameId}
+          defaultNickname={profile.username}
+          defaultAvatar={profile.avatar}
+          onJoined={handleJoined}
+        />}
 
       {screen === 'lobby' && gameId && playerId && (
         <Lobby gameId={gameId} playerId={playerId} onSessionInvalid={handleSessionInvalid} onLeave={handleLeave} />

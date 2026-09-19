@@ -13,14 +13,15 @@ server/          Backend Express (JS, CommonJS)
   index.js          Routes API, sert public/ en statique
   gameState.js      State machine de la partie en mémoire (paliers, essais, victoire/défaite)
   songs.js          Chargement/recherche des titres jouables
+  avatars.js        Validation des photos de profil (PNG/JPEG/WebP, 64 Ko, signature vérifiée, pas de SVG)
   songPicker.js     Pondération du tirage solo adaptatif (réussite, étape, récence) et validation de l'historique client
   wavTruncate.js    Découpe la piste WAV au nombre de secondes autorisé
 
 web/             Frontend (Vite + React + TypeScript)
   src/api.ts        Client fetch typé pour le contrat API
   src/types.ts      Types miroir des réponses serveur
-  src/hooks/        Logique d'état et de lecture audio (useGameState, useAudioPlayer, useGenerationOptions)
-  src/components/   Composants de présentation (Player, Pips, SearchAutocomplete, History, Result, ShinyText, GenerationFilter, RandomSetup)
+  src/hooks/        Logique d'état et de lecture audio (useGameState, useAudioPlayer, useGenerationOptions, useSongHistory, useProfile)
+  src/components/   Composants de présentation (Player, Pips, SearchAutocomplete, History, Result, ShinyText, GenerationFilter, RandomSetup, ProfileEditor, PlayerAvatar)
   vite.config.ts    Proxy dev vers Express, build vers ../public
 
 data/            Données jouables
@@ -90,6 +91,6 @@ pnpm run test:web
 ## Contraintes techniques notables
 
 - **Audio WAV PCM obligatoire** : la troncature par palier se fait par découpe d'octets dans le chunk `data` (`server/wavTruncate.js`), sans ré-encodage. Un format compressé (MP3, etc.) nécessiterait une étape de décodage avant de pouvoir réutiliser cette approche.
-- **Contrat API stable** : `GET /api/state`, `GET /api/titles` (inclut désormais `id` et `status` par titre), `GET /audio/track`, `POST /api/guess`, `POST /api/skip`, `POST /api/reset` (corps optionnel `{ history }`), `POST /api/mode/random` (corps optionnel `{ generations, history }` ; `generations` est mémorisé côté serveur pour `/api/reset`, `history` non : le serveur ne garde rien par joueur, le client renvoie son historique `localStorage` `{ [songId]: { plays, wins, stageSum, lastPlayedAt } }` à chaque tirage, sans historique le tirage est uniforme, erreur `INVALID_HISTORY` si ce n'est pas un objet ; `GET /api/state` expose `correctSongId` une fois le round fini, jamais avant), `GET /api/generations` (liste + compteurs), `POST /games/:id/generations` (hôte, lobby uniquement, diffusé en `lobby:generations`, aussi présent dans `lobby:state`, `game:state` et `game:reset`), `POST /api/songs/:id/select` — le frontend `web/` en dépend directement via `src/api.ts`. Toute modification de forme de réponse doit être répercutée des deux côtés.
+- **Contrat API stable** : `GET /api/state`, `GET /api/titles` (inclut désormais `id` et `status` par titre), `GET /audio/track`, `POST /api/guess`, `POST /api/skip`, `POST /api/reset` (corps optionnel `{ history }`), `POST /api/mode/random` (corps optionnel `{ generations, history }` ; `generations` est mémorisé côté serveur pour `/api/reset`, `history` non : le serveur ne garde rien par joueur, le client renvoie son historique `localStorage` `{ [songId]: { plays, wins, stageSum, lastPlayedAt } }` à chaque tirage, sans historique le tirage est uniforme, erreur `INVALID_HISTORY` si ce n'est pas un objet ; `GET /api/state` expose `correctSongId` une fois le round fini, jamais avant), `GET /api/generations` (liste + compteurs), `POST /games/:id/generations` (hôte, lobby uniquement, diffusé en `lobby:generations`, aussi présent dans `lobby:state`, `game:state` et `game:reset`), `POST /games/:id/join` (corps optionnel `avatar` : data URL PNG/JPEG/WebP ≤ 64 Ko, sinon `INVALID_AVATAR`), `GET /games/:id/players/:playerId/avatar` (sert l'image, jamais dans les diffusions : les joueurs ne portent que `avatarUrl`, présent aussi dans le classement final), `POST /api/songs/:id/select` — le frontend `web/` en dépend directement via `src/api.ts`. Toute modification de forme de réponse doit être répercutée des deux côtés.
 - **État de partie par round, pas global** : `server/gameState.js` garde une `Map` par clé de round (`random:<songId>` ou `list:<songId>`, construites dans `server/index.js`), pas un seul état global. Les deux espaces de noms sont volontairement séparés : mélanger les états ferait fuiter en Mode Liste quelle chanson est en train d'être jouée en Mode Aléatoire (`en cours` révélerait la réponse).
 - **`/api/reset` non authentifié** : usage dev uniquement, limitation connue à traiter avant tout déploiement multi-utilisateur.

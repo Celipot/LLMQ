@@ -43,7 +43,7 @@ describe('JoinGame', () => {
     await userEvent.type(await screen.findByLabelText('Pseudo'), 'Alice');
     await userEvent.click(screen.getByText('Rejoindre'));
 
-    await waitFor(() => expect(api.joinGame).toHaveBeenCalledWith('g1', 'Alice', 'secret-token'));
+    await waitFor(() => expect(api.joinGame).toHaveBeenCalledWith('g1', 'Alice', 'secret-token', undefined));
     localStorage.removeItem('hostToken:g1');
   });
 
@@ -81,7 +81,7 @@ describe('JoinGame', () => {
       render(<JoinGame gameId="g1" defaultNickname="Alice" onJoined={onJoined} />);
 
       await waitFor(() => expect(onJoined).toHaveBeenCalledWith("p1"));
-      expect(api.joinGame).toHaveBeenCalledWith("g1", "Alice", undefined);
+      expect(api.joinGame).toHaveBeenCalledWith("g1", "Alice", undefined, undefined);
       expect(screen.queryByLabelText("Pseudo")).not.toBeInTheDocument();
     });
 
@@ -112,6 +112,31 @@ describe('JoinGame', () => {
 
       expect(await screen.findByLabelText("Pseudo")).toHaveValue("");
       expect(api.joinGame).not.toHaveBeenCalled();
+    });
+
+    test('sends the profile picture along when joining automatically', async () => {
+      localStorage.removeItem('hostToken:g1');
+      vi.mocked(api.fetchGameStatus).mockResolvedValue({ gameId: 'g1', status: 'lobby' });
+      vi.mocked(api.joinGame).mockResolvedValue({ playerId: 'p1', players: [] });
+      const onJoined = vi.fn();
+      render(<JoinGame gameId="g1" defaultNickname="Alice" defaultAvatar="data:image/jpeg;base64,AAAA" onJoined={onJoined} />);
+
+      await waitFor(() => expect(onJoined).toHaveBeenCalled());
+      expect(api.joinGame).toHaveBeenCalledWith('g1', 'Alice', undefined, 'data:image/jpeg;base64,AAAA');
+    });
+
+    test('joins again without the picture when the server refuses it', async () => {
+      localStorage.removeItem('hostToken:g1');
+      vi.mocked(api.joinGame).mockReset();
+      vi.mocked(api.fetchGameStatus).mockResolvedValue({ gameId: 'g1', status: 'lobby' });
+      vi.mocked(api.joinGame)
+        .mockRejectedValueOnce(new ApiError('INVALID_AVATAR'))
+        .mockResolvedValueOnce({ playerId: 'p1', players: [] });
+      const onJoined = vi.fn();
+      render(<JoinGame gameId="g1" defaultNickname="Alice" defaultAvatar="data:image/jpeg;base64,BAD" onJoined={onJoined} />);
+
+      await waitFor(() => expect(onJoined).toHaveBeenCalledWith('p1'));
+      expect(api.joinGame).toHaveBeenLastCalledWith('g1', 'Alice', undefined, undefined);
     });
   });
 });

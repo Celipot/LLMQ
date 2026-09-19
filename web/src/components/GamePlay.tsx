@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import Player from './Player';
+import PlayerAvatar from './PlayerAvatar';
 import SearchAutocomplete from './SearchAutocomplete';
 import StageChangeBanner from './StageChangeBanner';
 import { useAudioPlayer } from '../hooks/useAudioPlayer';
@@ -162,6 +163,7 @@ export default function GamePlay({
                     : STATUS_DISPLAY[player.status ?? 'active'];
                 return (
                   <li key={player.playerId}>
+                    <PlayerAvatar nickname={player.nickname} avatarUrl={player.avatarUrl} />
                     <strong>{player.nickname}</strong> — <span className={display.className}>{display.label}</span>
                     {player.connected === false && <span className="player-disconnected"> (déconnecté)</span>}
                     {player.playerId in scores && (

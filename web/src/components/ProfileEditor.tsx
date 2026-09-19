@@ -4,10 +4,21 @@ const MAX_USERNAME_LENGTH = 20;
 
 interface ProfileEditorProps {
   username: string;
+  avatar?: string;
+  avatarError?: string | null;
   onSave: (username: string) => void;
+  onAvatarFile: (file: File) => void;
+  onAvatarRemove: () => void;
 }
 
-export default function ProfileEditor({ username, onSave }: ProfileEditorProps) {
+export default function ProfileEditor({
+  username,
+  avatar,
+  avatarError,
+  onSave,
+  onAvatarFile,
+  onAvatarRemove,
+}: ProfileEditorProps) {
   const [draft, setDraft] = useState(username);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -47,6 +58,32 @@ export default function ProfileEditor({ username, onSave }: ProfileEditorProps) 
           {error}
         </p>
       )}
+
+      <div className="profile-picture">
+        {avatar && <img className="profile-picture-preview" src={avatar} alt="Ta photo de profil" />}
+        <label className="setting-field">
+          <span>Photo de profil</span>
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) onAvatarFile(file);
+              event.target.value = '';
+            }}
+          />
+        </label>
+        {avatar && (
+          <button type="button" className="secondary" onClick={onAvatarRemove}>
+            Retirer la photo
+          </button>
+        )}
+        {avatarError && (
+          <p className="error-msg" role="alert">
+            {avatarError}
+          </p>
+        )}
+      </div>
     </section>
   );
 }

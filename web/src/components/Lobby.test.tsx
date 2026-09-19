@@ -98,6 +98,25 @@ describe('Lobby', () => {
     expect(within(column).queryByText('Nombre de musiques')).not.toBeInTheDocument();
   });
 
+  test("shows each player's picture to the left of their nickname, or an initial without one", async () => {
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({
+      type: 'lobby:state',
+      players: [
+        { playerId: 'p1', nickname: 'Alice', avatarUrl: '/games/g1/players/p1/avatar' },
+        { playerId: 'p2', nickname: 'Bob' },
+      ],
+    });
+
+    const aliceRow = (await screen.findByText('Alice')).closest('li') as HTMLElement;
+    const bobRow = screen.getByText('Bob').closest('li') as HTMLElement;
+
+    expect(aliceRow.firstElementChild?.tagName).toBe('IMG');
+    expect(aliceRow.firstElementChild).toHaveAttribute('src', '/games/g1/players/p1/avatar');
+    expect(bobRow.querySelector('.player-avatar-fallback')).toHaveAttribute('data-initial', 'B');
+  });
+
   test('adds a player on player:joined and removes it on player:left', async () => {
     render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     const socket = MockWebSocket.instances[0];

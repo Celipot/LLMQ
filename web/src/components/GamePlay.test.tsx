@@ -258,6 +258,13 @@ describe('GamePlay', () => {
       );
     }
 
+    test("shows the player's picture to the left of their nickname", () => {
+      renderWithPlayers([{ playerId: 'p1', nickname: 'Alice', status: 'active', avatarUrl: '/games/g1/players/p1/avatar' }]);
+
+      const row = screen.getByText('Alice').closest('li') as HTMLElement;
+      expect(row.firstElementChild).toHaveAttribute('src', '/games/g1/players/p1/avatar');
+    });
+
     test('renders the nickname in bold', () => {
       renderWithPlayers([{ playerId: 'p1', nickname: 'Alice', status: 'active' }]);
 

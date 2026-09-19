@@ -65,6 +65,7 @@ export interface MultiplayerPlayer {
   connected?: boolean;
   returnedToLobby?: boolean;
   totalScore?: number;
+  avatarUrl?: string;
 }
 
 export interface JoinGameResponse {
@@ -86,6 +87,7 @@ export interface GameEndedPlayer {
   playerId: string;
   nickname: string;
   foundStage: number | null;
+  avatarUrl?: string;
   score: number;
   // Only present on `song:ended` (the running total across all songs played
   // so far) — the final `game:ended` payload already reports the cumulative
