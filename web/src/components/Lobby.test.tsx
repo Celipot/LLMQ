@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import Lobby from './Lobby';
@@ -74,6 +74,28 @@ describe('Lobby', () => {
     socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
 
     expect(await screen.findByText('Alice')).toBeInTheDocument();
+  });
+
+  test('lists the players in their own "Joueurs" column, apart from the settings', async () => {
+    localStorage.setItem('hostToken:g1', 'the-host-token');
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({
+      type: 'lobby:state',
+      players: [
+        { playerId: 'p1', nickname: 'Alice' },
+        { playerId: 'p2', nickname: 'Bob' },
+      ],
+    });
+    await screen.findByText('Alice');
+
+    const column = screen.getByRole('complementary', { name: 'Joueurs' });
+
+    expect(within(column).getByRole('heading', { name: 'Joueurs' })).toBeInTheDocument();
+    expect(within(column).getByText('Alice')).toBeInTheDocument();
+    expect(within(column).getByText('Bob')).toBeInTheDocument();
+    expect(within(column).queryByText('Lancer la partie')).not.toBeInTheDocument();
+    expect(within(column).queryByText('Nombre de musiques')).not.toBeInTheDocument();
   });
 
   test('adds a player on player:joined and removes it on player:left', async () => {

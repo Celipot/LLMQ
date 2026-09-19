@@ -36,10 +36,15 @@ body {
   gap: 1.5rem;
 }
 
-.game-layout-multi .game-play {
+.game-layout-multi .game-play,
+.game-layout-multi .lobby-main {
   width: 100%;
   max-width: 560px;
   margin-inline: auto;
+}
+
+.game-layout-multi .score-recap {
+  align-self: start;
 }
 
 @media (max-width: 900px) {
@@ -217,7 +222,16 @@ body {
 
 .score-recap-title {
   margin: 0 0 0.5rem;
+  font-size: 1rem;
   font-weight: 600;
+}
+
+.lobby-players li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  overflow-wrap: anywhere;
 }
 
 .score-recap ul {

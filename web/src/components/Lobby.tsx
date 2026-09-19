@@ -63,16 +63,12 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
   const [songCount, setSongCount] = useState(DEFAULT_SONG_COUNT);
   const [songCountError, setSongCountError] = useState<string | null>(null);
   const [answerWindowSeconds, setAnswerWindowSeconds] = useState(DEFAULT_ANSWER_WINDOW_SECONDS);
-  const [answerWindowDraft, setAnswerWindowDraft] = useState(String(DEFAULT_ANSWER_WINDOW_SECONDS));
+  // null while the host is not typing: the field then shows the shared value.
+  const [answerWindowDraft, setAnswerWindowDraft] = useState<string | null>(null);
   const [answerWindowError, setAnswerWindowError] = useState<string | null>(null);
   const generationOptions = useGenerationOptions();
   const [generations, setGenerations] = useState<string[] | null>(null);
   const [generationsError, setGenerationsError] = useState<string | null>(null);
-
-  // Follows the value chosen elsewhere (lobby:state, lobby:answerWindow, resync).
-  useEffect(() => {
-    setAnswerWindowDraft(String(answerWindowSeconds));
-  }, [answerWindowSeconds]);
   const [songIndex, setSongIndex] = useState(1);
   // Every song played so far this game, appended to on each `song:ended` —
   // this persists for the whole game so the sidebar history keeps growing.
@@ -346,14 +342,12 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
   // Enter): clamping on every keystroke would turn "45" into "10" as soon as
   // the first digit is typed, since 4 is below the minimum.
   async function commitAnswerWindow() {
+    if (answerWindowDraft === null) return;
     const hostToken = localStorage.getItem(`hostToken:${gameId}`);
     const value = Number(answerWindowDraft);
-    if (!hostToken || answerWindowDraft.trim() === '' || Number.isNaN(value)) {
-      setAnswerWindowDraft(String(answerWindowSeconds));
-      return;
-    }
+    setAnswerWindowDraft(null);
+    if (!hostToken || answerWindowDraft.trim() === '' || Number.isNaN(value)) return;
     const clamped = Math.min(MAX_ANSWER_WINDOW_SECONDS, Math.max(MIN_ANSWER_WINDOW_SECONDS, Math.round(value)));
-    setAnswerWindowDraft(String(clamped));
     if (clamped === answerWindowSeconds) return;
     setAnswerWindowSeconds(clamped);
     setAnswerWindowError(null);
@@ -423,107 +417,116 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
   }
 
   return (
-    <section className="lobby">
-      <p className="subtitle">En attente du lancement de la partie...</p>
-      <div className="song-count-setting">
-        {isHost ? (
-          <label className="setting-field">
-            <span>Nombre de musiques</span>
-            <input
-              type="number"
-              min={MIN_SONG_COUNT}
-              max={MAX_SONG_COUNT}
-              value={songCount}
-              onChange={(event) => handleSongCountChange(Number(event.target.value))}
-            />
-          </label>
-        ) : (
-          <p>Nombre de musiques : {songCount}</p>
-        )}
-        {songCountError && (
-          <p className="error-msg" role="alert">
-            {songCountError}
-          </p>
-        )}
-      </div>
-      <div className="answer-window-setting">
-        {isHost ? (
-          <label className="setting-field">
-            <span>Temps pour deviner (secondes)</span>
-            <input
-              type="number"
-              min={MIN_ANSWER_WINDOW_SECONDS}
-              max={MAX_ANSWER_WINDOW_SECONDS}
-              value={answerWindowDraft}
-              onChange={(event) => setAnswerWindowDraft(event.target.value)}
-              onBlur={commitAnswerWindow}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') commitAnswerWindow();
-              }}
-            />
-          </label>
-        ) : (
-          <p>Temps pour deviner : {answerWindowSeconds}s</p>
-        )}
-        {answerWindowError && (
-          <p className="error-msg" role="alert">
-            {answerWindowError}
-          </p>
-        )}
-      </div>
-      {generations && generationOptions.length > 0 && (
-        <div className="generations-setting">
-          <GenerationFilter
-            options={generationOptions}
-            selected={generations}
-            onChange={handleGenerationsChange}
-            disabled={!isHost}
-          />
-          {generationsError && (
+    <section className="lobby game-layout-multi">
+      <aside className="score-recap" aria-labelledby="lobby-players-title">
+        <h2 id="lobby-players-title" className="score-recap-title">
+          Joueurs
+        </h2>
+        <ul className="lobby-players">
+          {players.map((player) => (
+            <li key={player.playerId}>
+              <span>
+                {player.nickname}
+                {player.returnedToLobby === false && <span className="player-waiting"> (en attente)</span>}
+              </span>
+              {isHost && player.playerId !== playerId && (
+                <button
+                  type="button"
+                  className="kick-button"
+                  aria-label={`Retirer ${player.nickname}`}
+                  onClick={() => kickPlayer(player.playerId)}
+                >
+                  ✕
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      </aside>
+      <div className="lobby-main">
+        <p className="subtitle">En attente du lancement de la partie...</p>
+        <div className="song-count-setting">
+          {isHost ? (
+            <label className="setting-field">
+              <span>Nombre de musiques</span>
+              <input
+                type="number"
+                min={MIN_SONG_COUNT}
+                max={MAX_SONG_COUNT}
+                value={songCount}
+                onChange={(event) => handleSongCountChange(Number(event.target.value))}
+              />
+            </label>
+          ) : (
+            <p>Nombre de musiques : {songCount}</p>
+          )}
+          {songCountError && (
             <p className="error-msg" role="alert">
-              {generationsError}
+              {songCountError}
             </p>
           )}
         </div>
-      )}
-      <ul className="lobby-players">
-        {players.map((player) => (
-          <li key={player.playerId}>
-            {player.nickname}
-            {player.returnedToLobby === false && <span className="player-waiting"> (en attente)</span>}
-            {isHost && player.playerId !== playerId && (
-              <button
-                type="button"
-                className="kick-button"
-                aria-label={`Retirer ${player.nickname}`}
-                onClick={() => kickPlayer(player.playerId)}
-              >
-                ✕
-              </button>
+        <div className="answer-window-setting">
+          {isHost ? (
+            <label className="setting-field">
+              <span>Temps pour deviner (secondes)</span>
+              <input
+                type="number"
+                min={MIN_ANSWER_WINDOW_SECONDS}
+                max={MAX_ANSWER_WINDOW_SECONDS}
+                value={answerWindowDraft ?? answerWindowSeconds}
+                onChange={(event) => setAnswerWindowDraft(event.target.value)}
+                onBlur={commitAnswerWindow}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') commitAnswerWindow();
+                }}
+              />
+            </label>
+          ) : (
+            <p>Temps pour deviner : {answerWindowSeconds}s</p>
+          )}
+          {answerWindowError && (
+            <p className="error-msg" role="alert">
+              {answerWindowError}
+            </p>
+          )}
+        </div>
+        {generations && generationOptions.length > 0 && (
+          <div className="generations-setting">
+            <GenerationFilter
+              options={generationOptions}
+              selected={generations}
+              onChange={handleGenerationsChange}
+              disabled={!isHost}
+            />
+            {generationsError && (
+              <p className="error-msg" role="alert">
+                {generationsError}
+              </p>
             )}
-          </li>
-        ))}
-      </ul>
-      {isHost && (
-        <>
-          <button type="button" disabled={players.length < MIN_PLAYERS_TO_START || launching} onClick={handleLaunch}>
-            Lancer la partie
-          </button>
-          {launchError && (
-            <p className="error-msg" role="alert">
-              {launchError}
-            </p>
-          )}
-          {kickError && (
-            <p className="error-msg" role="alert">
-              {kickError}
-            </p>
-          )}
-        </>
-      )}
-      <button type="button" className="secondary" onClick={leaveGame}>
-        Quitter la partie
-      </button>
+          </div>
+        )}
+        {isHost && (
+          <>
+            <button type="button" disabled={players.length < MIN_PLAYERS_TO_START || launching} onClick={handleLaunch}>
+              Lancer la partie
+            </button>
+            {launchError && (
+              <p className="error-msg" role="alert">
+                {launchError}
+              </p>
+            )}
+            {kickError && (
+              <p className="error-msg" role="alert">
+                {kickError}
+              </p>
+            )}
+          </>
+        )}
+        <button type="button" className="secondary" onClick={leaveGame}>
+          Quitter la partie
+        </button>
+      </div>
     </section>
   );
 }
