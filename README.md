@@ -45,12 +45,15 @@ server/
   index.js             # routes Express, sert public/ en statique
   gameState.js         # état de partie en mémoire (paliers, essais, victoire/défaite)
   songs.js             # chargement/recherche des titres jouables
+  soloSessions.js      # session solo par joueur (en-tête X-Solo-Session, expiration après 2 h)
+  career.js            # règles pures du Mode Carrière (stats, énergie, tours, album de 6 titres, score)
+  careerRounds.js      # lien session ↔ gameState ↔ career (rounds d'étude et de sortie)
   wavTruncate.js        # découpe la piste WAV au nombre de secondes autorisé
 web/
   src/                 # frontend React + TypeScript (Vite)
     api.ts, types.ts    # client fetch typé pour le contrat API ci-dessous
-    hooks/               # useGameState (état + actions), useAudioPlayer (lecture + progress)
-    components/          # Player, Pips, SearchAutocomplete, History, Result, ShinyText
+    hooks/               # useGameState, useCareer (état + actions), useAudioPlayer (lecture + progress)
+    components/          # Player, Pips, SearchAutocomplete, History, Result, ShinyText, CareerHub, StatBars
   vite.config.ts        # dev proxy vers Express, build vers ../public
 public/
   (généré par `npm run build`, ne pas éditer à la main)
@@ -68,6 +71,12 @@ Le frontend utilise [React Bits](https://reactbits.dev) pour l'habillage animé 
 | `/api/guess` | POST | `{ "title": "..." }` — soumet une tentative |
 | `/api/skip` | POST | Passe l'essai courant |
 | `/api/reset` | POST | Réinitialise la partie (dev uniquement, non authentifié) |
+| `/api/career` | POST / GET | Démarre une carrière / la relit : `{ career, round }` |
+| `/api/career/rest` | POST | Se reposer (+3 énergie), consomme un tour |
+| `/api/career/study` | POST | `{ "stat": "oreille" \| "memoire" \| "culture" }` — démarre un round d'étude (coûte 1 énergie) |
+| `/api/career/release` | POST | Après les 10 tours : démarre le titre suivant de l'album de 6 (score et grade après le 6e) |
+
+Les routes solo (dont `/api/career*`) exigent l'en-tête `X-Solo-Session` (id opaque de 16 à 64 caractères généré par le client). Un round de carrière se joue avec `/api/guess`, `/api/skip` et `/audio/track` ; sa spécification est dans [`us/carriere-v1.md`](us/carriere-v1.md).
 
 Le serveur est la seule source de vérité : le titre correct n'est jamais renvoyé avant la fin de partie, et la durée audio servie est réellement limitée côté back (pas seulement côté lecteur front).
 
@@ -77,6 +86,6 @@ Le serveur est la seule source de vérité : le titre correct n'est jamais renvo
 
 ## Limitations connues (MVP)
 
-- Une seule partie globale en mémoire, pas de session par joueur.
+- Les parties solo et les carrières vivent en mémoire, par session (`X-Solo-Session`) ; l'id de session n'est pas un secret d'authentification.
 - `/api/reset` n'est pas protégé — à retirer ou authentifier avant tout déploiement multi-utilisateur.
 - Pas de persistance : l'état repart de zéro au redémarrage du serveur.

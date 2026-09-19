@@ -1,6 +1,6 @@
 # Planning — Mode Carrière (personnage : Ayumu Uehara)
 
-Statut : **réflexion / planning, aucun développement lancé.** Rien ci-dessous n'est validé tant qu'une décision n'est pas cochée dans « Décisions ouvertes ». Les chiffres (nombre de tours, gains de fans, seuils) sont des points de départ à équilibrer.
+Statut : **réflexion / planning du mode complet.** Une première version simplifiée est développée et spécifiée dans [`carriere-v1.md`](carriere-v1.md) : 10 tours d'études et de repos, 3 stats, puis la sortie d'un album de 6 titres avec un score et un grade. Elle diffère de ce document (pas de saisons, de fans, d'objectifs, de Moral, de finale ni de Discographie) ; ces éléments restent à décider ci-dessous. Les chiffres (nombre de tours, gains de fans, seuils) sont des points de départ à équilibrer.
 
 Inspiration : le mode « scénario » d'Uma Musume (suivre la carrière d'un personnage sur des tours, s'entraîner entre deux courses, atteindre des objectifs). Socle de gameplay : le round LLMQ (deviner une chanson à partir d'une intro qui s'allonge, 6 étapes).
 

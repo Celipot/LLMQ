@@ -25,6 +25,15 @@ En tant que **joueur**, je veux **pouvoir revenir à l'accueil pendant une parti
 - **Mode Solo :** revenir à l'accueil abandonne la partie en cours. Si au moins un essai a été joué, une popup de confirmation ("Quitter la partie ?", boutons "Continuer" et "Quitter") s'affiche d'abord ; sans essai joué, le retour est direct. Relancer le Mode Solo tire toujours une nouvelle chanson.
 - **Bibliothèque :** revenir à l'accueil puis rechoisir la même chanson restaure l'état de sa partie en cours (essais utilisés, palier, historique), sans confirmation.
 - Cette persistance reste limitée à la session serveur en mémoire (pas de nouvelle contrainte de stockage durable à ce stade).
+- **Mode Carrière :** revenir à l'accueil ne perd rien. La carrière et son round en cours restent côté serveur, et rechoisir « Mode Carrière » les restaure (le round reprend là où il en était), sans confirmation.
+
+### US-H1.3 (P1) — Accéder au Mode Carrière depuis l'accueil
+En tant que **joueur**, je veux **une carte « Mode Carrière » sur l'accueil**, afin de **suivre la carrière d'un personnage (étudier, se reposer, sortir un album)**.
+
+**Critères d'acceptation :**
+- La carte « Mode Carrière » est placée après « Mode Solo » sur l'accueil.
+- Sans carrière en cours, l'écran propose « Commencer une carrière » ; avec une carrière, il affiche son état (tour, énergie, stats, carnet).
+- Les règles et l'écran de fin (grade, score, tracklist) sont décrits dans [`carriere-v1.md`](carriere-v1.md).
 
 ---
 
