@@ -34,7 +34,7 @@ describe('ProfileEditor', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
 
     expect(onSave).not.toHaveBeenCalled();
-    expect(screen.getByRole('alert')).toHaveTextContent("Entre un nom d'utilisateur");
+    expect(screen.getByRole('alert')).toHaveTextContent("Entrer un nom d'utilisateur");
   });
 
   describe('picture', () => {

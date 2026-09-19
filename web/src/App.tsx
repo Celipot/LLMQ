@@ -191,10 +191,10 @@ export default function App() {
           )}
 
           <div className="quiz-area">
-            {!showQuiz && <p className="subtitle">Choisis une chanson dans la liste pour commencer.</p>}
+            {!showQuiz && <p className="subtitle">Choisir une chanson dans la bibliothèque pour commencer.</p>}
             {showQuiz && state && (
               <>
-                <p className="subtitle">Devine le titre à partir de l'intro</p>
+                <p className="subtitle">Deviner le titre à partir de l'intro</p>
 
                 <Player
                   audioRef={audioRef}

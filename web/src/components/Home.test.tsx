@@ -17,7 +17,7 @@ describe('Home', () => {
     const onSelectRandom = vi.fn();
     render(<Home onSelectRandom={onSelectRandom} onSelectList={vi.fn()} onGameCreated={vi.fn()} />);
 
-    await userEvent.click(screen.getByText('Mode Aléatoire'));
+    await userEvent.click(screen.getByText('Mode Solo'));
 
     expect(onSelectRandom).toHaveBeenCalledOnce();
   });
@@ -26,7 +26,7 @@ describe('Home', () => {
     const onSelectList = vi.fn();
     render(<Home onSelectRandom={vi.fn()} onSelectList={onSelectList} onGameCreated={vi.fn()} />);
 
-    await userEvent.click(screen.getByText('Mode Liste'));
+    await userEvent.click(screen.getByText('Bibliothèque'));
 
     expect(onSelectList).toHaveBeenCalledOnce();
   });
@@ -48,5 +48,16 @@ describe('Home', () => {
     await userEvent.click(screen.getByText('Créer une partie multijoueur'));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('création de la partie a échoué');
+  });
+
+  test('names the modes "Mode Solo" and "Bibliothèque", each with an infinitive description', () => {
+    render(<Home onSelectRandom={vi.fn()} onSelectList={vi.fn()} onGameCreated={vi.fn()} />);
+
+    expect(screen.getByText('Choisir un mode pour commencer')).toBeInTheDocument();
+    expect(screen.getByText('Mode Solo').closest('button')).toHaveTextContent('Deviner une chanson piochée au hasard');
+    expect(screen.getByText('Bibliothèque').closest('button')).toHaveTextContent('Explorer les musiques');
+    expect(screen.getByText('Créer une partie multijoueur').closest('button')).toHaveTextContent(
+      'Générer un lien à partager avec ses amis'
+    );
   });
 });

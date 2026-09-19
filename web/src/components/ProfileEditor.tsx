@@ -26,7 +26,7 @@ export default function ProfileEditor({
   function handleSave() {
     if (draft.trim() === '') {
       setSaved(false);
-      setError("Entre un nom d'utilisateur.");
+      setError("Entrer un nom d'utilisateur.");
       return;
     }
     setError(null);

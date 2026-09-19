@@ -22,7 +22,7 @@ export default function RandomSetup({
 }: RandomSetupProps) {
   return (
     <section className="random-setup">
-      <p className="subtitle">Choisis les générations à inclure</p>
+      <p className="subtitle">Choisir les générations à inclure</p>
       <GenerationFilter options={options} selected={selected} onChange={onChange} />
       <label className="adaptive-draw">
         <input type="checkbox" checked={adaptive} onChange={(event) => onAdaptiveChange(event.target.checked)} />

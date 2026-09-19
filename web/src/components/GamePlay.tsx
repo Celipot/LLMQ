@@ -184,7 +184,7 @@ export default function GamePlay({
         )}
       </div>
       <section className="game-play">
-        <p className="subtitle">devine le titre à partir de l'intro</p>
+        <p className="subtitle">deviner le titre à partir de l'intro</p>
         <Player
           audioRef={audioRef}
           allowedSeconds={durationSeconds}

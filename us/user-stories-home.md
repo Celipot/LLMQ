@@ -13,7 +13,7 @@ En tant que **joueur**, je veux **arriver sur une page d'accueil proposant deux 
 
 **Critères d'acceptation :**
 - La page d'accueil est le point d'entrée par défaut de l'application (avant toute partie en cours).
-- Deux options clairement identifiées et cliquables : "Mode Aléatoire" et "Mode Liste".
+- Deux options clairement identifiées et cliquables : "Mode Solo" et "Bibliothèque".
 - Sélectionner un mode navigue vers l'écran correspondant sans recharger l'état d'une partie précédente non liée à ce mode.
 - Si une partie est déjà en cours (non terminée) dans un mode, la revisite de l'accueil ne la perd pas silencieusement (cf. US-H1.2).
 
@@ -27,20 +27,20 @@ En tant que **joueur**, je veux **pouvoir revenir à l'accueil pendant une parti
 
 ---
 
-## 2. Mode Aléatoire
+## 2. Mode Solo
 
 ### US-H2.1 (P0) — Lancer une partie sur une chanson aléatoire
 En tant que **joueur**, je veux **démarrer une partie sur une chanson piochée aléatoirement parmi les titres jouables**, afin de **rejouer le fonctionnement actuel du jeu sans avoir à choisir moi-même le titre**.
 
 **Critères d'acceptation :**
-- Depuis l'accueil, choisir "Mode Aléatoire" démarre immédiatement une partie sur un titre tiré aléatoirement parmi `GET /api/titles`.
+- Depuis l'accueil, choisir "Mode Solo" démarre immédiatement une partie sur un titre tiré aléatoirement parmi `GET /api/titles`.
 - Le comportement de jeu (paliers, essais, guess, skip, fin de partie) reste strictement identique à l'existant (US-1.x à US-5.x de `user-stories-mvp.md`).
 - Avec un seul titre disponible dans le catalogue, ce mode reste fonctionnel : la "chanson aléatoire" est alors systématiquement l'unique titre.
-- Relancer le Mode Aléatoire après une partie terminée démarre une nouvelle partie (nouveau tirage si plusieurs titres existent).
+- Relancer le Mode Solo après une partie terminée démarre une nouvelle partie (nouveau tirage si plusieurs titres existent).
 
 ---
 
-## 3. Mode Liste
+## 3. Bibliothèque
 
 ### US-H3.1 (P0) — Voir la liste des chansons disponibles
 En tant que **joueur**, je veux **voir, sur la gauche de l'écran, la liste de toutes les chansons jouables**, afin de **choisir moi-même sur quel titre faire le quizz**.

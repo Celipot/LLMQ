@@ -370,7 +370,7 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
       if (err instanceof ApiError && err.code === 'NOT_ENOUGH_PLAYERS') {
         setLaunchError('Il faut au moins un autre joueur pour lancer la partie.');
       } else {
-        setLaunchError('Impossible de lancer la partie. Réessaie.');
+        setLaunchError('Impossible de lancer la partie. Merci de réessayer.');
       }
     } finally {
       setLaunching(false);

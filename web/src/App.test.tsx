@@ -64,10 +64,10 @@ const playingState = {
 };
 
 describe('App — Random mode generation filter', () => {
-  test('choosing Mode Aléatoire shows the generation filter before starting any round', async () => {
+  test('choosing Mode Solo shows the generation filter before starting any round', async () => {
     render(<App />);
 
-    await userEvent.click(await screen.findByText('Mode Aléatoire'));
+    await userEvent.click(await screen.findByText('Mode Solo'));
 
     expect(await screen.findByRole('checkbox', { name: /Aqours/ })).toBeChecked();
     expect(screen.getByRole('checkbox', { name: /Liella/ })).toBeChecked();
@@ -84,7 +84,7 @@ describe('App — Random mode generation filter', () => {
     });
     render(<App />);
 
-    await userEvent.click(await screen.findByText('Mode Aléatoire'));
+    await userEvent.click(await screen.findByText('Mode Solo'));
     await userEvent.click(await screen.findByRole('checkbox', { name: /Aqours/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Lancer' }));
 
@@ -97,7 +97,7 @@ describe('App — Random mode generation filter', () => {
     vi.mocked(api.startRandomMode).mockResolvedValue(playingState);
     render(<App />);
 
-    await userEvent.click(await screen.findByText('Mode Aléatoire'));
+    await userEvent.click(await screen.findByText('Mode Solo'));
     await userEvent.click(await screen.findByRole('button', { name: 'Lancer' }));
 
     await waitFor(() => expect(api.startRandomMode).toHaveBeenCalledWith(['Aqours', 'Liella'], history));
@@ -108,7 +108,7 @@ describe('App — Random mode generation filter', () => {
     vi.mocked(api.startRandomMode).mockResolvedValue(playingState);
     render(<App />);
 
-    await userEvent.click(await screen.findByText('Mode Aléatoire'));
+    await userEvent.click(await screen.findByText('Mode Solo'));
     await userEvent.click(await screen.findByRole('checkbox', { name: /Tirage adaptatif/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Lancer' }));
 
@@ -119,10 +119,20 @@ describe('App — Random mode generation filter', () => {
     localStorage.setItem('songHistory', JSON.stringify({ 7: { plays: 1, wins: 1, stageSum: 1, lastPlayedAt: 1 } }));
     render(<App />);
 
-    await userEvent.click(await screen.findByText('Mode Aléatoire'));
+    await userEvent.click(await screen.findByText('Mode Solo'));
     await userEvent.click(await screen.findByRole('button', { name: 'Effacer mon historique' }));
 
     expect(JSON.parse(localStorage.getItem('songHistory') ?? '{}')).toEqual({});
+  });
+});
+
+describe('App — Bibliothèque', () => {
+  test('the Bibliothèque card opens the song library', async () => {
+    render(<App />);
+
+    await userEvent.click(await screen.findByText('Bibliothèque'));
+
+    expect(await screen.findByText('Choisir une chanson dans la bibliothèque pour commencer.')).toBeInTheDocument();
   });
 });
 
@@ -143,7 +153,7 @@ describe('App — solo answer screen', () => {
     vi.mocked(api.startRandomMode).mockResolvedValue(playingState);
     vi.mocked(api.submitSkip).mockResolvedValue({ state: lostState });
     render(<App />);
-    await userEvent.click(await screen.findByText('Mode Aléatoire'));
+    await userEvent.click(await screen.findByText('Mode Solo'));
     await userEvent.click(await screen.findByRole('button', { name: 'Lancer' }));
     await userEvent.click(await screen.findByRole('button', { name: 'Passer' }));
   }
@@ -183,7 +193,7 @@ describe('App — solo answer screen', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'Accueil' }));
 
-    expect(await screen.findByText('Choisis un mode pour commencer')).toBeInTheDocument();
+    expect(await screen.findByText('Choisir un mode pour commencer')).toBeInTheDocument();
   });
 });
 
@@ -263,7 +273,7 @@ describe('App — MP-13 session persistence', () => {
 
     render(<App />);
 
-    expect(await screen.findByText('Rejoins la partie')).toBeInTheDocument();
+    expect(await screen.findByText('Rejoindre la partie')).toBeInTheDocument();
   });
 
   test('skips straight to the lobby when a playerId is already persisted for that game', async () => {
@@ -272,7 +282,7 @@ describe('App — MP-13 session persistence', () => {
 
     render(<App />);
 
-    expect(screen.queryByText('Rejoins la partie')).not.toBeInTheDocument();
+    expect(screen.queryByText('Rejoindre la partie')).not.toBeInTheDocument();
     expect(await screen.findByText('En attente du lancement de la partie...')).toBeInTheDocument();
   });
 });

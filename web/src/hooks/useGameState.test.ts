@@ -50,7 +50,7 @@ describe('useGameState', () => {
       await result.current.guess('   ');
     });
 
-    expect(result.current.error).toBe('Entre un titre avant de valider.');
+    expect(result.current.error).toBe('Entrer un titre avant de valider.');
     expect(api.submitGuess).not.toHaveBeenCalled();
   });
 

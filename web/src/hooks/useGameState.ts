@@ -41,7 +41,7 @@ export function useGameState(onRandomRoundFinished?: (result: RoundResult) => vo
   const guess = useCallback(
     async (title: string) => {
       if (!title.trim()) {
-        setError('Entre un titre avant de valider.');
+        setError('Entrer un titre avant de valider.');
         return;
       }
       try {
@@ -114,7 +114,7 @@ function errorText(err: unknown): string {
     case 'UNKNOWN_TITLE':
       return 'Ce titre ne fait pas partie des chansons jouables.';
     case 'TITLE_REQUIRED':
-      return 'Entre un titre avant de valider.';
+      return 'Entrer un titre avant de valider.';
     case 'GAME_FINISHED':
       return 'La partie est terminée.';
     default:

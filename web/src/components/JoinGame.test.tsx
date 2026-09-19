@@ -139,4 +139,14 @@ describe('JoinGame', () => {
       expect(api.joinGame).toHaveBeenLastCalledWith('g1', 'Alice', undefined, undefined);
     });
   });
+
+  test('asks for a nickname with an infinitive, not an imperative', async () => {
+    vi.mocked(api.fetchGameStatus).mockResolvedValue({ gameId: 'g1', status: 'lobby' });
+    render(<JoinGame gameId="g1" onJoined={vi.fn()} />);
+
+    expect(await screen.findByText('Rejoindre la partie')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Rejoindre' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Entrer un pseudo avant de valider.');
+  });
 });

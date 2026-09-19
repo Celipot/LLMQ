@@ -16,25 +16,25 @@ export default function Home({ onSelectRandom, onSelectList, onGameCreated }: Ho
       const { gameId, hostToken } = await createMultiplayerGame();
       onGameCreated(gameId, hostToken);
     } catch {
-      setError('La création de la partie a échoué. Réessaie.');
+      setError('La création de la partie a échoué. Merci de réessayer.');
     }
   }
 
   return (
     <section className="home">
-      <p className="subtitle">Choisis un mode pour commencer</p>
+      <p className="subtitle">Choisir un mode pour commencer</p>
       <div className="mode-choice">
         <button type="button" className="mode-card" onClick={onSelectRandom}>
-          <span className="mode-card-title">Mode Aléatoire</span>
-          <span className="mode-card-desc">Devine une chanson piochée au hasard</span>
+          <span className="mode-card-title">Mode Solo</span>
+          <span className="mode-card-desc">Deviner une chanson piochée au hasard</span>
         </button>
         <button type="button" className="mode-card" onClick={onSelectList}>
-          <span className="mode-card-title">Mode Liste</span>
-          <span className="mode-card-desc">Choisis toi-même la chanson à deviner</span>
+          <span className="mode-card-title">Bibliothèque</span>
+          <span className="mode-card-desc">Explorer les musiques</span>
         </button>
         <button type="button" className="mode-card" onClick={handleCreateMultiplayer}>
           <span className="mode-card-title">Créer une partie multijoueur</span>
-          <span className="mode-card-desc">Génère un lien à partager avec tes amis</span>
+          <span className="mode-card-desc">Générer un lien à partager avec ses amis</span>
         </button>
       </div>
       {error && (

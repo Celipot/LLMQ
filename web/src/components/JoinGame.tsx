@@ -55,11 +55,11 @@ export default function JoinGame({ gameId, defaultNickname = '', defaultAvatar, 
       } catch (err) {
         setAutoJoining(false);
         if (err instanceof ApiError && err.code === 'NICKNAME_TAKEN') {
-          setError('Ce pseudo est déjà pris, choisis-en un autre.');
+          setError("Ce pseudo est déjà pris, merci d'en choisir un autre.");
         } else if (err instanceof ApiError && err.code === 'GAME_NOT_JOINABLE') {
           setLoadState('locked');
         } else {
-          setError('Impossible de rejoindre la partie. Réessaie.');
+          setError('Impossible de rejoindre la partie. Merci de réessayer.');
         }
       } finally {
         setSubmitting(false);
@@ -76,7 +76,7 @@ export default function JoinGame({ gameId, defaultNickname = '', defaultAvatar, 
 
   function handleSubmit() {
     if (nickname.trim() === '') {
-      setError('Entre un pseudo avant de valider.');
+      setError('Entrer un pseudo avant de valider.');
       return;
     }
     join(nickname.trim());
@@ -104,7 +104,7 @@ export default function JoinGame({ gameId, defaultNickname = '', defaultAvatar, 
 
   return (
     <section className="join-game">
-      <p className="subtitle">Rejoins la partie</p>
+      <p className="subtitle">Rejoindre la partie</p>
       <input
         type="text"
         aria-label="Pseudo"
