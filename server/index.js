@@ -7,6 +7,7 @@ const gameState = require('./gameState');
 const multiplayerGames = require('./multiplayerGames');
 const wsServer = require('./wsServer');
 const songs = require('./songs');
+const songPicker = require('./songPicker');
 const { truncateWavFile } = require('./wavTruncate');
 
 const app = express();
@@ -33,8 +34,20 @@ let lastRandomSongId = null;
 
 function correctSongIfFinished() {
   if (!activeKey || !gameState.isFinished(activeKey)) return undefined;
-  const { title, artist, coverUrl } = songs.getSongById(activeSongId);
-  return { title, artist, coverUrl };
+  const { id, title, artist, coverUrl } = songs.getSongById(activeSongId);
+  return { id, title, artist, coverUrl };
+}
+
+// The history comes from the client (the server keeps none per player); an
+// absent history means a plain uniform draw. Returns null when it is malformed.
+function readHistory(body) {
+  if (body?.history === undefined) return {};
+  return songPicker.sanitizeHistory(body.history, (id) => songs.getSongById(id) !== null, Date.now());
+}
+
+function drawRandomSongId(history) {
+  if (Object.keys(history).length === 0) return songs.pickRandomSongId(randomGenerations);
+  return songPicker.pickWeightedSongId(songs.getPoolIds(randomGenerations), history, Date.now());
 }
 
 let randomGenerations = songs.getGenerations().map((g) => g.generation);
@@ -45,7 +58,7 @@ function sameSelection(a, b) {
 
 // A new selection must not resume the unfinished round: it was drawn from the
 // previous pool, so it may not belong to the generations the player just picked.
-function enterRandomMode(generations) {
+function enterRandomMode(generations, history = {}) {
   const selectionChanged = generations !== undefined && !sameSelection(generations, randomGenerations);
   if (selectionChanged) randomGenerations = generations;
   if (
@@ -55,7 +68,7 @@ function enterRandomMode(generations) {
   ) {
     activeSongId = lastRandomSongId;
   } else {
-    activeSongId = songs.pickRandomSongId(randomGenerations);
+    activeSongId = drawRandomSongId(history);
     lastRandomSongId = activeSongId;
     gameState.resetState(keyFor('random', activeSongId));
   }
@@ -63,8 +76,8 @@ function enterRandomMode(generations) {
   return gameState.getPublicState(activeKey, correctSongIfFinished());
 }
 
-function forceNewRandomRound() {
-  activeSongId = songs.pickRandomSongId(randomGenerations);
+function forceNewRandomRound(history = {}) {
+  activeSongId = drawRandomSongId(history);
   lastRandomSongId = activeSongId;
   gameState.resetState(keyFor('random', activeSongId));
   activeKey = keyFor('random', activeSongId);
@@ -100,7 +113,11 @@ app.post('/api/mode/random', (req, res) => {
   if (generations !== undefined && !songs.isValidGenerationSelection(generations)) {
     return res.status(400).json({ error: 'INVALID_GENERATIONS' });
   }
-  res.json(enterRandomMode(generations));
+  const history = readHistory(req.body);
+  if (history === null) {
+    return res.status(400).json({ error: 'INVALID_HISTORY' });
+  }
+  res.json(enterRandomMode(generations, history));
 });
 
 app.post('/api/songs/:id/select', (req, res) => {
@@ -176,7 +193,11 @@ app.post('/api/reset', (req, res) => {
   // before any multi-user deployment (see US-6.1 known limitation). Always
   // forces a fresh Random-mode draw, matching its pre-existing "rejouer"
   // semantics from the MVP screen.
-  res.json(forceNewRandomRound());
+  const history = readHistory(req.body);
+  if (history === null) {
+    return res.status(400).json({ error: 'INVALID_HISTORY' });
+  }
+  res.json(forceNewRandomRound(history));
 });
 
 app.post('/games', (req, res) => {

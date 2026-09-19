@@ -32,6 +32,12 @@ test('pickRandomSongId only returns songs of the requested generations', () => {
   }
 });
 
+test('getPoolIds returns the ids of the songs of the requested generations only', () => {
+  const ids = songs.getPoolIds(['Musical']);
+  assert.ok(ids.length > 0);
+  assert.ok(ids.every((id) => songs.getSongById(id).generation === 'Musical'));
+});
+
 test('getGenerations lists every generation with its song count', () => {
   const all = require('../data/songs.json');
   const generations = songs.getGenerations();

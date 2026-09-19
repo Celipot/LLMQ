@@ -9,9 +9,13 @@ const songs = JSON.parse(fs.readFileSync(SONGS_PATH, 'utf8'));
 
 const GENERATIONS = ["µ's", 'Aqours', 'Nijigasaki', 'Liella', 'Hasunosora', 'Ikizulive', 'Musical', 'CrossGen'];
 
+function getPoolIds(generations = GENERATIONS) {
+  return songs.filter((song) => generations.includes(song.generation)).map((song) => song.id);
+}
+
 function pickRandomSongId(generations = GENERATIONS) {
-  const pool = songs.filter((song) => generations.includes(song.generation));
-  return pool[Math.floor(Math.random() * pool.length)].id;
+  const pool = getPoolIds(generations);
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 function getGenerations() {
@@ -55,6 +59,7 @@ function getAudioPath(id) {
 
 module.exports = {
   pickRandomSongId,
+  getPoolIds,
   getGenerations,
   isValidGenerationSelection,
   getSongById,

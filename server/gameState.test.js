@@ -50,6 +50,13 @@ test('6th failed attempt loses the game and reveals the title', () => {
   assert.equal(state.correctTitle, 'Correct Title');
 });
 
+test('a finished round reveals the id of the correct song, a playing one does not', () => {
+  const key = freshKey();
+  assert.equal(gameState.getPublicState(key, { ...CORRECT_SONG, id: 42 }).correctSongId, undefined);
+  gameState.applyGuess(key, 'Correct Title', true);
+  assert.equal(gameState.getPublicState(key, { ...CORRECT_SONG, id: 42 }).correctSongId, 42);
+});
+
 test('applyGuess throws once the game is finished', () => {
   const key = freshKey();
   gameState.applyGuess(key, 'Correct Title', true);

@@ -59,6 +59,7 @@ function getPublicState(key, correctSong) {
     guesses: state.guesses,
   };
   if (isFinished(key) && correctSong) {
+    publicState.correctSongId = correctSong.id;
     publicState.correctTitle = correctSong.title;
     publicState.correctArtist = correctSong.artist;
     publicState.correctCoverUrl = correctSong.coverUrl;

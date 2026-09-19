@@ -171,6 +171,66 @@ test('POST /api/mode/random rejects an empty or unknown selection', async () => 
   }
 });
 
+function justPlayed(ids) {
+  return Object.fromEntries(ids.map((id) => [id, { plays: 1, wins: 1, stageSum: 1, lastPlayedAt: Date.now() }]));
+}
+
+async function finishRoundAndReadSongId() {
+  for (let i = 0; i < 6; i++) {
+    await fetch(`${baseUrl}/api/skip`, { method: 'POST' });
+  }
+  return (await (await fetch(`${baseUrl}/api/state`)).json()).correctSongId;
+}
+
+test('GET /api/state reveals correctSongId only once the round is finished', async () => {
+  const playing = await (await fetch(`${baseUrl}/api/state`)).json();
+  assert.equal(playing.correctSongId, undefined);
+  assert.equal(typeof (await finishRoundAndReadSongId()), 'number');
+});
+
+test('POST /api/mode/random with a history avoids the songs played moments ago', async () => {
+  const pool = songs.getPoolIds(['Ikizulive']);
+  const [target, ...recent] = pool;
+  try {
+    await fetch(`${baseUrl}/api/mode/random`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ generations: ['Ikizulive'], history: justPlayed(recent) }),
+    });
+    assert.equal(await finishRoundAndReadSongId(), target);
+  } finally {
+    await startRandomWith(ALL_GENERATIONS);
+  }
+});
+
+test('POST /api/reset with a history avoids the songs played moments ago', async () => {
+  const pool = songs.getPoolIds(['Ikizulive']);
+  const [target, ...recent] = pool;
+  try {
+    await startRandomWith(['Ikizulive']);
+    await fetch(`${baseUrl}/api/reset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ history: justPlayed(recent) }),
+    });
+    assert.equal(await finishRoundAndReadSongId(), target);
+  } finally {
+    await startRandomWith(ALL_GENERATIONS);
+  }
+});
+
+test('POST /api/mode/random and /api/reset reject a history that is not an object', async () => {
+  for (const route of ['/api/mode/random', '/api/reset']) {
+    const res = await fetch(`${baseUrl}${route}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ history: 'not-an-object' }),
+    });
+    assert.equal(res.status, 400);
+    assert.equal((await res.json()).error, 'INVALID_HISTORY');
+  }
+});
+
 test('POST /api/songs/:id/select with an unknown id is rejected', async () => {
   const res = await fetch(`${baseUrl}/api/songs/-1/select`, { method: 'POST' });
   assert.equal(res.status, 404);
