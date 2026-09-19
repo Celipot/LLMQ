@@ -6,6 +6,7 @@ import SearchAutocomplete from './components/SearchAutocomplete';
 import History from './components/History';
 import Result from './components/Result';
 import Home from './components/Home';
+import CareerHub from './components/CareerHub';
 import SongList from './components/SongList';
 import JoinGame from './components/JoinGame';
 import Lobby from './components/Lobby';
@@ -14,6 +15,7 @@ import ProfileEditor from './components/ProfileEditor';
 import Toast from './components/Toast';
 import ConfirmDialog from './components/ConfirmDialog';
 import { useGameState } from './hooks/useGameState';
+import { useCareer } from './hooks/useCareer';
 import { useGenerationOptions } from './hooks/useGenerationOptions';
 import { useSongHistory } from './hooks/useSongHistory';
 import { useProfile } from './hooks/useProfile';
@@ -21,7 +23,7 @@ import { useToast } from './hooks/useToast';
 import { useAudioPlayer } from './hooks/useAudioPlayer';
 import './App.css';
 
-type Screen = 'home' | 'profile' | 'random-setup' | 'random' | 'list' | 'join' | 'lobby';
+type Screen = 'home' | 'profile' | 'random-setup' | 'random' | 'career' | 'list' | 'join' | 'lobby';
 
 function parseGameIdFromPath(): string | null {
   const match = window.location.pathname.match(/^\/game\/([^/]+)$/);
@@ -51,7 +53,13 @@ export default function App() {
   const [randomGenerations, setRandomGenerations] = useState<string[] | null>(null);
   const selectedGenerations = randomGenerations ?? generationOptions.map((option) => option.generation);
 
-  const allowedSeconds = state?.allowedSeconds ?? 1;
+  const careerState = useCareer();
+  const careerRound = screen === 'career' ? careerState.round : null;
+  const careerFinished = !!careerRound && careerRound.state.status !== 'playing';
+  const careerLastAttempt =
+    !!careerRound && !careerFinished && careerRound.state.attemptsUsed === careerRound.state.maxAttempts - 1;
+
+  const allowedSeconds = careerRound?.state.allowedSeconds ?? state?.allowedSeconds ?? 1;
   const {
     audioRef,
     progress,
@@ -106,6 +114,25 @@ export default function App() {
     setInputValue('');
     resetProgress();
     await startRandom(selectedGenerations.length > 0 ? selectedGenerations : undefined, adaptive ? history : undefined);
+  }
+
+  function handleSelectCareer() {
+    setScreen('career');
+    setInputValue('');
+    resetProgress();
+    void careerState.enter();
+  }
+
+  // A new career round starts on a fresh clip and an empty search field.
+  async function startCareerRound(action: () => Promise<void>) {
+    setInputValue('');
+    resetProgress();
+    await action();
+  }
+
+  async function handleCareerSubmit() {
+    await careerState.guess(inputValue);
+    setInputValue('');
   }
 
   async function handleSelectSong(id: number) {
@@ -176,6 +203,7 @@ export default function App() {
       {screen === 'home' && (
         <Home
           onSelectRandom={() => setScreen('random-setup')}
+          onSelectCareer={handleSelectCareer}
           onSelectList={() => setScreen('list')}
           onGameCreated={handleGameCreated}
         />
@@ -213,6 +241,80 @@ export default function App() {
 
       {screen === 'lobby' && gameId && playerId && (
         <Lobby gameId={gameId} playerId={playerId} onSessionInvalid={handleSessionInvalid} onLeave={handleLeave} />
+      )}
+
+      {screen === 'career' && !careerRound && (
+        <CareerHub
+          career={careerState.career}
+          error={careerState.error}
+          onBegin={() => startCareerRound(careerState.begin)}
+          onRest={careerState.rest}
+          onStudy={(stat) => startCareerRound(() => careerState.study(stat))}
+          onRelease={() => startCareerRound(careerState.release)}
+        />
+      )}
+
+      {careerRound && (
+        <div className="quiz-area">
+          <p className="subtitle">
+            {careerRound.kind === 'study' ? "Étude : deviner le titre à partir de l'intro" : "Sortie de l'album : deviner le titre"}
+          </p>
+
+          <Player
+            audioRef={audioRef}
+            allowedSeconds={allowedSeconds}
+            progress={progress}
+            disabled={false}
+            volume={volume}
+            isPlaying={isPlaying}
+            onPlay={play}
+            onPause={pause}
+            onAudioPlay={handleAudioPlay}
+            onAudioPause={handleAudioPause}
+            onEnded={handleEnded}
+            onVolumeChange={setVolume}
+          />
+
+          <Pips maxAttempts={careerRound.state.maxAttempts} guesses={careerRound.state.guesses} />
+
+          <section className="search-section">
+            <SearchAutocomplete
+              titles={titles}
+              value={inputValue}
+              disabled={careerFinished}
+              maxSuggestions={careerState.career?.suggestionCount}
+              onChange={(v) => {
+                setInputValue(v);
+                careerState.clearError();
+              }}
+              onSubmit={handleCareerSubmit}
+            />
+            <div className="actions">
+              <button type="button" id="guess-btn" disabled={careerFinished} onClick={handleCareerSubmit}>
+                Valider
+              </button>
+              <button type="button" className="secondary" disabled={careerFinished} onClick={careerState.skip}>
+                {careerLastAttempt ? 'Abandonner' : 'Passer'}
+              </button>
+            </div>
+            <p className="error-msg" role="alert">
+              {careerState.error || playError}
+            </p>
+          </section>
+
+          <History guesses={careerRound.state.guesses} />
+
+          {careerFinished && (
+            <>
+              <Result state={careerRound.state} />
+              <div className="result-actions">
+                <button type="button" onClick={careerState.closeRound}>
+                  Continuer
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       )}
 
       {showAnswer && state && (

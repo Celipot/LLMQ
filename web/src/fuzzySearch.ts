@@ -61,7 +61,7 @@ function fuzzyDistance(queryTokens: string[], songTokens: string[]): number | nu
 
 // Ranks prefix matches, then substring matches, then typo-tolerant matches
 // (closest first), preserving original order within each group.
-export function rankMatches(titles: PlayableSong[], query: string): PlayableSong[] {
+export function rankMatches(titles: PlayableSong[], query: string, limit = MAX_RESULTS): PlayableSong[] {
   const normalizedQuery = normalize(query);
   const queryTokens = tokenize(normalizedQuery);
   const starts: PlayableSong[] = [];
@@ -84,5 +84,5 @@ export function rankMatches(titles: PlayableSong[], query: string): PlayableSong
   }
 
   fuzzy.sort((a, b) => a.distance - b.distance);
-  return [...starts, ...contains, ...fuzzy.map((f) => f.song)].slice(0, MAX_RESULTS);
+  return [...starts, ...contains, ...fuzzy.map((f) => f.song)].slice(0, limit);
 }

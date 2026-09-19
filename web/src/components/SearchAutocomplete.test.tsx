@@ -26,6 +26,14 @@ function setup(overrides: Partial<React.ComponentProps<typeof SearchAutocomplete
 }
 
 describe('SearchAutocomplete', () => {
+  test('shows at most maxSuggestions suggestions', async () => {
+    const user = userEvent.setup();
+    setup({ value: 'a', maxSuggestions: 1 });
+    await user.type(screen.getByRole('textbox'), 'n');
+
+    expect(screen.getAllByRole('listitem')).toHaveLength(1);
+  });
+
   test('shows no suggestions for an empty query', () => {
     setup();
     expect(screen.queryByRole('listitem')).not.toBeInTheDocument();

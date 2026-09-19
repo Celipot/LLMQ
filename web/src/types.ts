@@ -34,13 +34,50 @@ export interface ApiErrorBody {
   error: ApiErrorCode;
 }
 
+export type CareerStat = 'oreille' | 'memoire' | 'culture';
+
+export type ReleaseRank = 'S' | 'A' | 'B' | 'C' | 'FAIL';
+
+export interface CareerSong {
+  id: number;
+  title: string;
+  coverUrl: string;
+}
+
+export interface Career {
+  turn: number;
+  totalTurns: number;
+  energy: number;
+  maxEnergy: number;
+  stats: Record<CareerStat, number>;
+  suggestionCount: number;
+  notebook: CareerSong[];
+  releaseDue: boolean;
+  release: { rank: ReleaseRank; song: CareerSong } | null;
+}
+
+export interface CareerRound {
+  kind: 'study' | 'release';
+  stat: CareerStat | null;
+  state: GameState;
+}
+
+export interface CareerResponse {
+  career: Career;
+  round: CareerRound | null;
+}
+
+// A career round ends through the regular guess/skip routes, which then also
+// return the career with the round's outcome applied.
 export interface GuessResponse {
   correct: boolean;
   state: GameState;
+  career?: Career;
 }
 
 export interface SkipResponse {
   state: GameState;
+  career?: Career;
 }
 
 export interface CreateGameResponse {

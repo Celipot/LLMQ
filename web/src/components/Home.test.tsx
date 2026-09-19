@@ -15,7 +15,7 @@ vi.mock('../api', async () => {
 describe('Home', () => {
   test('calls onSelectRandom when the random mode card is clicked', async () => {
     const onSelectRandom = vi.fn();
-    render(<Home onSelectRandom={onSelectRandom} onSelectList={vi.fn()} onGameCreated={vi.fn()} />);
+    render(<Home onSelectRandom={onSelectRandom} onSelectCareer={vi.fn()} onSelectList={vi.fn()} onGameCreated={vi.fn()} />);
 
     await userEvent.click(screen.getByText('Mode Solo'));
 
@@ -24,17 +24,26 @@ describe('Home', () => {
 
   test('calls onSelectList when the list mode card is clicked', async () => {
     const onSelectList = vi.fn();
-    render(<Home onSelectRandom={vi.fn()} onSelectList={onSelectList} onGameCreated={vi.fn()} />);
+    render(<Home onSelectRandom={vi.fn()} onSelectCareer={vi.fn()} onSelectList={onSelectList} onGameCreated={vi.fn()} />);
 
     await userEvent.click(screen.getByText('Bibliothèque'));
 
     expect(onSelectList).toHaveBeenCalledOnce();
   });
 
+  test('calls onSelectCareer when the career mode card is clicked', async () => {
+    const onSelectCareer = vi.fn();
+    render(<Home onSelectRandom={vi.fn()} onSelectCareer={onSelectCareer} onSelectList={vi.fn()} onGameCreated={vi.fn()} />);
+
+    await userEvent.click(screen.getByText('Mode Carrière'));
+
+    expect(onSelectCareer).toHaveBeenCalledOnce();
+  });
+
   test('calls onGameCreated with the gameId and hostToken after successfully creating a multiplayer game', async () => {
     vi.mocked(api.createMultiplayerGame).mockResolvedValue({ gameId: 'abc123', hostToken: 'token' });
     const onGameCreated = vi.fn();
-    render(<Home onSelectRandom={vi.fn()} onSelectList={vi.fn()} onGameCreated={onGameCreated} />);
+    render(<Home onSelectRandom={vi.fn()} onSelectCareer={vi.fn()} onSelectList={vi.fn()} onGameCreated={onGameCreated} />);
 
     await userEvent.click(screen.getByText('Créer une partie multijoueur'));
 
@@ -43,7 +52,7 @@ describe('Home', () => {
 
   test('shows an error message when creating a multiplayer game fails', async () => {
     vi.mocked(api.createMultiplayerGame).mockRejectedValue(new Error('boom'));
-    render(<Home onSelectRandom={vi.fn()} onSelectList={vi.fn()} onGameCreated={vi.fn()} />);
+    render(<Home onSelectRandom={vi.fn()} onSelectCareer={vi.fn()} onSelectList={vi.fn()} onGameCreated={vi.fn()} />);
 
     await userEvent.click(screen.getByText('Créer une partie multijoueur'));
 
@@ -51,7 +60,7 @@ describe('Home', () => {
   });
 
   test('names the modes "Mode Solo" and "Bibliothèque", each with an infinitive description', () => {
-    render(<Home onSelectRandom={vi.fn()} onSelectList={vi.fn()} onGameCreated={vi.fn()} />);
+    render(<Home onSelectRandom={vi.fn()} onSelectCareer={vi.fn()} onSelectList={vi.fn()} onGameCreated={vi.fn()} />);
 
     expect(screen.getByText('Choisir un mode pour commencer')).toBeInTheDocument();
     expect(screen.getByText('Mode Solo').closest('button')).toHaveTextContent('Deviner une chanson piochée au hasard');
@@ -61,11 +70,11 @@ describe('Home', () => {
     );
   });
 
-  test('lists the cards in the order Mode Solo, multiplayer, Bibliothèque', () => {
-    render(<Home onSelectRandom={vi.fn()} onSelectList={vi.fn()} onGameCreated={vi.fn()} />);
+  test('lists the cards in the order Mode Solo, Mode Carrière, multiplayer, Bibliothèque', () => {
+    render(<Home onSelectRandom={vi.fn()} onSelectCareer={vi.fn()} onSelectList={vi.fn()} onGameCreated={vi.fn()} />);
 
     const titles = screen.getAllByRole('button').map((button) => button.querySelector('.mode-card-title')?.textContent);
 
-    expect(titles).toEqual(['Mode Solo', 'Créer une partie multijoueur', 'Bibliothèque']);
+    expect(titles).toEqual(['Mode Solo', 'Mode Carrière', 'Créer une partie multijoueur', 'Bibliothèque']);
   });
 });

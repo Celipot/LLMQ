@@ -1,6 +1,8 @@
 import type {
   ApiErrorBody,
   AnswerWindowResponse,
+  CareerResponse,
+  CareerStat,
   CreateGameResponse,
   GameState,
   GameSummary,
@@ -102,6 +104,30 @@ export function startRandomMode(generations?: string[], history?: SongHistory): 
 
 export function selectSong(id: number): Promise<GameState> {
   return soloFetch(`/api/songs/${id}/select`, { method: 'POST' }).then((res) => parseOrThrow<GameState>(res));
+}
+
+export function startCareer(): Promise<CareerResponse> {
+  return soloFetch('/api/career', { method: 'POST' }).then((res) => parseOrThrow<CareerResponse>(res));
+}
+
+export function fetchCareer(): Promise<CareerResponse> {
+  return soloFetch('/api/career').then((res) => parseOrThrow<CareerResponse>(res));
+}
+
+export function restCareer(): Promise<CareerResponse> {
+  return soloFetch('/api/career/rest', { method: 'POST' }).then((res) => parseOrThrow<CareerResponse>(res));
+}
+
+export function studyCareer(stat: CareerStat): Promise<CareerResponse> {
+  return soloFetch('/api/career/study', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ stat }),
+  }).then((res) => parseOrThrow<CareerResponse>(res));
+}
+
+export function releaseCareer(): Promise<CareerResponse> {
+  return soloFetch('/api/career/release', { method: 'POST' }).then((res) => parseOrThrow<CareerResponse>(res));
 }
 
 export function createMultiplayerGame(): Promise<CreateGameResponse> {
