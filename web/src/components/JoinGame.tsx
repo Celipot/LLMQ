@@ -1,16 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError, fetchGameStatus, joinGame } from '../api';
 
 interface JoinGameProps {
   gameId: string;
+  defaultNickname?: string;
   onJoined: (playerId: string) => void;
 }
 
 type LoadState = 'loading' | 'joinable' | 'locked' | 'not_found';
 
-export default function JoinGame({ gameId, onJoined }: JoinGameProps) {
+export default function JoinGame({ gameId, defaultNickname = '', onJoined }: JoinGameProps) {
   const [loadState, setLoadState] = useState<LoadState>('loading');
-  const [nickname, setNickname] = useState('');
+  const [nickname, setNickname] = useState(defaultNickname);
+  // The profile username joins without asking: the form only appears when
+  // there is none, or when that automatic attempt fails (e.g. nickname taken).
+  const [autoJoining, setAutoJoining] = useState(defaultNickname.trim() !== '');
+  const autoJoinStarted = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -29,32 +34,46 @@ export default function JoinGame({ gameId, onJoined }: JoinGameProps) {
     };
   }, [gameId]);
 
-  async function handleSubmit() {
+  const join = useCallback(
+    async (name: string) => {
+      setSubmitting(true);
+      setError(null);
+      try {
+        const hostToken = localStorage.getItem(`hostToken:${gameId}`) ?? undefined;
+        const { playerId } = await joinGame(gameId, name, hostToken);
+        localStorage.setItem(`playerId:${gameId}`, playerId);
+        onJoined(playerId);
+      } catch (err) {
+        setAutoJoining(false);
+        if (err instanceof ApiError && err.code === 'NICKNAME_TAKEN') {
+          setError('Ce pseudo est déjà pris, choisis-en un autre.');
+        } else if (err instanceof ApiError && err.code === 'GAME_NOT_JOINABLE') {
+          setLoadState('locked');
+        } else {
+          setError('Impossible de rejoindre la partie. Réessaie.');
+        }
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [gameId, onJoined],
+  );
+
+  useEffect(() => {
+    if (loadState !== 'joinable' || !autoJoining || autoJoinStarted.current) return;
+    autoJoinStarted.current = true;
+    join(defaultNickname.trim());
+  }, [loadState, autoJoining, defaultNickname, join]);
+
+  function handleSubmit() {
     if (nickname.trim() === '') {
       setError('Entre un pseudo avant de valider.');
       return;
     }
-    setSubmitting(true);
-    setError(null);
-    try {
-      const hostToken = localStorage.getItem(`hostToken:${gameId}`) ?? undefined;
-      const { playerId } = await joinGame(gameId, nickname.trim(), hostToken);
-      localStorage.setItem(`playerId:${gameId}`, playerId);
-      onJoined(playerId);
-    } catch (err) {
-      if (err instanceof ApiError && err.code === 'NICKNAME_TAKEN') {
-        setError('Ce pseudo est déjà pris, choisis-en un autre.');
-      } else if (err instanceof ApiError && err.code === 'GAME_NOT_JOINABLE') {
-        setLoadState('locked');
-      } else {
-        setError('Impossible de rejoindre la partie. Réessaie.');
-      }
-    } finally {
-      setSubmitting(false);
-    }
+    join(nickname.trim());
   }
 
-  if (loadState === 'loading') {
+  if (loadState === 'loading' || (loadState === 'joinable' && autoJoining)) {
     return <p className="subtitle">Chargement de la partie...</p>;
   }
 

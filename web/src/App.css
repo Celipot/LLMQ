@@ -243,6 +243,21 @@ body {
   gap: 0.3rem;
 }
 
+.profile-button {
+  margin-top: 1rem;
+}
+
+.profile-editor {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.profile-editor .setting-field input {
+  max-width: 16rem;
+}
+
 .random-setup {
   display: flex;
   flex-direction: column;

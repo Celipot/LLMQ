@@ -71,4 +71,47 @@ describe('JoinGame', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent("n'existe pas");
   });
+
+  describe("with a profile username", () => {
+    test("joins automatically with it, without showing the form", async () => {
+      localStorage.removeItem("hostToken:g1");
+      vi.mocked(api.fetchGameStatus).mockResolvedValue({ gameId: "g1", status: "lobby" });
+      vi.mocked(api.joinGame).mockResolvedValue({ playerId: "p1", players: [] });
+      const onJoined = vi.fn();
+      render(<JoinGame gameId="g1" defaultNickname="Alice" onJoined={onJoined} />);
+
+      await waitFor(() => expect(onJoined).toHaveBeenCalledWith("p1"));
+      expect(api.joinGame).toHaveBeenCalledWith("g1", "Alice", undefined);
+      expect(screen.queryByLabelText("Pseudo")).not.toBeInTheDocument();
+    });
+
+    test("joins only once", async () => {
+      vi.mocked(api.joinGame).mockClear();
+      vi.mocked(api.fetchGameStatus).mockResolvedValue({ gameId: "g1", status: "lobby" });
+      vi.mocked(api.joinGame).mockResolvedValue({ playerId: "p1", players: [] });
+      const onJoined = vi.fn();
+      render(<JoinGame gameId="g1" defaultNickname="Alice" onJoined={onJoined} />);
+
+      await waitFor(() => expect(onJoined).toHaveBeenCalled());
+      expect(api.joinGame).toHaveBeenCalledTimes(1);
+    });
+
+    test("falls back to the form, prefilled, when the username is already taken", async () => {
+      vi.mocked(api.fetchGameStatus).mockResolvedValue({ gameId: "g1", status: "lobby" });
+      vi.mocked(api.joinGame).mockRejectedValue(new ApiError("NICKNAME_TAKEN"));
+      render(<JoinGame gameId="g1" defaultNickname="Alice" onJoined={vi.fn()} />);
+
+      expect(await screen.findByLabelText("Pseudo")).toHaveValue("Alice");
+      expect(await screen.findByRole("alert")).toHaveTextContent("déjà pris");
+    });
+
+    test("shows the form when there is no profile username", async () => {
+      vi.mocked(api.joinGame).mockClear();
+      vi.mocked(api.fetchGameStatus).mockResolvedValue({ gameId: "g1", status: "lobby" });
+      render(<JoinGame gameId="g1" defaultNickname="" onJoined={vi.fn()} />);
+
+      expect(await screen.findByLabelText("Pseudo")).toHaveValue("");
+      expect(api.joinGame).not.toHaveBeenCalled();
+    });
+  });
 });

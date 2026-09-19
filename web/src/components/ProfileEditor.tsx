@@ -1,0 +1,52 @@
+import { useState } from 'react';
+
+const MAX_USERNAME_LENGTH = 20;
+
+interface ProfileEditorProps {
+  username: string;
+  onSave: (username: string) => void;
+}
+
+export default function ProfileEditor({ username, onSave }: ProfileEditorProps) {
+  const [draft, setDraft] = useState(username);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  function handleSave() {
+    if (draft.trim() === '') {
+      setSaved(false);
+      setError("Entre un nom d'utilisateur.");
+      return;
+    }
+    setError(null);
+    onSave(draft);
+    setSaved(true);
+  }
+
+  return (
+    <section className="profile-editor">
+      <p className="subtitle">Ton profil</p>
+      <label className="setting-field">
+        <span>Nom d'utilisateur</span>
+        <input
+          type="text"
+          maxLength={MAX_USERNAME_LENGTH}
+          value={draft}
+          onChange={(event) => {
+            setDraft(event.target.value);
+            setSaved(false);
+          }}
+        />
+      </label>
+      <button type="button" onClick={handleSave}>
+        Enregistrer
+      </button>
+      {saved && <p role="status">Profil enregistré.</p>}
+      {error && (
+        <p className="error-msg" role="alert">
+          {error}
+        </p>
+      )}
+    </section>
+  );
+}

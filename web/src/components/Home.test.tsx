@@ -15,7 +15,7 @@ vi.mock('../api', async () => {
 describe('Home', () => {
   test('calls onSelectRandom when the random mode card is clicked', async () => {
     const onSelectRandom = vi.fn();
-    render(<Home onSelectRandom={onSelectRandom} onSelectList={vi.fn()} onGameCreated={vi.fn()} />);
+    render(<Home onSelectProfile={vi.fn()} onSelectRandom={onSelectRandom} onSelectList={vi.fn()} onGameCreated={vi.fn()} />);
 
     await userEvent.click(screen.getByText('Mode Aléatoire'));
 
@@ -24,7 +24,7 @@ describe('Home', () => {
 
   test('calls onSelectList when the list mode card is clicked', async () => {
     const onSelectList = vi.fn();
-    render(<Home onSelectRandom={vi.fn()} onSelectList={onSelectList} onGameCreated={vi.fn()} />);
+    render(<Home onSelectProfile={vi.fn()} onSelectRandom={vi.fn()} onSelectList={onSelectList} onGameCreated={vi.fn()} />);
 
     await userEvent.click(screen.getByText('Mode Liste'));
 
@@ -34,7 +34,7 @@ describe('Home', () => {
   test('calls onGameCreated with the gameId and hostToken after successfully creating a multiplayer game', async () => {
     vi.mocked(api.createMultiplayerGame).mockResolvedValue({ gameId: 'abc123', hostToken: 'token' });
     const onGameCreated = vi.fn();
-    render(<Home onSelectRandom={vi.fn()} onSelectList={vi.fn()} onGameCreated={onGameCreated} />);
+    render(<Home onSelectProfile={vi.fn()} onSelectRandom={vi.fn()} onSelectList={vi.fn()} onGameCreated={onGameCreated} />);
 
     await userEvent.click(screen.getByText('Créer une partie multijoueur'));
 
@@ -43,10 +43,19 @@ describe('Home', () => {
 
   test('shows an error message when creating a multiplayer game fails', async () => {
     vi.mocked(api.createMultiplayerGame).mockRejectedValue(new Error('boom'));
-    render(<Home onSelectRandom={vi.fn()} onSelectList={vi.fn()} onGameCreated={vi.fn()} />);
+    render(<Home onSelectProfile={vi.fn()} onSelectRandom={vi.fn()} onSelectList={vi.fn()} onGameCreated={vi.fn()} />);
 
     await userEvent.click(screen.getByText('Créer une partie multijoueur'));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('création de la partie a échoué');
+  });
+
+  test("calls onSelectProfile when the Profil button is clicked", async () => {
+    const onSelectProfile = vi.fn();
+    render(<Home onSelectRandom={vi.fn()} onSelectList={vi.fn()} onGameCreated={vi.fn()} onSelectProfile={onSelectProfile} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Profil" }));
+
+    expect(onSelectProfile).toHaveBeenCalledOnce();
   });
 });

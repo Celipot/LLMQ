@@ -10,13 +10,15 @@ import SongList from './components/SongList';
 import JoinGame from './components/JoinGame';
 import Lobby from './components/Lobby';
 import RandomSetup from './components/RandomSetup';
+import ProfileEditor from './components/ProfileEditor';
 import { useGameState } from './hooks/useGameState';
 import { useGenerationOptions } from './hooks/useGenerationOptions';
 import { useSongHistory } from './hooks/useSongHistory';
+import { useProfile } from './hooks/useProfile';
 import { useAudioPlayer } from './hooks/useAudioPlayer';
 import './App.css';
 
-type Screen = 'home' | 'random-setup' | 'random' | 'list' | 'join' | 'lobby';
+type Screen = 'home' | 'profile' | 'random-setup' | 'random' | 'list' | 'join' | 'lobby';
 
 function parseGameIdFromPath(): string | null {
   const match = window.location.pathname.match(/^\/game\/([^/]+)$/);
@@ -35,6 +37,7 @@ export default function App() {
     if (!urlGameId) return 'home';
     return getPersistedPlayerId(urlGameId) ? 'lobby' : 'join';
   });
+  const { profile, saveUsername } = useProfile();
   const { history, adaptive, setAdaptive, recordResult, clearHistory } = useSongHistory();
   const { state, titles, activeSongId, error, guess, skip, reset, startRandom, selectSong, clearError } =
     useGameState(recordResult);
@@ -135,8 +138,11 @@ export default function App() {
           onSelectRandom={() => setScreen('random-setup')}
           onSelectList={() => setScreen('list')}
           onGameCreated={handleGameCreated}
+          onSelectProfile={() => setScreen('profile')}
         />
       )}
+
+      {screen === 'profile' && <ProfileEditor username={profile.username} onSave={saveUsername} />}
 
       {screen === 'random-setup' && (
         <RandomSetup
@@ -150,7 +156,7 @@ export default function App() {
         />
       )}
 
-      {screen === 'join' && gameId && <JoinGame gameId={gameId} onJoined={handleJoined} />}
+      {screen === 'join' && gameId && <JoinGame gameId={gameId} defaultNickname={profile.username} onJoined={handleJoined} />}
 
       {screen === 'lobby' && gameId && playerId && (
         <Lobby gameId={gameId} playerId={playerId} onSessionInvalid={handleSessionInvalid} onLeave={handleLeave} />

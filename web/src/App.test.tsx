@@ -15,6 +15,7 @@ vi.mock('./api', async () => {
     startRandomMode: vi.fn(),
     submitSkip: vi.fn(),
     resetGame: vi.fn(),
+    joinGame: vi.fn(),
   };
 });
 
@@ -180,6 +181,38 @@ describe('App — solo answer screen', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Accueil' }));
 
     expect(await screen.findByText('Choisis un mode pour commencer')).toBeInTheDocument();
+  });
+});
+
+describe("App — profile", () => {
+  test("the Profil button opens the profile screen", async () => {
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Profil" }));
+
+    expect(await screen.findByLabelText("Nom d'utilisateur")).toBeInTheDocument();
+  });
+
+  test("saving a username stores it in the profile", async () => {
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Profil" }));
+    await userEvent.type(await screen.findByLabelText("Nom d'utilisateur"), "Alice");
+    await userEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    expect(JSON.parse(localStorage.getItem("profile") ?? "{}").username).toBe("Alice");
+  });
+
+  test("opening a game link joins straight away with the profile username", async () => {
+    localStorage.setItem("profile", JSON.stringify({ username: "Alice" }));
+    window.history.pushState({}, "", "/game/g1");
+    vi.mocked(api.fetchGameStatus).mockResolvedValue({ gameId: "g1", status: "lobby" });
+    vi.mocked(api.joinGame).mockResolvedValue({ playerId: "p1", players: [] });
+
+    render(<App />);
+
+    expect(await screen.findByText("En attente du lancement de la partie...")).toBeInTheDocument();
+    expect(api.joinGame).toHaveBeenCalledWith("g1", "Alice", undefined);
   });
 });
 
