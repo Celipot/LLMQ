@@ -83,8 +83,11 @@ export function useAudioPlayer(allowedSeconds: number, getTrackUrl: () => string
     setProgress(100);
   }, [stopAnimation]);
 
+  // Also clears isPlaying: the round's <audio> may be unmounted mid-play, and
+  // an unmounted element never reports its pause.
   const resetProgress = useCallback(() => {
     resumableRef.current = false;
+    setIsPlaying(false);
     stopAnimation();
     setProgress(0);
   }, [stopAnimation]);

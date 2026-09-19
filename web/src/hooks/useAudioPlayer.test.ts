@@ -72,4 +72,15 @@ describe('useAudioPlayer', () => {
     act(() => result.current.handleAudioPause());
     expect(result.current.isPlaying).toBe(false);
   });
+
+  // The <audio> is unmounted with the round's Player while it plays, so no
+  // pause event ever clears isPlaying: the next round's button would stay on "Pause".
+  test('resetProgress clears isPlaying left over from an unmounted audio element', () => {
+    const { result } = setup();
+    act(() => result.current.handleAudioPlay());
+
+    act(() => result.current.resetProgress());
+
+    expect(result.current.isPlaying).toBe(false);
+  });
 });
