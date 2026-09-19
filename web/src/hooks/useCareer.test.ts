@@ -13,7 +13,10 @@ vi.mock('../api', async () => {
     startCareer: vi.fn(),
     restCareer: vi.fn(),
     studyCareer: vi.fn(),
+    singleCareer: vi.fn(),
     releaseCareer: vi.fn(),
+    concertCareer: vi.fn(),
+    abandonCareer: vi.fn(),
     submitGuess: vi.fn(),
     submitSkip: vi.fn(),
   };
@@ -21,15 +24,22 @@ vi.mock('../api', async () => {
 
 const career: Career = {
   turn: 1,
-  totalTurns: 10,
-  energy: 3,
-  maxEnergy: 3,
+  totalTurns: 20,
+  releaseAt: 10,
+  energy: 4,
+  maxEnergy: 4,
   stats: { oreille: 0, memoire: 0, culture: 0 },
   suggestionCount: 1,
   notebook: [],
   releaseDue: false,
   album: { done: 0, total: 6 },
   release: null,
+  concertDue: false,
+  concert: { done: 0, total: 15 },
+  concertResult: null,
+  fans: { current: 0, required: 300 },
+  failure: null,
+  albumGoalGrade: 'B',
 };
 
 const playing: GameState = { attemptsUsed: 0, maxAttempts: 3, allowedSeconds: 1, status: 'playing', guesses: [] };
@@ -112,8 +122,72 @@ describe('useCareer', () => {
       await result.current.study('memoire');
     });
 
-    expect(result.current.error).toBe("Pas assez d'énergie pour étudier : il faut se reposer.");
+    expect(result.current.error).toBe("Pas assez d'énergie : il faut se reposer.");
     expect(result.current.career).toEqual(career);
+  });
+
+  test('single() starts a single round on the stat drawn by the server', async () => {
+    vi.mocked(api.singleCareer).mockResolvedValue({
+      career,
+      round: { kind: 'single', stat: 'culture', state: playing },
+    });
+    const { result } = renderHook(() => useCareer());
+
+    await act(async () => {
+      await result.current.single();
+    });
+
+    expect(api.singleCareer).toHaveBeenCalledOnce();
+    expect(result.current.round?.stat).toBe('culture');
+    expect(result.current.round?.kind).toBe('single');
+  });
+
+  test('abandon() forgets the career and its round, so the first screen comes back', async () => {
+    vi.mocked(api.fetchCareer).mockResolvedValue(studyRound);
+    vi.mocked(api.abandonCareer).mockResolvedValue(undefined);
+    const { result } = renderHook(() => useCareer());
+    await act(async () => {
+      await result.current.enter();
+    });
+
+    await act(async () => {
+      await result.current.abandon();
+    });
+
+    expect(api.abandonCareer).toHaveBeenCalledOnce();
+    expect(result.current.career).toBeNull();
+    expect(result.current.round).toBeNull();
+  });
+
+  test('a failed abandon keeps the career and shows an error', async () => {
+    vi.mocked(api.fetchCareer).mockResolvedValue({ career, round: null });
+    vi.mocked(api.abandonCareer).mockRejectedValue(new ApiError('UNKNOWN_ERROR'));
+    const { result } = renderHook(() => useCareer());
+    await act(async () => {
+      await result.current.enter();
+    });
+
+    await act(async () => {
+      await result.current.abandon();
+    });
+
+    expect(result.current.career).toEqual(career);
+    expect(result.current.error).toBe('Une erreur est survenue.');
+  });
+
+  test('concert() starts the next track of the concert', async () => {
+    vi.mocked(api.concertCareer).mockResolvedValue({
+      career,
+      round: { kind: 'concert', stat: null, state: playing },
+    });
+    const { result } = renderHook(() => useCareer());
+
+    await act(async () => {
+      await result.current.concert();
+    });
+
+    expect(api.concertCareer).toHaveBeenCalledOnce();
+    expect(result.current.round?.kind).toBe('concert');
   });
 
   test('guess() updates the round state without touching the career while the round goes on', async () => {

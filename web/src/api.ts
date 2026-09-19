@@ -114,6 +114,11 @@ export function fetchCareer(): Promise<CareerResponse> {
   return soloFetch('/api/career').then((res) => parseOrThrow<CareerResponse>(res));
 }
 
+export async function abandonCareer(): Promise<void> {
+  const res = await soloFetch('/api/career', { method: 'DELETE' });
+  if (!res.ok) throw new ApiError('UNKNOWN_ERROR');
+}
+
 export function restCareer(): Promise<CareerResponse> {
   return soloFetch('/api/career/rest', { method: 'POST' }).then((res) => parseOrThrow<CareerResponse>(res));
 }
@@ -124,6 +129,14 @@ export function studyCareer(stat: CareerStat): Promise<CareerResponse> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ stat }),
   }).then((res) => parseOrThrow<CareerResponse>(res));
+}
+
+export function singleCareer(): Promise<CareerResponse> {
+  return soloFetch('/api/career/single', { method: 'POST' }).then((res) => parseOrThrow<CareerResponse>(res));
+}
+
+export function concertCareer(): Promise<CareerResponse> {
+  return soloFetch('/api/career/concert', { method: 'POST' }).then((res) => parseOrThrow<CareerResponse>(res));
 }
 
 export function releaseCareer(): Promise<CareerResponse> {

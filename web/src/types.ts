@@ -47,6 +47,7 @@ export interface CareerSong {
 export interface Career {
   turn: number;
   totalTurns: number;
+  releaseAt: number;
   energy: number;
   maxEnergy: number;
   stats: Record<CareerStat, number>;
@@ -54,27 +55,37 @@ export interface Career {
   notebook: CareerSong[];
   releaseDue: boolean;
   album: { done: number; total: number };
-  release: AlbumRelease | null;
+  release: CareerResult | null;
+  concertDue: boolean;
+  concert: { done: number; total: number };
+  concertResult: CareerResult | null;
+  fans: { current: number; required: number };
+  // Why the career ended early, null while it is going on or once the concert is over.
+  failure: CareerFailure | null;
+  albumGoalGrade: CareerGrade;
 }
 
-export type AlbumGrade = 'S' | 'A' | 'B' | 'C' | 'D';
+export type CareerFailure = 'ALBUM_GRADE' | 'FANS';
 
-export interface AlbumTrack {
+export type CareerGrade = 'S' | 'A' | 'B' | 'C' | 'D';
+
+export interface CareerTrack {
   song: CareerSong;
   rank: ReleaseRank;
   points: number;
 }
 
-// Only present once the album's last track is played, which ends the career.
-export interface AlbumRelease {
+// Only present once the last track of the album (release) or of the concert
+// (concertResult) is played; the concert ends the career.
+export interface CareerResult {
   score: number;
   maxScore: number;
-  grade: AlbumGrade;
-  tracks: AlbumTrack[];
+  grade: CareerGrade;
+  tracks: CareerTrack[];
 }
 
 export interface CareerRound {
-  kind: 'study' | 'release';
+  kind: 'study' | 'single' | 'release' | 'concert';
   stat: CareerStat | null;
   state: GameState;
 }

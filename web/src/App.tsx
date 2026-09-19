@@ -6,6 +6,7 @@ import SearchAutocomplete from './components/SearchAutocomplete';
 import History from './components/History';
 import Result from './components/Result';
 import Home from './components/Home';
+import { CAREER_STATS } from './careerStats';
 import CareerHub from './components/CareerHub';
 import SongList from './components/SongList';
 import JoinGame from './components/JoinGame';
@@ -59,10 +60,23 @@ export default function App() {
   const careerLastAttempt =
     !!careerRound && !careerFinished && careerRound.state.attemptsUsed === careerRound.state.maxAttempts - 1;
 
-  // A finished track is already counted in the album progress, a playing one is not.
-  const albumPosition = (careerState.career?.album.done ?? 0) + (careerFinished ? 0 : 1);
-  const continueLabel =
-    careerRound?.kind !== 'release' ? 'Continuer' : careerState.career?.release ? 'Voir le résultat' : 'Titre suivant';
+  // The album and the concert are series of rounds played back to back.
+  const career = careerState.career;
+  const series =
+    career && careerRound?.kind === 'release'
+      ? { label: "Sortie de l'album", progress: career.album, over: !!career.release, next: careerState.release }
+      : career && careerRound?.kind === 'concert'
+        ? { label: 'Concert', progress: career.concert, over: !!career.concertResult, next: careerState.concert }
+        : null;
+  // A finished track is already counted in the series progress, a playing one is not.
+  const seriesPosition = (series?.progress.done ?? 0) + (careerFinished ? 0 : 1);
+  const continueLabel = !series ? 'Continuer' : series.over ? 'Voir le résultat' : 'Titre suivant';
+  const roundSubtitle =
+    careerRound?.kind === 'study'
+      ? "Étude : deviner le titre à partir de l'intro"
+      : careerRound?.kind === 'single'
+        ? `Single (${CAREER_STATS.find(({ stat }) => stat === careerRound.stat)?.label}) : deviner le titre à partir de l'intro (il n'entre pas dans le carnet)`
+        : `${series?.label} : titre ${seriesPosition} / ${series?.progress.total}`;
 
   const allowedSeconds = careerRound?.state.allowedSeconds ?? state?.allowedSeconds ?? 1;
   const {
@@ -135,10 +149,9 @@ export default function App() {
     await action();
   }
 
-  // The next track of the album starts right away, without going back to the hub.
+  // The next track of the album or concert starts right away, without going back to the hub.
   async function handleCareerContinue() {
-    const albumGoesOn = careerRound?.kind === 'release' && careerState.career && !careerState.career.release;
-    if (albumGoesOn) await startCareerRound(careerState.release);
+    if (series && !series.over) await startCareerRound(series.next);
     else careerState.closeRound();
   }
 
@@ -262,17 +275,16 @@ export default function App() {
           onBegin={() => startCareerRound(careerState.begin)}
           onRest={careerState.rest}
           onStudy={(stat) => startCareerRound(() => careerState.study(stat))}
+          onSingle={() => startCareerRound(careerState.single)}
           onRelease={() => startCareerRound(careerState.release)}
+          onConcert={() => startCareerRound(careerState.concert)}
+          onRestart={careerState.abandon}
         />
       )}
 
       {careerRound && (
         <div className="quiz-area">
-          <p className="subtitle">
-            {careerRound.kind === 'study'
-              ? "Étude : deviner le titre à partir de l'intro"
-              : `Sortie de l'album : titre ${albumPosition} / ${careerState.career?.album.total}`}
-          </p>
+          <p className="subtitle">{roundSubtitle}</p>
 
           <Player
             audioRef={audioRef}

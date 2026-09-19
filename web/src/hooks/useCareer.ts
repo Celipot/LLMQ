@@ -1,9 +1,12 @@
 import { useCallback, useState } from 'react';
 import {
+  abandonCareer,
   ApiError,
+  concertCareer,
   fetchCareer,
   releaseCareer,
   restCareer,
+  singleCareer,
   startCareer,
   studyCareer,
   submitGuess,
@@ -45,9 +48,22 @@ export function useCareer() {
   }, [apply]);
 
   const begin = useCallback(() => run(startCareer), [run]);
+
+  const abandon = useCallback(async () => {
+    try {
+      await abandonCareer();
+      setCareer(null);
+      setRound(null);
+      setError(null);
+    } catch (err) {
+      setError(errorText(err));
+    }
+  }, []);
   const rest = useCallback(() => run(restCareer), [run]);
   const study = useCallback((stat: CareerStat) => run(() => studyCareer(stat)), [run]);
+  const single = useCallback(() => run(singleCareer), [run]);
   const release = useCallback(() => run(releaseCareer), [run]);
+  const concert = useCallback(() => run(concertCareer), [run]);
 
   // The round outcome comes back on the last guess/skip together with the
   // updated career; while it goes on only the round state changes.
@@ -85,14 +101,30 @@ export function useCareer() {
   const closeRound = useCallback(() => setRound(null), []);
   const clearError = useCallback(() => setError(null), []);
 
-  return { career, round, error, enter, begin, rest, study, release, guess, skip, closeRound, clearError };
+  return {
+    career,
+    round,
+    error,
+    enter,
+    begin,
+    abandon,
+    rest,
+    study,
+    single,
+    release,
+    concert,
+    guess,
+    skip,
+    closeRound,
+    clearError,
+  };
 }
 
 function errorText(err: unknown): string {
   const code = err instanceof ApiError ? err.code : 'UNKNOWN_ERROR';
   switch (code) {
     case 'NO_ENERGY':
-      return "Pas assez d'énergie pour étudier : il faut se reposer.";
+      return "Pas assez d'énergie : il faut se reposer.";
     case 'ROUND_IN_PROGRESS':
       return 'Un round est déjà en cours.';
     case 'UNKNOWN_TITLE':
