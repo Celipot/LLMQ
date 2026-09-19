@@ -55,8 +55,8 @@ describe('rankMatches', () => {
     expect(titlesOf('zzzzzzzz')).toEqual([]);
   });
 
-  test('caps the result list at 8', () => {
+  test('caps the result list at 5', () => {
     const many = Array.from({ length: 20 }, (_, i) => song(i, `Anniversary ${i}`, 'A'));
-    expect(rankMatches(many, 'ann')).toHaveLength(8);
+    expect(rankMatches(many, 'ann')).toHaveLength(5);
   });
 });

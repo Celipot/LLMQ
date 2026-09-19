@@ -1,6 +1,6 @@
 import type { PlayableSong } from './types';
 
-const MAX_RESULTS = 8;
+const MAX_RESULTS = 5;
 
 export function normalize(str: string): string {
   return str

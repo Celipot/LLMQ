@@ -93,7 +93,7 @@ describe('SearchAutocomplete', () => {
     await user.type(screen.getByRole('textbox'), 'x');
 
     const items = screen.getAllByRole('listitem');
-    expect(items.length).toBeLessThanOrEqual(8);
+    expect(items).toHaveLength(5);
     expect(items.every((li) => li.textContent?.startsWith('Anniversary Song'))).toBe(true);
   });
 });
