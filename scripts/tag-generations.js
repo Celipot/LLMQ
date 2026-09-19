@@ -36,11 +36,11 @@ const NAMES_BY_GENERATION = {
     'Hasunosora High School Idol Club', "Hasunosora Girls' High School Idol Club",
     'Cerise Bouquet', 'DOLLCHESTRA', 'Mira-Cra Park!',
     'Kaho Hinoshita', 'Sayaka Murano', 'Kozue Otomune', 'Tsuzuri Yugiri', 'Megumi Fujishima',
-    'Rurino Osawa', 'Ruri&To', 'PRINCEε>ε>',
+    'Rurino Osawa', 'Edel Note', 'Ruri&To', 'PRINCEε>ε>',
   ],
   CrossGen: ['Love Live!', 'Love Live! ⨯ iDOLM@STER', 'AiScReam'],
   Ikizulive: [
-    'Ikizurai-Bu!', 'Edel Note',
+    'Ikizurai-Bu!',
     'Polka Takahashi', 'Mai Azabu', 'Akira Goto', 'Hanabi Komagata', 'Miracle Kanazawa',
     'Noriko Chofu', 'Yukuri Harumiya', 'Aurora Konohana', 'Midori Yamada', 'Shion Sasaki',
   ],
