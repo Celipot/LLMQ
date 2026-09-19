@@ -168,7 +168,10 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         });
         if (typeof message.songIndex === 'number') setSongIndex(message.songIndex);
         if (typeof message.songCount === 'number') setSongCount(message.songCount);
-        setAnswerFeedback(null);
+        // "found" locks the controls for the whole song (the server refuses any
+        // further answer), so only a new song or a wrong guess is cleared.
+        const isNewSong = message.stage === 1;
+        setAnswerFeedback((prev) => (prev?.correct === true && !isNewSong ? prev : null));
         setForfeited(false);
         // A new stage moots any in-flight submit/forfeit for the previous
         // one — the server has already moved on.
@@ -183,7 +186,6 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         // stage === 1 marks a song boundary (game start or the next song
         // after song:ended), where the server also resets "found" players
         // back to active — mirror that here too.
-        const isNewSong = message.stage === 1;
         setPlayers((prev) =>
           prev.map((player) =>
             player.status === 'forfeited' || (isNewSong && player.status === 'found')

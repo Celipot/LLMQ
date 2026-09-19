@@ -424,6 +424,40 @@ describe('Lobby', () => {
     expect(screen.getByText('Alice — a trouvé')).toBeInTheDocument();
   });
 
+  test('keeps the answer controls locked for a player who found the song when the stage advances', async () => {
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice', status: 'active' }] });
+    await screen.findByText('Alice');
+    socket.emit({ type: 'stage:start', maxStage: 6, stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
+    await screen.findByText(/Étape 1/);
+    socket.emit({ type: 'answer:result', correct: true });
+    await screen.findByText('Alice — a trouvé');
+
+    socket.emit({ type: 'stage:start', maxStage: 6, stage: 2, durationSeconds: 2, serverTimestamp: Date.now(), answerWindowMs: 30000 });
+
+    await screen.findByText(/Étape 2/);
+    expect(screen.getByRole('textbox')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Valider' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Abandonner/ })).toBeDisabled();
+  });
+
+  test('unlocks the answer controls of a player who found the song once the next song starts', async () => {
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice', status: 'active' }] });
+    await screen.findByText('Alice');
+    socket.emit({ type: 'stage:start', maxStage: 6, stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000, songIndex: 1, songCount: 2 });
+    await screen.findByText(/Étape 1/);
+    socket.emit({ type: 'answer:result', correct: true });
+    await screen.findByText('Alice — a trouvé');
+
+    socket.emit({ type: 'stage:start', maxStage: 6, stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000, songIndex: 2, songCount: 2 });
+
+    expect(await screen.findByText('Alice — cherche encore')).toBeInTheDocument();
+    expect(screen.getByRole('textbox')).toBeEnabled();
+  });
+
   test('shows no previous-song banner on song:ended, keeps the running score and starts the next song on the following stage:start', async () => {
     render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     const socket = MockWebSocket.instances[0];
