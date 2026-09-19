@@ -41,6 +41,7 @@ const career: Career = {
   fans: { current: 0, required: 300 },
   failure: null,
   albumGoalGrade: 'B',
+  finalScore: null,
 };
 
 const roundState: GameState = { attemptsUsed: 0, maxAttempts: 3, allowedSeconds: 1, status: 'playing', guesses: [] };
@@ -73,12 +74,12 @@ describe('App — Mode Carrière', () => {
     await userEvent.click(screen.getByText('Mode Carrière'));
     await userEvent.click(await screen.findByRole('button', { name: 'Commencer une carrière' }));
 
-    expect(await screen.findByText('Tour 1 / 20')).toBeInTheDocument();
+    expect(await screen.findByText('Tour 1')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Étudier : Oreille' }));
 
     expect(await screen.findByRole('button', { name: 'Valider' })).toBeInTheDocument();
     expect(api.studyCareer).toHaveBeenCalledWith('oreille');
-    expect(screen.queryByText('Tour 1 / 20')).not.toBeInTheDocument();
+    expect(screen.queryByText('Tour 1')).not.toBeInTheDocument();
   });
 
   test('a single opens a round and tells which stat is trained', async () => {
@@ -95,6 +96,39 @@ describe('App — Mode Carrière', () => {
     expect(await screen.findByRole('button', { name: 'Valider' })).toBeInTheDocument();
     expect(api.singleCareer).toHaveBeenCalledOnce();
     expect(screen.getByText(/Single \(Culture\) : deviner le titre/)).toBeInTheDocument();
+  });
+
+  test('the restart button sits in the header, to the left of Accueil', async () => {
+    vi.mocked(api.fetchCareer).mockResolvedValue({ career, round: null });
+    render(<App />);
+    await userEvent.click(screen.getByText('Mode Carrière'));
+
+    const restart = await screen.findByRole('button', { name: 'Recommencer la carrière' });
+    const home = screen.getByRole('button', { name: 'Accueil' });
+
+    expect(restart.compareDocumentPosition(home) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(restart.closest('.app-header')).not.toBeNull();
+  });
+
+  test('the restart button is hidden while a round is in progress', async () => {
+    vi.mocked(api.fetchCareer).mockResolvedValue({
+      career,
+      round: { kind: 'study', stat: 'oreille', state: roundState },
+    });
+    render(<App />);
+    await userEvent.click(screen.getByText('Mode Carrière'));
+
+    expect(await screen.findByRole('button', { name: 'Valider' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Recommencer la carrière' })).not.toBeInTheDocument();
+  });
+
+  test('the restart button is hidden once the career is over', async () => {
+    vi.mocked(api.fetchCareer).mockResolvedValue({ career: { ...career, failure: 'FANS' }, round: null });
+    render(<App />);
+    await userEvent.click(screen.getByText('Mode Carrière'));
+
+    expect(await screen.findByRole('button', { name: 'Nouvelle carrière' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Recommencer la carrière' })).not.toBeInTheDocument();
   });
 
   test('restarting the career goes back to the first screen of the mode', async () => {

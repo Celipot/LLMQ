@@ -2,6 +2,7 @@ import { CAREER_STATS } from '../careerStats';
 import type { Career, CareerStat } from '../types';
 import CareerObjective from './CareerObjective';
 import CareerResult from './CareerResult';
+import CareerScore from './CareerScore';
 import StatBars from './StatBars';
 
 // Only used to disable the button: the server refuses a single without enough energy.
@@ -16,7 +17,6 @@ interface CareerHubProps {
   onSingle: () => void;
   onRelease: () => void;
   onConcert: () => void;
-  onRestart: () => void;
 }
 
 export default function CareerHub({
@@ -28,7 +28,6 @@ export default function CareerHub({
   onSingle,
   onRelease,
   onConcert,
-  onRestart,
 }: CareerHubProps) {
   if (!career) {
     return (
@@ -56,9 +55,9 @@ export default function CareerHub({
     <section className="career-hub career-layout">
       <aside className="career-column" aria-label="Statistiques">
         <div className="career-status">
-          <span>{`Tour ${turn} / ${career.totalTurns}`}</span>
+          <span>{`Tour ${turn}`}</span>
           <span>{`Énergie ${career.energy} / ${career.maxEnergy}`}</span>
-          <span>{`FSI ${career.fans.current} / ${career.fans.required}`}</span>
+          <span>{`FSI ${career.fans.current}`}</span>
         </div>
 
         <StatBars stats={career.stats} />
@@ -81,11 +80,14 @@ export default function CareerHub({
 
         <div className="career-column" role="group" aria-label="Actions">
           {over ? (
-            <div className="actions">
-              <button type="button" onClick={onBegin}>
-                Nouvelle carrière
-              </button>
-            </div>
+            <>
+              {career.finalScore && <CareerScore score={career.finalScore} />}
+              <div className="actions">
+                <button type="button" onClick={onBegin}>
+                  Nouvelle carrière
+                </button>
+              </div>
+            </>
           ) : career.concertDue ? (
             <div className="actions">
               <button type="button" onClick={onConcert}>
@@ -127,14 +129,6 @@ export default function CareerHub({
                 </button>
               </div>
             </>
-          )}
-
-          {!over && (
-            <div className="actions">
-              <button type="button" className="secondary" onClick={onRestart}>
-                Recommencer la carrière
-              </button>
-            </div>
           )}
 
           {error && (

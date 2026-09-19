@@ -22,6 +22,7 @@ const career: Career = {
   fans: { current: 120, required: 300 },
   failure: null,
   albumGoalGrade: 'B',
+  finalScore: null,
 };
 
 const albumResult: CareerResult = {
@@ -49,7 +50,6 @@ function renderHub(overrides: Partial<Career> | null = {}, props: Partial<Parame
     onSingle: vi.fn(),
     onRelease: vi.fn(),
     onConcert: vi.fn(),
-    onRestart: vi.fn(),
   };
   render(
     <CareerHub career={overrides === null ? null : { ...career, ...overrides }} error={null} {...handlers} {...props} />,
@@ -66,10 +66,16 @@ describe('CareerHub', () => {
     expect(onBegin).toHaveBeenCalledOnce();
   });
 
-  test('shows the turn and the energy', () => {
+  test('shows only the current turn, without the total', () => {
     renderHub();
 
-    expect(screen.getByText('Tour 3 / 20')).toBeInTheDocument();
+    expect(screen.getByText('Tour 3')).toBeInTheDocument();
+    expect(screen.queryByText(/\/ 20/)).not.toBeInTheDocument();
+  });
+
+  test('shows the energy', () => {
+    renderHub();
+
     expect(screen.getByText('Énergie 2 / 4')).toBeInTheDocument();
   });
 
@@ -104,17 +110,10 @@ describe('CareerHub', () => {
     expect(screen.getByRole('button', { name: 'Étudier : Oreille' })).toBeEnabled();
   });
 
-  test('the restart button abandons the career', async () => {
-    const { onRestart } = renderHub();
+  test('the restart button is not part of the hub, it lives in the app header', () => {
+    renderHub();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Recommencer la carrière' }));
-
-    expect(onRestart).toHaveBeenCalledOnce();
-  });
-
-  test('the restart button is also there while the release or the concert is due', () => {
-    renderHub({ releaseDue: true, turn: 11 });
-    expect(screen.getByRole('button', { name: 'Recommencer la carrière' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Recommencer la carrière' })).not.toBeInTheDocument();
   });
 
   test('the rest button calls onRest', async () => {
@@ -220,44 +219,61 @@ describe('CareerHub', () => {
       await userEvent.click(screen.getByText('Concert'));
       expect(screen.getByText('Score 1350 / 1500')).toBeVisible();
       expect(screen.queryByRole('button', { name: /concert/i })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Recommencer la carrière' })).not.toBeInTheDocument();
       await userEvent.click(screen.getByRole('button', { name: 'Nouvelle carrière' }));
 
       expect(onBegin).toHaveBeenCalledOnce();
     });
   });
 
-  test('shows the fans of the career', () => {
+  test('shows only the current number of fans, without the required total', () => {
     renderHub();
 
-    expect(screen.getByText('FSI 120 / 300')).toBeInTheDocument();
+    expect(screen.getByText('FSI 120')).toBeInTheDocument();
+    expect(screen.queryByText('FSI 120 / 300')).not.toBeInTheDocument();
   });
 
   describe('the current objective', () => {
     const objective = () => screen.getByRole('region', { name: 'Objectif en cours' });
 
-    test('before the album: release it with at least the grade B', () => {
+    test('before the album: release it with at least the grade B, with the turns left', () => {
       renderHub();
 
       expect(objective()).toHaveTextContent("Sortir l'album avec un grade B ou mieux");
+      expect(objective()).toHaveTextContent('(dans 8 tours)');
+    });
+
+    test('the last turn before the album is singular', () => {
+      renderHub({ turn: 10 });
+
+      expect(objective()).toHaveTextContent('(dans 1 tour)');
+      expect(objective()).not.toHaveTextContent('1 tours');
+    });
+
+    test('once the album is due there is no deadline left to show', () => {
+      renderHub({ turn: 11, releaseDue: true });
+
+      expect(objective()).not.toHaveTextContent('(dans');
     });
 
     test('once the album is released: win the fans needed for the concert', () => {
       renderHub({ turn: 12, release: albumResult });
 
       expect(objective()).toHaveTextContent('Atteindre 300 FSI pour participer au concert (120 / 300)');
+      expect(objective()).toHaveTextContent('(dans 9 tours)');
     });
 
     test('once the concert is due: give it', () => {
       renderHub({ turn: 21, release: albumResult, concertDue: true });
 
       expect(objective()).toHaveTextContent('Donner le concert');
+      expect(objective()).not.toHaveTextContent('(dans');
     });
 
     test('once the concert is over the career is complete', () => {
       renderHub({ turn: 21, release: albumResult, concertDue: true, concertResult });
 
       expect(objective()).toHaveTextContent('Carrière terminée');
+      expect(objective()).not.toHaveTextContent('(dans');
     });
 
     test('a failed album is reported as a missed objective', () => {
@@ -273,6 +289,36 @@ describe('CareerHub', () => {
     });
   });
 
+  describe('the final score', () => {
+    const finalScore = { album: 420, concert: 1000, stats: 170, fans: 200, total: 1790 };
+    const over = { turn: 21, release: albumResult, concertDue: true, concertResult, finalScore };
+
+    test('is shown at the end, with what it is made of', () => {
+      renderHub(over);
+
+      const score = screen.getByRole('region', { name: 'Score de carrière' });
+      expect(within(score).getByText('1790')).toBeInTheDocument();
+      expect(within(score).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+        'Album : 420',
+        'Concert : 1000',
+        'Stats : 170',
+        'Fans : 200',
+      ]);
+    });
+
+    test('is also shown when the career failed', () => {
+      renderHub({ turn: 21, release: albumResult, failure: 'FANS', finalScore });
+
+      expect(screen.getByRole('region', { name: 'Score de carrière' })).toBeInTheDocument();
+    });
+
+    test('is not shown while the career goes on', () => {
+      renderHub();
+
+      expect(screen.queryByRole('region', { name: 'Score de carrière' })).not.toBeInTheDocument();
+    });
+  });
+
   describe('a failed career', () => {
     const failed = { turn: 21, release: albumResult, failure: 'FANS' as const };
 
@@ -280,7 +326,6 @@ describe('CareerHub', () => {
       const { onBegin } = renderHub(failed);
 
       expect(screen.queryByRole('button', { name: 'Se reposer' })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Recommencer la carrière' })).not.toBeInTheDocument();
       await userEvent.click(screen.getByRole('button', { name: 'Nouvelle carrière' }));
 
       expect(onBegin).toHaveBeenCalledOnce();

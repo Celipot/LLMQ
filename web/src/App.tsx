@@ -56,6 +56,13 @@ export default function App() {
 
   const careerState = useCareer();
   const careerRound = screen === 'career' ? careerState.round : null;
+  // Only on the hub of a career still going on: a round in progress or a finished career has its own way out.
+  const canRestartCareer =
+    screen === 'career' &&
+    !careerRound &&
+    !!careerState.career &&
+    !careerState.career.failure &&
+    !careerState.career.concertResult;
   const careerFinished = !!careerRound && careerRound.state.status !== 'playing';
   const careerLastAttempt =
     !!careerRound && !careerFinished && careerRound.state.attemptsUsed === careerRound.state.maxAttempts - 1;
@@ -207,10 +214,19 @@ export default function App() {
             Profil
           </button>
         )}
-        {screen !== 'home' && !showAnswer && (
-          <button type="button" className="secondary" onClick={handleHomeClick}>
-            Accueil
-          </button>
+        {(canRestartCareer || (screen !== 'home' && !showAnswer)) && (
+          <div className="app-header-actions">
+            {canRestartCareer && (
+              <button type="button" className="secondary" onClick={careerState.abandon}>
+                Recommencer la carrière
+              </button>
+            )}
+            {screen !== 'home' && !showAnswer && (
+              <button type="button" className="secondary" onClick={handleHomeClick}>
+                Accueil
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -278,7 +294,6 @@ export default function App() {
           onSingle={() => startCareerRound(careerState.single)}
           onRelease={() => startCareerRound(careerState.release)}
           onConcert={() => startCareerRound(careerState.concert)}
-          onRestart={careerState.abandon}
         />
       )}
 

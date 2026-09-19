@@ -63,6 +63,16 @@ export interface Career {
   // Why the career ended early, null while it is going on or once the concert is over.
   failure: CareerFailure | null;
   albumGoalGrade: CareerGrade;
+  // Only once the career is over (concert played or failure).
+  finalScore: CareerScore | null;
+}
+
+export interface CareerScore {
+  album: number;
+  concert: number;
+  stats: number;
+  fans: number;
+  total: number;
 }
 
 export type CareerFailure = 'ALBUM_GRADE' | 'FANS';

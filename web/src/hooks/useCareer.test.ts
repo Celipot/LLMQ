@@ -40,6 +40,7 @@ const career: Career = {
   fans: { current: 0, required: 300 },
   failure: null,
   albumGoalGrade: 'B',
+  finalScore: null,
 };
 
 const playing: GameState = { attemptsUsed: 0, maxAttempts: 3, allowedSeconds: 1, status: 'playing', guesses: [] };
