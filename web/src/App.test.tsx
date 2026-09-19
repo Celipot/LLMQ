@@ -188,6 +188,21 @@ describe('App — solo answer screen', () => {
 });
 
 describe("App — profile", () => {
+  test('the Profil button sits in the header of the home page, next to the title', async () => {
+    render(<App />);
+
+    const button = await screen.findByRole('button', { name: 'Profil' });
+
+    expect(button.closest('.app-header')).toContainElement(screen.getByRole('heading', { name: 'LLMQ' }));
+  });
+
+  test('the Profil button is not offered on the other screens', async () => {
+    render(<App />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Profil' }));
+
+    expect(screen.queryByRole('button', { name: 'Profil' })).not.toBeInTheDocument();
+  });
+
   test("the Profil button opens the profile screen", async () => {
     render(<App />);
 

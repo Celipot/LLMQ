@@ -126,6 +126,11 @@ export default function App() {
         <h1>
           <ShinyText text="LLMQ" speed={3} />
         </h1>
+        {screen === 'home' && (
+          <button type="button" className="secondary" onClick={() => setScreen('profile')}>
+            Profil
+          </button>
+        )}
         {screen !== 'home' && !showAnswer && (
           <button type="button" className="secondary" onClick={() => setScreen('home')}>
             Accueil
@@ -138,7 +143,6 @@ export default function App() {
           onSelectRandom={() => setScreen('random-setup')}
           onSelectList={() => setScreen('list')}
           onGameCreated={handleGameCreated}
-          onSelectProfile={() => setScreen('profile')}
         />
       )}
 

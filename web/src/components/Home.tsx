@@ -5,10 +5,9 @@ interface HomeProps {
   onSelectRandom: () => void;
   onSelectList: () => void;
   onGameCreated: (gameId: string, hostToken: string) => void;
-  onSelectProfile: () => void;
 }
 
-export default function Home({ onSelectRandom, onSelectList, onGameCreated, onSelectProfile }: HomeProps) {
+export default function Home({ onSelectRandom, onSelectList, onGameCreated }: HomeProps) {
   const [error, setError] = useState<string | null>(null);
 
   async function handleCreateMultiplayer() {
@@ -38,9 +37,6 @@ export default function Home({ onSelectRandom, onSelectList, onGameCreated, onSe
           <span className="mode-card-desc">Génère un lien à partager avec tes amis</span>
         </button>
       </div>
-      <button type="button" className="secondary profile-button" onClick={onSelectProfile}>
-        Profil
-      </button>
       {error && (
         <p className="error-msg" role="alert">
           {error}
