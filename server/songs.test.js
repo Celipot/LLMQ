@@ -15,6 +15,16 @@ test('getSongById returns the full song for a known id', () => {
   assert.equal(found.title, firstTitle.title);
 });
 
+test('every song in data/songs.json has exactly one known generation', () => {
+  const GENERATIONS = ["µ's", 'Aqours', 'Nijigasaki', 'Liella', 'Hasunosora', 'Ikizulive', 'Musical', 'CrossGen'];
+  const all = require('../data/songs.json');
+  const invalid = all.filter((song) => !GENERATIONS.includes(song.generation));
+  assert.deepEqual(
+    invalid.map((song) => song.id),
+    []
+  );
+});
+
 test('getSongById returns null for an unknown id', () => {
   assert.equal(songs.getSongById(-1), null);
 });

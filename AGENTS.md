@@ -23,10 +23,12 @@ web/             Frontend (Vite + React + TypeScript)
   vite.config.ts    Proxy dev vers Express, build vers ../public
 
 data/            Données jouables
-  songs.json        Bibliothèque de titres
+  songs.json        Bibliothèque de titres (champ `generation` : µ's, Aqours, Nijigasaki, Liella,
+                    Hasunosora, Ikizulive, Musical, ou CrossGen si plusieurs séries)
   audio/            Fichiers audio (WAV PCM requis, voir contraintes ci-dessous)
 
-scripts/         Utilitaires ponctuels (génération audio placeholder)
+scripts/         Utilitaires ponctuels (génération audio placeholder, scraper, `tag-generations.js`
+                 qui remplit `generation` — à relancer après un scrape, qui régénère songs.json)
 public/          Généré par `pnpm run build` — ne pas éditer à la main
 us/, prompt/     Documentation produit (user stories, contexte projet)
 
