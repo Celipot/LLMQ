@@ -928,9 +928,9 @@ function newCareerPlayer() {
 
 // The drawn title is hidden until the round ends, so tests pin the draw: with
 // Math.random at 0 the first title of the discography pool is picked.
-async function withFirstDraw(fn) {
+async function withFirstDraw(fn, draw = 0) {
   const original = Math.random;
-  Math.random = () => 0;
+  Math.random = () => draw;
   try {
     return await fn();
   } finally {
@@ -1103,17 +1103,115 @@ test('after 10 turns rest and study are refused with RELEASE_DUE', async () => {
   assert.equal((await res.json()).error, 'RELEASE_DUE');
 });
 
-test('a release found at the first tier earns rank S and finishes the career', async () => {
+const discographyIds = career.discographyIds(songs.getPlayableTitles());
+const albumSong = (index) => songs.getSongById(discographyIds[index]);
+
+// With Math.random at 0 and nothing studied, the album tracks are the first
+// titles of the discography, in order.
+async function playAlbumTrack(player, index, { draw = 0, guessTitle = albumSong(index).title } = {}) {
+  const started = await withFirstDraw(() => player.post('/api/career/release'), draw);
+  const round = (await started.json()).round;
+  const result = await (await player.post('/api/guess', { title: guessTitle })).json();
+  return { round, result };
+}
+
+test('the release starts the first track of the album, with its position', async () => {
   const player = newCareerPlayer();
   await restUntilRelease(player);
-  const started = await withFirstDraw(() => player.post('/api/career/release'));
-  assert.equal((await started.json()).round.kind, 'release');
 
-  const body = await (await player.post('/api/guess', { title: firstDiscographySong.title })).json();
-  assert.equal(body.career.release.rank, 'S');
-  assert.equal(body.career.release.song.id, firstDiscographySong.id);
+  const started = await (await withFirstDraw(() => player.post('/api/career/release'))).json();
 
-  const after = await player.post('/api/career/rest');
-  assert.equal(after.status, 409);
-  assert.equal((await after.json()).error, 'CAREER_FINISHED');
+  assert.equal(started.round.kind, 'release');
+  assert.deepEqual(started.career.album, { done: 0, total: 6 });
+});
+
+test('a found track is scored and the album goes on with the next one', async () => {
+  const player = newCareerPlayer();
+  await restUntilRelease(player);
+
+  const { result } = await playAlbumTrack(player, 0);
+
+  assert.deepEqual(result.career.album, { done: 1, total: 6 });
+  assert.equal(result.career.release, null);
+  const next = await (await player.post('/api/career/release')).json();
+  assert.equal(next.round.state.attemptsUsed, 0);
+});
+
+test('rest and study stay refused between two tracks of the album', async () => {
+  const player = newCareerPlayer();
+  await restUntilRelease(player);
+  await playAlbumTrack(player, 0);
+
+  const res = await player.post('/api/career/rest');
+
+  assert.equal(res.status, 409);
+  assert.equal((await res.json()).error, 'RELEASE_DUE');
+});
+
+test('an album of 6 tracks found at the first tier scores 600 and is graded S', async () => {
+  const player = newCareerPlayer();
+  await restUntilRelease(player);
+
+  let last;
+  for (let i = 0; i < 6; i += 1) last = (await playAlbumTrack(player, i)).result;
+
+  assert.equal(last.career.release.score, 600);
+  assert.equal(last.career.release.grade, 'S');
+  assert.deepEqual(
+    last.career.release.tracks.map((track) => track.song.id),
+    [0, 1, 2, 3, 4, 5].map((i) => albumSong(i).id),
+  );
+  assert.ok(last.career.release.tracks.every((track) => track.rank === 'S' && track.points === 100));
+});
+
+test('missing every track gives a score of 0 and grade D', async () => {
+  const player = newCareerPlayer();
+  await restUntilRelease(player);
+
+  let last;
+  for (let i = 0; i < 6; i += 1) {
+    await withFirstDraw(() => player.post('/api/career/release'));
+    last = await skipRound(player);
+  }
+
+  assert.equal(last.career.release.score, 0);
+  assert.equal(last.career.release.grade, 'D');
+});
+
+test('once the album is released the career is finished', async () => {
+  const player = newCareerPlayer();
+  await restUntilRelease(player);
+  for (let i = 0; i < 6; i += 1) await playAlbumTrack(player, i);
+
+  const again = await player.post('/api/career/release');
+
+  assert.equal(again.status, 409);
+  assert.equal((await again.json()).error, 'CAREER_FINISHED');
+});
+
+// The studied title is the first of the discography, found while studying.
+async function studyFirstSongThenRestUntilRelease(player) {
+  await player.post('/api/career');
+  await withFirstDraw(() => player.post('/api/career/study', { stat: 'oreille' }));
+  await player.post('/api/guess', { title: albumSong(0).title });
+  for (let i = 0; i < 9; i += 1) await player.post('/api/career/rest');
+}
+
+test('the album is drawn from the studied titles first, whatever the random draw', async () => {
+  const player = newCareerPlayer();
+  await studyFirstSongThenRestUntilRelease(player);
+
+  const { result } = await playAlbumTrack(player, 0, { draw: 0.999 });
+
+  assert.equal(result.correct, true);
+});
+
+test('once the studied titles are used the album is completed with other titles', async () => {
+  const player = newCareerPlayer();
+  await studyFirstSongThenRestUntilRelease(player);
+  await playAlbumTrack(player, 0, { draw: 0.999 });
+
+  const { result } = await playAlbumTrack(player, 0);
+
+  assert.equal(result.correct, false);
 });

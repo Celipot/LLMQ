@@ -36,7 +36,19 @@ function publicCareer(session) {
     suggestionCount: career.suggestionCount(state.stats),
     notebook: state.notebook.map(songSummary),
     releaseDue: career.isReleaseDue(state),
-    release: state.release ? { rank: state.release.rank, song: songSummary(state.release.songId) } : null,
+    album: { done: state.album.length, total: career.ALBUM_SIZE },
+    release: state.release
+      ? {
+          score: state.release.score,
+          maxScore: career.MAX_ALBUM_SCORE,
+          grade: state.release.grade,
+          tracks: state.release.tracks.map(({ songId, rank, points }) => ({
+            song: songSummary(songId),
+            rank,
+            points,
+          })),
+        }
+      : null,
   };
 }
 
@@ -61,8 +73,7 @@ function resumeRound(session) {
   session.activeKey = round.key;
 }
 
-function startRound(session, kind, stat = null) {
-  const songId = career.pickSongId(discography, session.career.notebook);
+function startRound(session, kind, stat, songId) {
   const key = roundKey(session, songId);
   gameState.resetState(key, career.roundTiers(session.career.stats));
   session.careerRound = { kind, stat, songId, key };
@@ -75,12 +86,15 @@ function rest(session) {
 
 function startStudy(session, stat) {
   career.assertCanStudy(session.career, stat);
-  startRound(session, 'study', stat);
+  startRound(session, 'study', stat, career.pickSongId(discography, session.career.notebook));
 }
 
+// Starts the next track of the album: it goes on until the 6th one is played.
 function startRelease(session) {
+  const { notebook, album } = session.career;
   career.assertCanRelease(session.career);
-  startRound(session, 'release');
+  const albumSongIds = album.map((track) => track.songId);
+  startRound(session, 'release', null, career.pickAlbumSongId(discography, notebook, albumSongIds));
 }
 
 // Returns true when a finished round was applied to the career.
@@ -92,7 +106,7 @@ function settleRound(session) {
   if (round.kind === 'study') {
     career.study(session.career, round.stat, foundAtStage, round.songId);
   } else {
-    career.finishRelease(session.career, foundAtStage, round.songId);
+    career.finishAlbumTrack(session.career, foundAtStage, round.songId);
   }
   session.careerRound = null;
   return true;

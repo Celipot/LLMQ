@@ -141,36 +141,90 @@ describe('the release', () => {
     return state;
   }
 
-  test('records the rank and adds the found song to the notebook', () => {
-    const state = careerAtRelease();
-    career.finishRelease(state, 2, 42);
-    assert.deepEqual(state.release, { rank: 'A', songId: 42 });
-    assert.deepEqual(state.notebook, [42]);
+  function playAlbum(state, stages) {
+    stages.forEach((stage, i) => career.finishAlbumTrack(state, stage, 100 + i));
+  }
+
+  test('an album has 6 tracks', () => {
+    assert.equal(career.ALBUM_SIZE, 6);
   });
 
-  test('a failed release records FAIL and leaves the notebook untouched', () => {
-    const state = careerAtRelease();
-    career.finishRelease(state, null, 42);
-    assert.deepEqual(state.release, { rank: 'FAIL', songId: 42 });
-    assert.deepEqual(state.notebook, []);
+  test('a track found earlier is worth more points, a missed one nothing', () => {
+    assert.deepEqual([1, 2, 3, 4, 5, null].map(career.trackPoints), [100, 70, 50, 35, 25, 0]);
   });
 
-  test('once released the career is finished: no rest, no study', () => {
+  test('a track is recorded with its song, rank and points, and the album goes on', () => {
     const state = careerAtRelease();
-    career.finishRelease(state, 1, 42);
+    career.finishAlbumTrack(state, 2, 42);
+    assert.deepEqual(state.album, [{ songId: 42, rank: 'A', points: 70 }]);
+    assert.equal(state.release, undefined);
+  });
+
+  test('the album is released after its 6th track, with the total score', () => {
+    const state = careerAtRelease();
+    playAlbum(state, [1, 2, 3, 4, 5, null]);
+    assert.equal(state.release.score, 100 + 70 + 50 + 35 + 25);
+    assert.equal(state.release.tracks.length, 6);
+    assert.deepEqual(state.release.tracks[5], { songId: 105, rank: 'FAIL', points: 0 });
+  });
+
+  test('the grade follows the share of the 600 points: S from 90%, A 70%, B 50%, C 30%, else D', () => {
+    assert.deepEqual(
+      [600, 540, 539, 420, 419, 300, 299, 180, 179, 0].map(career.albumGrade),
+      ['S', 'S', 'A', 'A', 'B', 'B', 'C', 'C', 'D', 'D'],
+    );
+  });
+
+  test('a perfect album is graded S and a missed one D', () => {
+    const perfect = careerAtRelease();
+    playAlbum(perfect, [1, 1, 1, 1, 1, 1]);
+    assert.equal(perfect.release.score, 600);
+    assert.equal(perfect.release.grade, 'S');
+
+    const missed = careerAtRelease();
+    playAlbum(missed, [null, null, null, null, null, null]);
+    assert.equal(missed.release.grade, 'D');
+  });
+
+  test('once released the career is finished: no rest, no study, no more track', () => {
+    const state = careerAtRelease();
+    playAlbum(state, [1, 1, 1, 1, 1, 1]);
     assert.throws(() => career.rest(state), { message: 'CAREER_FINISHED' });
     assert.throws(() => career.study(state, 'oreille', 1, 43), { message: 'CAREER_FINISHED' });
+    assert.throws(() => career.finishAlbumTrack(state, 1, 43), { message: 'CAREER_FINISHED' });
   });
 
   test('cannot be played before the 10 turns are spent', () => {
     const state = career.createCareer();
-    assert.throws(() => career.finishRelease(state, 1, 42), { message: 'RELEASE_NOT_DUE' });
+    assert.throws(() => career.finishAlbumTrack(state, 1, 42), { message: 'RELEASE_NOT_DUE' });
+  });
+});
+
+describe('pickAlbumSongId', () => {
+  const POOL = [1, 2, 3, 4, 5, 6, 7, 8];
+
+  test('draws from the studied titles first', () => {
+    for (let i = 0; i < 30; i += 1) {
+      assert.ok([2, 5].includes(career.pickAlbumSongId(POOL, [2, 5], [])));
+    }
   });
 
-  test('cannot be played twice', () => {
-    const state = careerAtRelease();
-    career.finishRelease(state, 1, 42);
-    assert.throws(() => career.finishRelease(state, 1, 43), { message: 'CAREER_FINISHED' });
+  test('never repeats a title already on the album', () => {
+    for (let i = 0; i < 30; i += 1) {
+      assert.equal(career.pickAlbumSongId(POOL, [2, 5], [2]), 5);
+    }
+  });
+
+  test('completes with a random title of the pool once the studied ones are used', () => {
+    const picked = new Set();
+    for (let i = 0; i < 100; i += 1) picked.add(career.pickAlbumSongId(POOL, [2], [2]));
+    assert.ok(![...picked].includes(2));
+    assert.ok(picked.size > 1);
+    assert.ok([...picked].every((id) => POOL.includes(id)));
+  });
+
+  test('completes at random from the whole pool when nothing was studied', () => {
+    assert.ok(POOL.includes(career.pickAlbumSongId(POOL, [], [])));
   });
 });
 

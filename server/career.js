@@ -26,6 +26,17 @@ const STUDY_GAIN_BY_STAGE = { 1: 80, 2: 60, 3: 45 };
 const STUDY_GAIN_LATE = 40;
 const STUDY_GAIN_FAILED = 30;
 
+const ALBUM_SIZE = 6;
+const TRACK_POINTS_BY_STAGE = { 1: 100, 2: 70, 3: 50, 4: 35, 5: 25 };
+const MAX_ALBUM_SCORE = ALBUM_SIZE * TRACK_POINTS_BY_STAGE[1];
+// Minimum share of the maximum score (in %) for each grade, best first.
+const ALBUM_GRADES = [
+  ['S', 90],
+  ['A', 70],
+  ['B', 50],
+  ['C', 30],
+];
+
 function discographyIds(songs) {
   return songs.filter((song) => DISCOGRAPHY_ARTISTS.has(song.artist)).map((song) => song.id);
 }
@@ -58,6 +69,7 @@ function createCareer() {
     energy: MAX_ENERGY,
     stats: { oreille: 0, memoire: 0, culture: 0 },
     notebook: [],
+    album: [],
   };
 }
 
@@ -101,15 +113,28 @@ function releaseRank(foundAtStage) {
   return 'C';
 }
 
+function trackPoints(foundAtStage) {
+  return TRACK_POINTS_BY_STAGE[foundAtStage] ?? 0;
+}
+
+// Integer comparison: a share like 70% of 600 must not depend on float rounding.
+function albumGrade(score) {
+  const grade = ALBUM_GRADES.find(([, percent]) => score * 100 >= percent * MAX_ALBUM_SCORE);
+  return grade ? grade[0] : 'D';
+}
+
 function assertCanRelease(state) {
   if (state.release) throw new Error('CAREER_FINISHED');
   if (!isReleaseDue(state)) throw new Error('RELEASE_NOT_DUE');
 }
 
-function finishRelease(state, foundAtStage, songId) {
+// The album is released once its last track is recorded, which ends the career.
+function finishAlbumTrack(state, foundAtStage, songId) {
   assertCanRelease(state);
-  state.release = { rank: releaseRank(foundAtStage), songId };
-  if (foundAtStage !== null) state.notebook.push(songId);
+  state.album.push({ songId, rank: releaseRank(foundAtStage), points: trackPoints(foundAtStage) });
+  if (state.album.length < ALBUM_SIZE) return;
+  const score = state.album.reduce((total, track) => total + track.points, 0);
+  state.release = { score, grade: albumGrade(score), tracks: state.album };
 }
 
 // Prefers a title the player has not found yet; once the whole pool is found
@@ -120,9 +145,21 @@ function pickSongId(pool, foundIds, random = Math.random) {
   return source[Math.floor(random() * source.length)];
 }
 
+// The album is drawn from the titles found while studying; when there are not
+// enough (or none), it is completed with random titles of the pool. A title
+// never appears twice on the same album.
+function pickAlbumSongId(pool, studiedIds, albumSongIds, random = Math.random) {
+  const unused = pool.filter((id) => !albumSongIds.includes(id));
+  const studied = unused.filter((id) => studiedIds.includes(id));
+  const source = studied.length > 0 ? studied : unused;
+  return source[Math.floor(random() * source.length)];
+}
+
 module.exports = {
   TOTAL_TURNS,
   MAX_ENERGY,
+  ALBUM_SIZE,
+  MAX_ALBUM_SCORE,
   discographyIds,
   roundTiers,
   suggestionCount,
@@ -133,7 +170,10 @@ module.exports = {
   study,
   rest,
   assertCanRelease,
-  finishRelease,
+  finishAlbumTrack,
+  trackPoints,
+  albumGrade,
   releaseRank,
   pickSongId,
+  pickAlbumSongId,
 };
