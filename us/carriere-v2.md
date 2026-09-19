@@ -45,19 +45,37 @@ Les fans ne se gagnent qu'en sortant de la musique :
 
 Un album parfait suffit donc à lui seul à atteindre 300 FSI ; un album juste B (150 FSI) oblige à sortir des singles. Le dernier tour compte : un single du tour 20 peut sauver le concert.
 
-Le hub affiche l'objectif en cours en grand, au milieu, avec une image placeholder (`web/public/career-placeholder.svg`) entre l'objectif et les commandes.
+Le hub affiche l'objectif en cours en grand, au milieu, avec une image placeholder (`web/public/career-placeholder.svg`) entre l'objectif et les commandes. L'objectif indique entre parenthèses, en plus petit, dans combien de tours il doit être accompli (le tour en cours compte : « dans 10 tours » au tour 1) ; rien n'est affiché quand l'album ou le concert est à jouer.
+
+## Score de carrière
+
+À la fin (concert joué **ou** carrière échouée), l'écran de fin affiche un **score de carrière**, somme de quatre parties calculée côté serveur (`career.finalScore`) :
+
+| Partie | Valeur |
+|---|---|
+| Album | points de l'album (max 600) |
+| Concert | points du concert (max 1500, 0 si non joué) |
+| Stats | total des trois stats |
+| Fans | nombre de FSI |
+
+Un album et un concert parfaits sans stats font 600 + 1500 + 0 + 300 = 2400. Le concert pèse beaucoup dans le total ; les poids sont à ajuster après un premier essai.
+
+## Interface
+
+- Hub sur trois colonnes, comme le multijoueur : stats (tour en cours, énergie, FSI actuels, une ligne chacun, puis carnet) à gauche, objectif, image et actions au milieu, récaps album/concert à droite. Chaque récap n'affiche que son grade, avec un dépliant pour le score et la liste des titres.
+- Le bouton « Recommencer la carrière » est dans l'en-tête, à gauche d'« Accueil », uniquement sur le hub d'une carrière en cours (pas pendant un round, ni une fois la carrière terminée).
 
 ## Approche technique
 
 **Backend**
 - `server/career.js` : `TOTAL_TURNS = 20`, `RELEASE_AFTER_TURN = 10`, `SINGLE_*`, `single()`, `pickStat()`, `assertCanConcert`, `finishConcertTrack` ; `finishAlbumTrack` et le calcul du grade sont généralisés (taille, score maximum).
 - `server/careerRounds.js` : `startSingle`, `startConcert`, `settleRound` pour les kinds `single` et `concert` ; `publicCareer` expose `releaseAt`, `concertDue`, `concert { done, total }` et le résultat du concert.
-- Abandon : `DELETE /api/career` (204) efface la carrière et son round ; le bouton « Recommencer la carrière » du hub ramène à l'écran « Commencer une carrière ».
+- Abandon : `DELETE /api/career` (204) efface la carrière et son round ; le bouton « Recommencer la carrière » de l'en-tête ramène à l'écran « Commencer une carrière ».
 - Routes : `POST /api/career/single` (sans corps, stat tirée côté serveur) et `POST /api/career/concert`.
 - `publicCareer` expose aussi `fans { current, required }`, `failure` (`null`, `'ALBUM_GRADE'` ou `'FANS'`) et `albumGoalGrade`. Une carrière échouée répond `CAREER_FINISHED` à toute action.
 - Erreurs stables : `RELEASE_DUE` (tour 11 atteint sans album), `CONCERT_DUE` (tour 21 atteint), `CONCERT_NOT_DUE`, `CAREER_FINISHED` (concert terminé), toutes 409.
 
-**Frontend** : `types.ts`, `api.ts`, `useCareer.ts`, `CareerHub` (bouton « Sortir un single », progression et résultat du concert) et leurs tests.
+**Frontend** : `types.ts`, `api.ts`, `useCareer.ts`, `CareerHub`, `CareerObjective`, `CareerResult`, `CareerScore` (bouton « Sortir un single », progression et résultat du concert, objectif, score de fin) et leurs tests.
 
 **Tests (TDD)** : `career.test.js`, `index.test.js`, `useCareer.test.ts`, `CareerHub.test.tsx`, `AppCareer.test.tsx`.
 

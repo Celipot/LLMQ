@@ -53,7 +53,7 @@ web/
   src/                 # frontend React + TypeScript (Vite)
     api.ts, types.ts    # client fetch typé pour le contrat API ci-dessous
     hooks/               # useGameState, useCareer (état + actions), useAudioPlayer (lecture + progress)
-    components/          # Player, Pips, SearchAutocomplete, History, Result, ShinyText, CareerHub, StatBars
+    components/          # Player, Pips, SearchAutocomplete, History, Result, ShinyText, CareerHub, CareerObjective, CareerResult, CareerScore, StatBars
   vite.config.ts        # dev proxy vers Express, build vers ../public
 public/
   (généré par `npm run build`, ne pas éditer à la main)
