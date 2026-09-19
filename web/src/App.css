@@ -587,6 +587,23 @@ button:disabled {
   margin: 0 0 0.5rem;
 }
 
+.result-cover {
+  display: block;
+  width: 100%;
+  max-width: 240px;
+  aspect-ratio: 1;
+  margin: 1rem auto;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.result-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
 .stage-banner-region {
   position: fixed;
   top: 1.5rem;

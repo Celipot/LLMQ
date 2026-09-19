@@ -2,10 +2,11 @@ import type { GameState } from '../types';
 
 interface ResultProps {
   state: GameState;
-  onReset?: () => void;
+  onNextSong?: () => void;
+  onHome?: () => void;
 }
 
-export default function Result({ state, onReset }: ResultProps) {
+export default function Result({ state, onNextSong, onHome }: ResultProps) {
   return (
     <section className="result">
       <h2>{state.status === 'won' ? 'Gagné !' : 'Perdu'}</h2>
@@ -18,10 +19,19 @@ export default function Result({ state, onReset }: ResultProps) {
       <p>
         Essais utilisés : {state.attemptsUsed} / {state.maxAttempts}
       </p>
-      {onReset && (
-        <button type="button" className="secondary" onClick={onReset}>
-          Rejouer
-        </button>
+      {(onNextSong || onHome) && (
+        <div className="result-actions">
+          {onNextSong && (
+            <button type="button" onClick={onNextSong}>
+              Musique suivante
+            </button>
+          )}
+          {onHome && (
+            <button type="button" className="secondary" onClick={onHome}>
+              Accueil
+            </button>
+          )}
+        </div>
       )}
     </section>
   );

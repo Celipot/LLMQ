@@ -13,6 +13,8 @@ vi.mock('./api', async () => {
     fetchGameStatus: vi.fn(),
     fetchGenerations: vi.fn(),
     startRandomMode: vi.fn(),
+    submitSkip: vi.fn(),
+    resetGame: vi.fn(),
   };
 });
 
@@ -117,6 +119,67 @@ describe('App — Random mode generation filter', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Effacer mon historique' }));
 
     expect(JSON.parse(localStorage.getItem('songHistory') ?? '{}')).toEqual({});
+  });
+});
+
+describe('App — solo answer screen', () => {
+  const lostState = {
+    attemptsUsed: 6,
+    maxAttempts: 6,
+    allowedSeconds: 30,
+    status: 'lost' as const,
+    guesses: [],
+    correctSongId: 5,
+    correctTitle: 'Snow halation',
+    correctArtist: "µ's",
+    correctCoverUrl: '/covers/2_snowhalation.png',
+  };
+
+  async function finishARandomRound() {
+    vi.mocked(api.startRandomMode).mockResolvedValue(playingState);
+    vi.mocked(api.submitSkip).mockResolvedValue({ state: lostState });
+    render(<App />);
+    await userEvent.click(await screen.findByText('Mode Aléatoire'));
+    await userEvent.click(await screen.findByRole('button', { name: 'Lancer' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Passer' }));
+  }
+
+  test('once the round is over, the answer replaces the whole quiz', async () => {
+    await finishARandomRound();
+
+    expect(await screen.findByRole('heading', { name: 'Perdu' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Snow halation' })).toBeInTheDocument();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Valider' })).not.toBeInTheDocument();
+  });
+
+  test('only "Musique suivante" and "Accueil" are offered, with a single Accueil button', async () => {
+    await finishARandomRound();
+
+    await screen.findByRole('heading', { name: 'Perdu' });
+    expect(screen.getAllByRole('button').map((button) => button.textContent)).toEqual([
+      'Musique suivante',
+      'Accueil',
+    ]);
+  });
+
+  test('"Musique suivante" draws another song and brings the quiz back', async () => {
+    vi.mocked(api.resetGame).mockResolvedValue(playingState);
+    await finishARandomRound();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Musique suivante' }));
+
+    expect(await screen.findByRole('button', { name: 'Valider' })).toBeInTheDocument();
+    expect(api.resetGame).toHaveBeenCalled();
+    expect(screen.queryByRole('heading', { name: 'Perdu' })).not.toBeInTheDocument();
+  });
+
+  test('"Accueil" goes back to the mode choice', async () => {
+    await finishARandomRound();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Accueil' }));
+
+    expect(await screen.findByText('Choisis un mode pour commencer')).toBeInTheDocument();
   });
 });
 

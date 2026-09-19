@@ -61,6 +61,7 @@ export default function App() {
 
   const showQuiz = screen === 'random' || (screen === 'list' && activeSongId !== null);
   const finished = !!state && state.status !== 'playing';
+  const showAnswer = screen === 'random' && finished;
   const isLastAttempt = !!state && !finished && state.attemptsUsed === state.maxAttempts - 1;
 
   async function handleSubmit() {
@@ -122,7 +123,7 @@ export default function App() {
         <h1>
           <ShinyText text="LLMQ" speed={3} />
         </h1>
-        {screen !== 'home' && (
+        {screen !== 'home' && !showAnswer && (
           <button type="button" className="secondary" onClick={() => setScreen('home')}>
             Accueil
           </button>
@@ -155,7 +156,11 @@ export default function App() {
         <Lobby gameId={gameId} playerId={playerId} onSessionInvalid={handleSessionInvalid} onLeave={handleLeave} />
       )}
 
-      {(screen === 'random' || screen === 'list') && (
+      {showAnswer && state && (
+        <Result state={state} onNextSong={handleReset} onHome={() => setScreen('home')} />
+      )}
+
+      {(screen === 'list' || (screen === 'random' && !showAnswer)) && (
         <div className={screen === 'list' ? 'game-layout' : undefined}>
           {screen === 'list' && (
             <SongList titles={titles} activeSongId={activeSongId} onSelect={handleSelectSong} />
@@ -210,7 +215,7 @@ export default function App() {
 
                 <History guesses={state.guesses} />
 
-                {finished && <Result state={state} onReset={screen === 'random' ? handleReset : undefined} />}
+                {finished && <Result state={state} />}
               </>
             )}
           </div>
