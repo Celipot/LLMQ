@@ -9,8 +9,11 @@ const MAX_ATTEMPTS = TIERS_SECONDS.length;
 
 const states = new Map();
 
-function createInitialState() {
+// Career rounds use their own tiers (see server/career.js), so each state keeps
+// the tiers it was created with instead of reading the shared constant.
+function createInitialState(tiersSeconds = TIERS_SECONDS) {
   return {
+    tiersSeconds,
     attemptsUsed: 0,
     status: 'playing', // 'playing' | 'won' | 'lost'
     guesses: [], // { type: 'guess' | 'skip', title: string | null, correct: boolean | null }
@@ -24,8 +27,8 @@ function getOrCreate(key) {
   return states.get(key);
 }
 
-function resetState(key) {
-  states.set(key, createInitialState());
+function resetState(key, tiersSeconds) {
+  states.set(key, createInitialState(tiersSeconds));
   return getPublicState(key);
 }
 
@@ -37,8 +40,8 @@ function deleteByPrefix(prefix) {
 
 function currentAllowedSeconds(key) {
   const state = getOrCreate(key);
-  const tierIndex = Math.min(state.attemptsUsed, MAX_ATTEMPTS - 1);
-  return TIERS_SECONDS[tierIndex];
+  const tierIndex = Math.min(state.attemptsUsed, state.tiersSeconds.length - 1);
+  return state.tiersSeconds[tierIndex];
 }
 
 function isFinished(key) {
@@ -59,7 +62,7 @@ function getPublicState(key, correctSong) {
   const state = getOrCreate(key);
   const publicState = {
     attemptsUsed: state.attemptsUsed,
-    maxAttempts: MAX_ATTEMPTS,
+    maxAttempts: state.tiersSeconds.length,
     allowedSeconds: currentAllowedSeconds(key),
     status: state.status,
     guesses: state.guesses,
@@ -82,7 +85,7 @@ function applyGuess(key, title, isCorrect) {
   state.guesses.push({ type: 'guess', title, correct: isCorrect });
   if (isCorrect) {
     state.status = 'won';
-  } else if (state.attemptsUsed >= MAX_ATTEMPTS) {
+  } else if (state.attemptsUsed >= state.tiersSeconds.length) {
     state.status = 'lost';
   }
   return isCorrect;
@@ -95,7 +98,7 @@ function applySkip(key) {
   }
   state.attemptsUsed += 1;
   state.guesses.push({ type: 'skip', title: null, correct: null });
-  if (state.attemptsUsed >= MAX_ATTEMPTS) {
+  if (state.attemptsUsed >= state.tiersSeconds.length) {
     state.status = 'lost';
   }
 }

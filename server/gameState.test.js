@@ -107,3 +107,26 @@ test('score rewards an earlier stage with more points', () => {
   assert.equal(gameState.score(2), 5);
   assert.equal(gameState.score(gameState.MAX_ATTEMPTS), 1);
 });
+
+test('a round reset with custom tiers uses them for allowed seconds and max attempts', () => {
+  const key = freshKey();
+  const state = gameState.resetState(key, [1.5, 1, 1]);
+  assert.equal(state.allowedSeconds, 1.5);
+  assert.equal(state.maxAttempts, 3);
+});
+
+test('a round with custom tiers advances through them then is lost after the last', () => {
+  const key = freshKey();
+  gameState.resetState(key, [1.5, 1, 1]);
+  gameState.applySkip(key);
+  assert.equal(gameState.currentAllowedSeconds(key), 1);
+  gameState.applySkip(key);
+  gameState.applySkip(key);
+  assert.equal(gameState.getPublicState(key).status, 'lost');
+});
+
+test('a round reset without tiers keeps the default tiers', () => {
+  const key = freshKey();
+  const state = gameState.resetState(key);
+  assert.equal(state.maxAttempts, gameState.TIERS_SECONDS.length);
+});

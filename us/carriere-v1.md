@@ -1,0 +1,51 @@
+# Mode Carrière — première boucle (études, repos, sortie d'album)
+
+Suite de [`solo.md`](solo.md) : périmètre de la première version jouable.
+
+## Contexte
+`solo.md` décrit un Mode Carrière inspiré d'Uma Musume. On démarre par une boucle minimale : un nombre fixe de tours d'**Étude** ou de **Repos**, puis **un seul round de sortie** (l'« album de 6 musiques » sert de contexte). Le mode a ses propres règles de round : 3 paliers de 1 s, 1 seule suggestion de recherche, et trois stats qui font évoluer paliers, secondes et suggestions. Objectif : valider que la boucle étude → stats → sortie est agréable, avant Énergie/Moral avancés, objectifs de saison, finale, Discographie.
+
+## Règles de la v1 (valeurs de départ, à équilibrer)
+
+**Round de carrière (étude comme sortie)**
+- Départ : 3 paliers (= 3 essais) de **1 s chacun** ; **1 suggestion** dans l'autocomplétion.
+- Étude : mini-round dans ces conditions. Sortie : même règles, un seul round.
+
+**Stats (0 à ~300), bonus par paliers de 100**
+
+| Stat | Effet | 100 | 200 | 300 |
+|---|---|---|---|---|
+| Oreille | secondes | palier 1 : +0,5 s | palier 2 : +0,5 s | palier 3 : +0,5 s |
+| Culture | nombre de paliers | 4e palier (1 s) | 5e palier | (max) |
+| Mémoire | suggestions | 2 | 3 | 4 |
+
+**Gain d'étude** (le joueur choisit la stat) : échec +30 ; trouvé au palier 1 +80, palier 2 +60, palier 3 +45, palier 4+ +40.
+
+**Tours** : 10 tours fixes puis la sortie. Énergie max 3 ; Étude coûte 1 ; Repos redonne 2 (plafonné). L'énergie ne sert qu'à étudier. Sans énergie, seul le Repos est possible.
+
+**Sortie** : un round complet ; le rang (S/A/B/C/échec selon le palier de réussite) donne un score de fin de carrière. Aucun objectif de saison ni échec de carrière dans cette v1.
+
+## Pool de titres
+Les études et la sortie tirent dans la **discographie du personnage** (Ayumu, 64 titres : solos, A・ZU・NA, groupe Nijigasaki, cf. `solo.md` §1). Il n'y a pas de champ « personnage » dans `songs.json` : la discographie se dérive du champ `artist` (solo : `Ayumu Uehara (CV: Aguri Onishi)` ; unité : `A・ZU・NA` ; groupe : la chaîne exacte du groupe Nijigasaki, à relever dans les données). Un filtre dans `career.js` suffit pour la v1. Le tirage évite les titres déjà trouvés dans la carrière.
+
+## Approche technique
+
+**Backend** (CommonJS, serveur = source de vérité)
+- `server/gameState.js` : configuration du round paramétrable (`tiersSeconds` par round, `maxAttempts` = longueur des paliers). Défaut inchangé = `TIERS_SECONDS` actuel, pour ne pas toucher au solo/multijoueur.
+- Nouveau `server/career.js` (logique pure) : état de carrière (tour, énergie, stats, carnet), gain d'étude, bonus par paliers, rang de sortie.
+- Routes sous `/api/career/*` : nouvelle carrière, état, `rest`, `study {stat}`, `release`, puis réutilisation de guess/skip/`/audio/track` avec clé de round `<sessionId>:career:<songId>` (espace de noms séparé). Erreurs `{ error: 'CODE' }` stables (`NO_ENERGY`, `INVALID_STAT`, `CAREER_FINISHED`, `ROUND_IN_PROGRESS`). Le titre n'est jamais renvoyé avant la fin du round.
+- `wavTruncate` gère déjà les secondes fractionnaires.
+- Le nombre de suggestions est décidé par le serveur et exposé dans l'état ; `web/src/fuzzySearch.ts` (`MAX_RESULTS`) le reçoit en paramètre.
+
+**Frontend**
+- `useCareer.ts`, composants `CareerHub` et `StatBars`, réutilisation de `Player`, `Pips`, `SearchAutocomplete`, `Result`. Entrée par une carte sur la page d'accueil.
+
+**Tests (TDD)** : `career.test.js`, `gameState.test.js` (paliers paramétrables, défaut inchangé), `index.test.js` (routes career), `useCareer.test.ts`, `CareerHub`/`StatBars`.
+
+## Hypothèses à ajuster après un premier essai
+- « 3 paliers de 1 s » = 3 clips de 1 s (pas 1/2/4 cumulés).
+- 10 tours, énergie 3, gains d'étude, seuils de stats.
+
+## Vérification
+- `pnpm test` vert ; chaque nouveau test vu échouer avant l'implémentation.
+- Carrière complète en jeu : à 100 d'oreille le palier 1 dure 1,5 s, une 2e suggestion apparaît à 100 de mémoire, l'énergie bloque l'étude, le titre de la sortie n'apparaît qu'à la fin.
