@@ -47,11 +47,13 @@ function formatRemainingSeconds(remainingMs: number): number {
   return Math.max(0, Math.ceil(remainingMs / 1000));
 }
 
-const STATUS_LABEL: Record<PlayerStageStatus, string> = {
-  active: 'cherche encore',
-  found: 'a trouvé',
-  forfeited: 'a abandonné',
+const STATUS_DISPLAY: Record<PlayerStageStatus, { label: string; className?: string }> = {
+  active: { label: 'cherche encore' },
+  found: { label: 'a trouvé', className: 'player-status-found' },
+  forfeited: { label: 'a abandonné', className: 'player-status-forfeited' },
 };
+
+const WRONG_DISPLAY = { label: "s'est trompé", className: 'player-status-wrong' };
 
 export default function GamePlay({
   gameId,
@@ -153,21 +155,24 @@ export default function GamePlay({
           <aside className="score-recap">
             <p className="score-recap-title">Scores</p>
             <ul>
-              {players.map((player) => (
-                <li key={player.playerId}>
-                  {player.nickname} —{' '}
-                  {player.status === 'forfeited' && player.forfeitReason === 'wrong'
-                    ? "s'est trompé"
-                    : STATUS_LABEL[player.status ?? 'active']}
-                  {player.connected === false && <span className="player-disconnected"> (déconnecté)</span>}
-                  {player.playerId in scores && (
-                    <span className="player-score">
-                      {' '}
-                      — {scores[player.playerId]} pt{scores[player.playerId] > 1 ? 's' : ''}
-                    </span>
-                  )}
-                </li>
-              ))}
+              {players.map((player) => {
+                const display =
+                  player.status === 'forfeited' && player.forfeitReason === 'wrong'
+                    ? WRONG_DISPLAY
+                    : STATUS_DISPLAY[player.status ?? 'active'];
+                return (
+                  <li key={player.playerId}>
+                    <strong>{player.nickname}</strong> — <span className={display.className}>{display.label}</span>
+                    {player.connected === false && <span className="player-disconnected"> (déconnecté)</span>}
+                    {player.playerId in scores && (
+                      <span className="player-score">
+                        {' '}
+                        — {scores[player.playerId]} pt{scores[player.playerId] > 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </aside>
         )}

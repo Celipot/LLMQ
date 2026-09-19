@@ -4,6 +4,7 @@
   --text: #f2f2f2;
   --muted: #9a9a9a;
   --accent: #1db954;
+  --success: #1db954;
   --error: #e5484d;
   --border: #333;
 }
@@ -226,6 +227,18 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
+}
+
+.player-status-wrong {
+  color: var(--error);
+}
+
+.player-status-forfeited {
+  color: var(--muted);
+}
+
+.player-status-found {
+  color: var(--success);
 }
 
 .song-history {

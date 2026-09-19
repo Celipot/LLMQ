@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, test, vi } from 'vitest';
 import GamePlay from './GamePlay';
 import * as api from '../api';
+import type { MultiplayerPlayer } from '../types';
 
 vi.mock('../api', async () => {
   const actual = await vi.importActual<typeof import('../api')>('../api');
@@ -226,8 +227,60 @@ describe('GamePlay', () => {
       />
     );
 
-    expect(screen.getByText(/Alice — s'est trompé/)).toBeInTheDocument();
-    expect(screen.getByText(/Bob — a abandonné/)).toBeInTheDocument();
+    expect(screen.getByText("s'est trompé")).toBeInTheDocument();
+    expect(screen.getByText('a abandonné')).toBeInTheDocument();
+  });
+
+  describe('status list styling', () => {
+    function renderWithPlayers(players: MultiplayerPlayer[]) {
+      vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
+      render(
+        <GamePlay
+          gameId="g1"
+          stage={1}
+          maxStage={6}
+          durationSeconds={1}
+          nextDurationSeconds={null}
+          answerWindowMs={30000}
+          startedAt={Date.now()}
+          songIndex={1}
+          songCount={1}
+          scores={{}}
+          onSubmitAnswer={vi.fn()}
+          answerFeedback={null}
+          forfeited={false}
+          onForfeit={vi.fn()}
+          songHistory={[]}
+          answerPending={false}
+          forfeitPending={false}
+          players={players}
+        />
+      );
+    }
+
+    test('renders the nickname in bold', () => {
+      renderWithPlayers([{ playerId: 'p1', nickname: 'Alice', status: 'active' }]);
+
+      expect(screen.getByText('Alice').tagName).toBe('STRONG');
+    });
+
+    test('marks "s\'est trompé" with the wrong style', () => {
+      renderWithPlayers([{ playerId: 'p1', nickname: 'Alice', status: 'forfeited', forfeitReason: 'wrong' }]);
+
+      expect(screen.getByText("s'est trompé")).toHaveClass('player-status-wrong');
+    });
+
+    test('marks "a abandonné" with the forfeited style', () => {
+      renderWithPlayers([{ playerId: 'p1', nickname: 'Bob', status: 'forfeited', forfeitReason: 'timeout' }]);
+
+      expect(screen.getByText('a abandonné')).toHaveClass('player-status-forfeited');
+    });
+
+    test('marks "a trouvé" with the found style', () => {
+      renderWithPlayers([{ playerId: 'p1', nickname: 'Bob', status: 'found' }]);
+
+      expect(screen.getByText('a trouvé')).toHaveClass('player-status-found');
+    });
   });
 
   test('clicking "Abandonner cette étape" calls onForfeit', async () => {
@@ -321,9 +374,9 @@ describe('GamePlay', () => {
       />
     );
 
-    expect(screen.getByText('Alice — cherche encore')).toBeInTheDocument();
-    expect(screen.getByText('Bob — a trouvé')).toBeInTheDocument();
-    expect(screen.getByText('Chris — a abandonné')).toBeInTheDocument();
+    expect(screen.getByText('Alice').parentElement).toHaveTextContent('Alice — cherche encore');
+    expect(screen.getByText('Bob').parentElement).toHaveTextContent('Bob — a trouvé');
+    expect(screen.getByText('Chris').parentElement).toHaveTextContent('Chris — a abandonné');
   });
 
   test('does not reveal the answer or song name in the player status list', async () => {
@@ -382,8 +435,8 @@ describe('GamePlay', () => {
       />
     );
 
-    expect(screen.getByText(/Alice — cherche encore/)).toHaveTextContent('(déconnecté)');
-    expect(screen.getByText(/Bob — cherche encore/)).not.toHaveTextContent('(déconnecté)');
+    expect(screen.getByText('Alice').closest('li')).toHaveTextContent('(déconnecté)');
+    expect(screen.getByText('Bob').closest('li')).not.toHaveTextContent('(déconnecté)');
   });
 
   test('shows a countdown that ticks down from the answer window', () => {
@@ -600,8 +653,8 @@ describe('GamePlay', () => {
       />
     );
 
-    expect(screen.getByText(/Alice — cherche encore/)).toHaveTextContent('16 pts');
-    expect(screen.getByText(/Bob — cherche encore/)).toHaveTextContent('0 pt');
+    expect(screen.getByText('Alice').closest('li')).toHaveTextContent('16 pts');
+    expect(screen.getByText('Bob').closest('li')).toHaveTextContent('0 pt');
   });
 
   test('does not show a score for a player who has not finished a song yet', () => {
@@ -629,7 +682,7 @@ describe('GamePlay', () => {
       />
     );
 
-    expect(screen.getByText('Alice — cherche encore')).toBeInTheDocument();
+    expect(screen.getByText('Alice').closest('li')).toHaveTextContent('Alice — cherche encore');
     expect(screen.queryByText(/pt/)).not.toBeInTheDocument();
   });
 

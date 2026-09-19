@@ -368,11 +368,11 @@ describe('Lobby', () => {
     socket.emit({ type: 'stage:start', maxStage: 6, stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
     await screen.findByText(/Étape 1/);
 
-    expect(await screen.findByText('Bob — cherche encore')).toBeInTheDocument();
+    expect((await screen.findByText('Bob')).closest('li')).toHaveTextContent('Bob — cherche encore');
 
     socket.emit({ type: 'player:status', playerId: 'p2', status: 'found', stage: 1 });
 
-    expect(await screen.findByText('Bob — a trouvé')).toBeInTheDocument();
+    expect(await screen.findByText('a trouvé')).toBeInTheDocument();
   });
 
   test('reflects its own found status in the shared player list once answer:result arrives', async () => {
@@ -385,7 +385,7 @@ describe('Lobby', () => {
 
     socket.emit({ type: 'answer:result', correct: true });
 
-    expect(await screen.findByText('Alice — a trouvé')).toBeInTheDocument();
+    expect(await screen.findByText('a trouvé')).toBeInTheDocument();
   });
 
   test('marks a player who guessed wrong as "s\'est trompé", then active again on the next stage', async () => {
@@ -399,12 +399,12 @@ describe('Lobby', () => {
     socket.emit({ type: 'answer:result', correct: false });
     socket.emit({ type: 'player:status', playerId: 'p1', status: 'forfeited', stage: 1, reason: 'wrong' });
 
-    expect(await screen.findByText("Alice — s'est trompé")).toBeInTheDocument();
+    expect(await screen.findByText("s'est trompé")).toBeInTheDocument();
     expect(screen.getByRole('textbox')).toBeDisabled();
 
     socket.emit({ type: 'stage:start', maxStage: 6, stage: 2, durationSeconds: 2, serverTimestamp: Date.now(), answerWindowMs: 30000 });
 
-    expect(await screen.findByText('Alice — cherche encore')).toBeInTheDocument();
+    expect((await screen.findByText('Alice')).closest('li')).toHaveTextContent('Alice — cherche encore');
     expect(screen.getByRole('textbox')).toBeEnabled();
   });
 
@@ -416,12 +416,12 @@ describe('Lobby', () => {
     socket.emit({ type: 'stage:start', maxStage: 6, stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
     await screen.findByText(/Étape 1/);
     socket.emit({ type: 'answer:result', correct: true });
-    await screen.findByText('Alice — a trouvé');
+    await screen.findByText('a trouvé');
 
     socket.emit({ type: 'stage:start', maxStage: 6, stage: 2, durationSeconds: 2, serverTimestamp: Date.now(), answerWindowMs: 30000 });
 
     await screen.findByText(/Étape 2/);
-    expect(screen.getByText('Alice — a trouvé')).toBeInTheDocument();
+    expect(screen.getByText('a trouvé')).toBeInTheDocument();
   });
 
   test('keeps the answer controls locked for a player who found the song when the stage advances', async () => {
@@ -432,7 +432,7 @@ describe('Lobby', () => {
     socket.emit({ type: 'stage:start', maxStage: 6, stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
     await screen.findByText(/Étape 1/);
     socket.emit({ type: 'answer:result', correct: true });
-    await screen.findByText('Alice — a trouvé');
+    await screen.findByText('a trouvé');
 
     socket.emit({ type: 'stage:start', maxStage: 6, stage: 2, durationSeconds: 2, serverTimestamp: Date.now(), answerWindowMs: 30000 });
 
@@ -450,11 +450,11 @@ describe('Lobby', () => {
     socket.emit({ type: 'stage:start', maxStage: 6, stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000, songIndex: 1, songCount: 2 });
     await screen.findByText(/Étape 1/);
     socket.emit({ type: 'answer:result', correct: true });
-    await screen.findByText('Alice — a trouvé');
+    await screen.findByText('a trouvé');
 
     socket.emit({ type: 'stage:start', maxStage: 6, stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000, songIndex: 2, songCount: 2 });
 
-    expect(await screen.findByText('Alice — cherche encore')).toBeInTheDocument();
+    expect((await screen.findByText('Alice')).closest('li')).toHaveTextContent('Alice — cherche encore');
     expect(screen.getByRole('textbox')).toBeEnabled();
   });
 
@@ -474,13 +474,13 @@ describe('Lobby', () => {
       songCount: 2,
     });
 
-    expect(await screen.findByText(/Alice — cherche encore/)).toHaveTextContent('6 pts');
+    expect((await screen.findByText('Alice')).closest('li')).toHaveTextContent('6 pts');
     expect(screen.queryByText(/Some Song — Some Artist/)).not.toBeInTheDocument();
 
     socket.emit({ type: 'stage:start', maxStage: 6, stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000, songIndex: 2, songCount: 2 });
 
     expect(await screen.findByText(/Musique 2\/2/)).toBeInTheDocument();
-    expect(screen.getByText(/Alice — cherche encore/)).toHaveTextContent('6 pts');
+    expect(screen.getByText('Alice').closest('li')).toHaveTextContent('6 pts');
   });
 
   test('renders GameResult once game:ended is received', async () => {
@@ -523,7 +523,7 @@ describe('Lobby', () => {
 
     vi.useRealTimers();
     expect(await screen.findByText(/Étape 2/)).toBeInTheDocument();
-    expect(await screen.findByText('Alice — a trouvé')).toBeInTheDocument();
+    expect(await screen.findByText('a trouvé')).toBeInTheDocument();
     // The countdown is seeded from the server's authoritative remainingMs on
     // resync, not restarted at a full answer window.
     expect(screen.getByRole('timer')).toHaveTextContent('Temps restant : 10s');
@@ -552,7 +552,7 @@ describe('Lobby', () => {
     const history = (await screen.findByText('Historique')).closest('aside');
     expect(history).toHaveTextContent('First Song');
     expect(history).toHaveTextContent('Second Song');
-    expect(screen.getByText(/Alice — cherche encore/)).toHaveTextContent('9 pts');
+    expect(screen.getByText('Alice').closest('li')).toHaveTextContent('9 pts');
   });
 
   test('a game:state resync replaces the local history instead of duplicating it', async () => {
@@ -609,7 +609,7 @@ describe('Lobby', () => {
 
     socket.emit({ type: 'player:connection', playerId: 'p2', connected: false });
 
-    expect(await screen.findByText(/Bob — cherche encore/)).toHaveTextContent('(déconnecté)');
+    expect((await screen.findByText('Bob')).closest('li')).toHaveTextContent('(déconnecté)');
   });
 
   test('clicking "Quitter la partie" in the waiting room sends player:leave and calls onLeave', async () => {
