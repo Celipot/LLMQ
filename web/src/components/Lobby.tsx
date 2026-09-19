@@ -123,7 +123,7 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         setScores(
           Object.fromEntries(
             (message.players as MultiplayerPlayer[])
-              .filter((p) => p.totalScore !== undefined)
+              .filter((p): p is MultiplayerPlayer & { totalScore: number } => p.totalScore !== undefined)
               .map((p) => [p.playerId, p.totalScore])
           )
         );
