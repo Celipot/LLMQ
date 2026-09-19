@@ -64,19 +64,21 @@ function isReleaseDue(state) {
 }
 
 function assertTurnAvailable(state) {
+  if (state.release) throw new Error('CAREER_FINISHED');
   if (isReleaseDue(state)) throw new Error('RELEASE_DUE');
 }
 
-function canStudy(state) {
-  return state.energy >= STUDY_COST;
+// Checked before a study round starts, so a refused study never draws a title.
+function assertCanStudy(state, stat) {
+  assertTurnAvailable(state);
+  if (!STATS.includes(stat)) throw new Error('INVALID_STAT');
+  if (state.energy < STUDY_COST) throw new Error('NO_ENERGY');
 }
 
 // foundAtStage is the 1-based tier the title was found at, null when the study
 // round was lost. Nothing is mutated unless every check passes.
 function study(state, stat, foundAtStage, songId) {
-  assertTurnAvailable(state);
-  if (!STATS.includes(stat)) throw new Error('INVALID_STAT');
-  if (!canStudy(state)) throw new Error('NO_ENERGY');
+  assertCanStudy(state, stat);
   state.energy -= STUDY_COST;
   state.stats[stat] += studyGain(foundAtStage);
   if (foundAtStage !== null) state.notebook.push(songId);
@@ -97,6 +99,17 @@ function releaseRank(foundAtStage) {
   return 'C';
 }
 
+function assertCanRelease(state) {
+  if (state.release) throw new Error('CAREER_FINISHED');
+  if (!isReleaseDue(state)) throw new Error('RELEASE_NOT_DUE');
+}
+
+function finishRelease(state, foundAtStage, songId) {
+  assertCanRelease(state);
+  state.release = { rank: releaseRank(foundAtStage), songId };
+  if (foundAtStage !== null) state.notebook.push(songId);
+}
+
 // Prefers a title the player has not found yet; once the whole pool is found
 // it draws again from the full pool rather than failing.
 function pickSongId(pool, foundIds, random = Math.random) {
@@ -114,9 +127,11 @@ module.exports = {
   studyGain,
   createCareer,
   isReleaseDue,
-  canStudy,
+  assertCanStudy,
   study,
   rest,
+  assertCanRelease,
+  finishRelease,
   releaseRank,
   pickSongId,
 };

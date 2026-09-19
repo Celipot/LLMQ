@@ -129,6 +129,46 @@ describe('a career', () => {
   });
 });
 
+describe('the release', () => {
+  function careerAtRelease() {
+    const state = career.createCareer();
+    for (let i = 0; i < 10; i += 1) career.rest(state);
+    return state;
+  }
+
+  test('records the rank and adds the found song to the notebook', () => {
+    const state = careerAtRelease();
+    career.finishRelease(state, 2, 42);
+    assert.deepEqual(state.release, { rank: 'A', songId: 42 });
+    assert.deepEqual(state.notebook, [42]);
+  });
+
+  test('a failed release records FAIL and leaves the notebook untouched', () => {
+    const state = careerAtRelease();
+    career.finishRelease(state, null, 42);
+    assert.deepEqual(state.release, { rank: 'FAIL', songId: 42 });
+    assert.deepEqual(state.notebook, []);
+  });
+
+  test('once released the career is finished: no rest, no study', () => {
+    const state = careerAtRelease();
+    career.finishRelease(state, 1, 42);
+    assert.throws(() => career.rest(state), { message: 'CAREER_FINISHED' });
+    assert.throws(() => career.study(state, 'oreille', 1, 43), { message: 'CAREER_FINISHED' });
+  });
+
+  test('cannot be played before the 10 turns are spent', () => {
+    const state = career.createCareer();
+    assert.throws(() => career.finishRelease(state, 1, 42), { message: 'RELEASE_NOT_DUE' });
+  });
+
+  test('cannot be played twice', () => {
+    const state = careerAtRelease();
+    career.finishRelease(state, 1, 42);
+    assert.throws(() => career.finishRelease(state, 1, 43), { message: 'CAREER_FINISHED' });
+  });
+});
+
 describe('releaseRank', () => {
   test('maps the stage the title was found at to a rank', () => {
     assert.equal(career.releaseRank(1), 'S');

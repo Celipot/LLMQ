@@ -905,3 +905,203 @@ test('List mode guesses never affect the concurrent Random mode round for the sa
   const afterRandomState = await (await fetch(`${baseUrl}/api/state`)).json();
   assert.equal(afterRandomState.attemptsUsed, beforeRandomState.attemptsUsed);
 });
+
+// --- Mode Carrière -------------------------------------------------------
+
+const career = require('./career');
+
+let careerSessionCounter = 0;
+function newCareerPlayer() {
+  careerSessionCounter += 1;
+  const headers = { [SESSION_HEADER]: `career-session-${String(careerSessionCounter).padStart(12, '0')}` };
+  const call = (method, path, body) =>
+    globalThis.fetch(`${baseUrl}${path}`, {
+      method,
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  return {
+    get: (path) => call('GET', path),
+    post: (path, body) => call('POST', path, body),
+  };
+}
+
+// The drawn title is hidden until the round ends, so tests pin the draw: with
+// Math.random at 0 the first title of the discography pool is picked.
+async function withFirstDraw(fn) {
+  const original = Math.random;
+  Math.random = () => 0;
+  try {
+    return await fn();
+  } finally {
+    Math.random = original;
+  }
+}
+
+const firstDiscographySong = songs.getSongById(career.discographyIds(songs.getPlayableTitles())[0]);
+
+async function skipRound(player, times = 3) {
+  let last;
+  for (let i = 0; i < times; i += 1) last = await (await player.post('/api/skip')).json();
+  return last;
+}
+
+test('GET /api/career without a career is 404 NO_CAREER', async () => {
+  const res = await newCareerPlayer().get('/api/career');
+  assert.equal(res.status, 404);
+  assert.equal((await res.json()).error, 'NO_CAREER');
+});
+
+test('career routes require a solo session', async () => {
+  const res = await globalThis.fetch(`${baseUrl}/api/career`, { method: 'POST' });
+  assert.equal(res.status, 400);
+  assert.equal((await res.json()).error, 'SESSION_REQUIRED');
+});
+
+test('POST /api/career starts a career with full energy, no stats and the base help', async () => {
+  const body = await (await newCareerPlayer().post('/api/career')).json();
+  assert.equal(body.career.turn, 1);
+  assert.equal(body.career.totalTurns, 10);
+  assert.equal(body.career.energy, 3);
+  assert.equal(body.career.maxEnergy, 3);
+  assert.deepEqual(body.career.stats, { oreille: 0, memoire: 0, culture: 0 });
+  assert.equal(body.career.suggestionCount, 1);
+  assert.deepEqual(body.career.notebook, []);
+  assert.equal(body.career.release, null);
+  assert.equal(body.round, null);
+});
+
+test('each player has their own career', async () => {
+  const first = newCareerPlayer();
+  const second = newCareerPlayer();
+  await first.post('/api/career');
+  await first.post('/api/career/rest');
+  assert.equal((await second.get('/api/career')).status, 404);
+});
+
+test('POST /api/career/rest spends the turn and gives the energy back up to the maximum', async () => {
+  const player = newCareerPlayer();
+  await player.post('/api/career');
+  const body = await (await player.post('/api/career/rest')).json();
+  assert.equal(body.career.turn, 2);
+  assert.equal(body.career.energy, 3);
+});
+
+test('POST /api/career/study with an unknown stat is rejected and starts no round', async () => {
+  const player = newCareerPlayer();
+  await player.post('/api/career');
+  const res = await player.post('/api/career/study', { stat: 'souffle' });
+  assert.equal(res.status, 400);
+  assert.equal((await res.json()).error, 'INVALID_STAT');
+  assert.equal((await (await player.get('/api/career')).json()).round, null);
+});
+
+test('POST /api/career/study starts a round of 3 tiers of 1 second, without revealing the title', async () => {
+  const player = newCareerPlayer();
+  await player.post('/api/career');
+  const res = await withFirstDraw(() => player.post('/api/career/study', { stat: 'oreille' }));
+  const raw = await res.text();
+  const body = JSON.parse(raw);
+  assert.equal(body.round.kind, 'study');
+  assert.equal(body.round.stat, 'oreille');
+  assert.equal(body.round.state.maxAttempts, 3);
+  assert.equal(body.round.state.allowedSeconds, 1);
+  assert.equal(body.round.state.status, 'playing');
+  assert.ok(!raw.includes(firstDiscographySong.title));
+});
+
+test('rest and study are refused while a round is in progress', async () => {
+  const player = newCareerPlayer();
+  await player.post('/api/career');
+  await player.post('/api/career/study', { stat: 'oreille' });
+  for (const [path, body] of [['/api/career/rest'], ['/api/career/study', { stat: 'memoire' }]]) {
+    const res = await player.post(path, body);
+    assert.equal(res.status, 409);
+    assert.equal((await res.json()).error, 'ROUND_IN_PROGRESS');
+  }
+});
+
+test('a lost study costs the energy, uses the turn and teaches a little', async () => {
+  const player = newCareerPlayer();
+  await player.post('/api/career');
+  await player.post('/api/career/study', { stat: 'memoire' });
+  const last = await skipRound(player);
+  assert.equal(last.state.status, 'lost');
+  assert.equal(last.career.energy, 2);
+  assert.equal(last.career.turn, 2);
+  assert.equal(last.career.stats.memoire, 30);
+  assert.equal((await (await player.get('/api/career')).json()).round, null);
+});
+
+test('a study won at the first tier teaches more and the song joins the notebook', async () => {
+  const player = newCareerPlayer();
+  await player.post('/api/career');
+  await withFirstDraw(() => player.post('/api/career/study', { stat: 'oreille' }));
+  const res = await player.post('/api/guess', { title: firstDiscographySong.title });
+  const body = await res.json();
+  assert.equal(body.correct, true);
+  assert.equal(body.career.stats.oreille, 80);
+  assert.deepEqual(
+    body.career.notebook.map((song) => song.id),
+    [firstDiscographySong.id],
+  );
+});
+
+test('a study is refused without energy', async () => {
+  const player = newCareerPlayer();
+  await player.post('/api/career');
+  for (let i = 0; i < 3; i += 1) {
+    await player.post('/api/career/study', { stat: 'oreille' });
+    await skipRound(player);
+  }
+  const res = await player.post('/api/career/study', { stat: 'oreille' });
+  assert.equal(res.status, 409);
+  assert.equal((await res.json()).error, 'NO_ENERGY');
+});
+
+test('the round of a career resumes after the player went to another solo mode', async () => {
+  const player = newCareerPlayer();
+  await player.post('/api/career');
+  await player.post('/api/career/study', { stat: 'oreille' });
+  await player.post('/api/skip');
+  await player.post('/api/mode/random');
+  const body = await (await player.get('/api/career')).json();
+  assert.equal(body.round.state.attemptsUsed, 1);
+  assert.equal(body.round.state.maxAttempts, 3);
+});
+
+async function restUntilRelease(player) {
+  await player.post('/api/career');
+  for (let i = 0; i < 10; i += 1) await player.post('/api/career/rest');
+}
+
+test('POST /api/career/release is refused before the 10 turns are spent', async () => {
+  const player = newCareerPlayer();
+  await player.post('/api/career');
+  const res = await player.post('/api/career/release');
+  assert.equal(res.status, 409);
+  assert.equal((await res.json()).error, 'RELEASE_NOT_DUE');
+});
+
+test('after 10 turns rest and study are refused with RELEASE_DUE', async () => {
+  const player = newCareerPlayer();
+  await restUntilRelease(player);
+  const res = await player.post('/api/career/rest');
+  assert.equal(res.status, 409);
+  assert.equal((await res.json()).error, 'RELEASE_DUE');
+});
+
+test('a release found at the first tier earns rank S and finishes the career', async () => {
+  const player = newCareerPlayer();
+  await restUntilRelease(player);
+  const started = await withFirstDraw(() => player.post('/api/career/release'));
+  assert.equal((await started.json()).round.kind, 'release');
+
+  const body = await (await player.post('/api/guess', { title: firstDiscographySong.title })).json();
+  assert.equal(body.career.release.rank, 'S');
+  assert.equal(body.career.release.song.id, firstDiscographySong.id);
+
+  const after = await player.post('/api/career/rest');
+  assert.equal(after.status, 409);
+  assert.equal((await after.json()).error, 'CAREER_FINISHED');
+});
