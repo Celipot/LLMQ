@@ -60,4 +60,12 @@ describe('Home', () => {
       'Générer un lien à partager avec ses amis'
     );
   });
+
+  test('lists the cards in the order Mode Solo, multiplayer, Bibliothèque', () => {
+    render(<Home onSelectRandom={vi.fn()} onSelectList={vi.fn()} onGameCreated={vi.fn()} />);
+
+    const titles = screen.getAllByRole('button').map((button) => button.querySelector('.mode-card-title')?.textContent);
+
+    expect(titles).toEqual(['Mode Solo', 'Créer une partie multijoueur', 'Bibliothèque']);
+  });
 });

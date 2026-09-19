@@ -28,13 +28,13 @@ export default function Home({ onSelectRandom, onSelectList, onGameCreated }: Ho
           <span className="mode-card-title">Mode Solo</span>
           <span className="mode-card-desc">Deviner une chanson piochée au hasard</span>
         </button>
-        <button type="button" className="mode-card" onClick={onSelectList}>
-          <span className="mode-card-title">Bibliothèque</span>
-          <span className="mode-card-desc">Explorer les musiques</span>
-        </button>
         <button type="button" className="mode-card" onClick={handleCreateMultiplayer}>
           <span className="mode-card-title">Créer une partie multijoueur</span>
           <span className="mode-card-desc">Générer un lien à partager avec ses amis</span>
+        </button>
+        <button type="button" className="mode-card" onClick={onSelectList}>
+          <span className="mode-card-title">Bibliothèque</span>
+          <span className="mode-card-desc">Explorer les musiques</span>
         </button>
       </div>
       {error && (
