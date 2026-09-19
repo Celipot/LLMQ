@@ -11,10 +11,12 @@ import JoinGame from './components/JoinGame';
 import Lobby from './components/Lobby';
 import RandomSetup from './components/RandomSetup';
 import ProfileEditor from './components/ProfileEditor';
+import Toast from './components/Toast';
 import { useGameState } from './hooks/useGameState';
 import { useGenerationOptions } from './hooks/useGenerationOptions';
 import { useSongHistory } from './hooks/useSongHistory';
 import { useProfile } from './hooks/useProfile';
+import { useToast } from './hooks/useToast';
 import { useAudioPlayer } from './hooks/useAudioPlayer';
 import './App.css';
 
@@ -38,6 +40,7 @@ export default function App() {
     return getPersistedPlayerId(urlGameId) ? 'lobby' : 'join';
   });
   const { profile, avatarError, saveUsername, chooseAvatar, removeAvatar } = useProfile();
+  const { message: toast, showToast } = useToast();
   const { history, adaptive, setAdaptive, recordResult, clearHistory } = useSongHistory();
   const { state, titles, activeSongId, error, guess, skip, reset, startRandom, selectSong, clearError } =
     useGameState(recordResult);
@@ -70,6 +73,11 @@ export default function App() {
   async function handleSubmit() {
     await guess(inputValue);
     setInputValue('');
+  }
+
+  function handleClearHistory() {
+    clearHistory();
+    showToast('Historique effacé.');
   }
 
   async function handleReset() {
@@ -122,6 +130,7 @@ export default function App() {
 
   return (
     <main className="app">
+      <Toast message={toast} />
       <div className="app-header">
         <h1>
           <ShinyText text="LLMQ" speed={3} />
@@ -164,7 +173,7 @@ export default function App() {
           onChange={setRandomGenerations}
           adaptive={adaptive}
           onAdaptiveChange={setAdaptive}
-          onClearHistory={clearHistory}
+          onClearHistory={handleClearHistory}
           onStart={handleStartRandom}
         />
       )}

@@ -126,6 +126,18 @@ describe('App — Random mode generation filter', () => {
   });
 });
 
+describe('App — history toast', () => {
+  test('clearing the play history shows a confirmation toast', async () => {
+    localStorage.setItem('songHistory', JSON.stringify({ 7: { plays: 1, wins: 1, stageSum: 1, lastPlayedAt: 1 } }));
+    render(<App />);
+
+    await userEvent.click(await screen.findByText('Mode Solo'));
+    await userEvent.click(await screen.findByRole('button', { name: 'Effacer mon historique' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Historique effacé.');
+  });
+});
+
 describe('App — Bibliothèque', () => {
   test('the Bibliothèque card opens the song library', async () => {
     render(<App />);

@@ -714,6 +714,39 @@ button:disabled {
   margin-top: 1.5rem;
 }
 
+.toast-region {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  pointer-events: none;
+}
+
+.toast {
+  padding: 0.75rem 1.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  animation: toast-in 3s ease both;
+}
+
+@keyframes toast-in {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  8%,
+  85% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 .stage-banner-region {
   position: fixed;
   top: 1.5rem;
