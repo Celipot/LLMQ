@@ -46,8 +46,8 @@ server/
   gameState.js         # état de partie en mémoire (paliers, essais, victoire/défaite)
   songs.js             # chargement/recherche des titres jouables
   soloSessions.js      # session solo par joueur (en-tête X-Solo-Session, expiration après 2 h)
-  career.js            # règles pures du Mode Carrière (stats, énergie, tours, album de 6 titres, score)
-  careerRounds.js      # lien session ↔ gameState ↔ career (rounds d'étude et de sortie)
+  career.js            # règles pures du Mode Carrière (stats, énergie, tours, single, album de 6 titres, concert de 15, score)
+  careerRounds.js      # lien session ↔ gameState ↔ career (rounds d'étude, de single, d'album et de concert)
   wavTruncate.js        # découpe la piste WAV au nombre de secondes autorisé
 web/
   src/                 # frontend React + TypeScript (Vite)
@@ -71,12 +71,14 @@ Le frontend utilise [React Bits](https://reactbits.dev) pour l'habillage animé 
 | `/api/guess` | POST | `{ "title": "..." }` — soumet une tentative |
 | `/api/skip` | POST | Passe l'essai courant |
 | `/api/reset` | POST | Réinitialise la partie (dev uniquement, non authentifié) |
-| `/api/career` | POST / GET | Démarre une carrière / la relit : `{ career, round }` |
-| `/api/career/rest` | POST | Se reposer (+3 énergie), consomme un tour |
-| `/api/career/study` | POST | `{ "stat": "oreille" \| "memoire" \| "culture" }` — démarre un round d'étude (coûte 1 énergie) |
-| `/api/career/release` | POST | Après les 10 tours : démarre le titre suivant de l'album de 6 (score et grade après le 6e) |
+| `/api/career` | POST / GET / DELETE | Démarre une carrière / la relit (`{ career, round }`) / l'abandonne (204, la suivante repart de l'écran de départ) |
+| `/api/career/rest` | POST | Se reposer (énergie au maximum), consomme un tour |
+| `/api/career/study` | POST | `{ "stat": "oreille" \| "memoire" \| "culture" }` — démarre un round d'étude (coûte 1 énergie, le titre trouvé entre dans le carnet) |
+| `/api/career/single` | POST | Démarre un round de single sur une stat tirée au hasard par le serveur (coûte 2 énergies, plus de stats qu'une étude, le titre n'entre pas dans le carnet) |
+| `/api/career/release` | POST | Après les 10 premiers tours : démarre le titre suivant de l'album de 6 (score et grade après le 6e), puis 10 nouveaux tours |
+| `/api/career/concert` | POST | Après les tours 11 à 20 : démarre le titre suivant du concert de 15 (score sur 1500 et grade après le 15e), qui termine la carrière |
 
-Les routes solo (dont `/api/career*`) exigent l'en-tête `X-Solo-Session` (id opaque de 16 à 64 caractères généré par le client). Un round de carrière se joue avec `/api/guess`, `/api/skip` et `/audio/track` ; sa spécification est dans [`us/carriere-v1.md`](us/carriere-v1.md).
+Les routes solo (dont `/api/career*`) exigent l'en-tête `X-Solo-Session` (id opaque de 16 à 64 caractères généré par le client). Un round de carrière se joue avec `/api/guess`, `/api/skip` et `/audio/track` ; sa spécification est dans [`us/carriere-v1.md`](us/carriere-v1.md) et [`us/carriere-v2.md`](us/carriere-v2.md) (single, deuxième phase, concert).
 
 Le serveur est la seule source de vérité : le titre correct n'est jamais renvoyé avant la fin de partie, et la durée audio servie est réellement limitée côté back (pas seulement côté lecteur front).
 
