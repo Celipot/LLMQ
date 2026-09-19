@@ -812,6 +812,30 @@ test('reconnecting mid-game sends a game:state resync with stage, players and re
   bobSocket.close();
 });
 
+test('a game:state resync lists the songs already finished, but never the one in progress', async () => {
+  const { gameId, aliceId, aliceSocket, bobSocket, correctTitle } = await createStartedGameWithSockets();
+  const game = multiplayerGames.getGame(gameId);
+  game.songCount = 2;
+  const firstSong = songs.getSongById(game.songId);
+  bobSocket.send(JSON.stringify({ type: 'answer:submit', value: correctTitle }));
+  aliceSocket.send(JSON.stringify({ type: 'answer:submit', value: correctTitle }));
+  while (game.songIndex !== 2) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  aliceSocket.close();
+
+  const reconnectedSocket = await openSocket(gameId, aliceId);
+  const snapshot = await reconnectedSocket.nextMessage();
+
+  assert.equal(snapshot.type, 'game:state');
+  assert.deepEqual(snapshot.playedSongs, [
+    { title: firstSong.title, artist: firstSong.artist, coverUrl: firstSong.coverUrl },
+  ]);
+
+  reconnectedSocket.close();
+  bobSocket.close();
+});
+
 test('reconnecting before the disconnect grace expires cancels it and keeps the player connected', async () => {
   const { gameId, aliceId, aliceSocket, bobSocket } = await createStartedGameWithSockets();
 

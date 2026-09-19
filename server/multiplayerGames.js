@@ -124,6 +124,9 @@ function startGame(gameId, hostToken, pickSongId) {
   game.stage = 1;
   game.songIndex = 1;
   game.songId = pickSongId();
+  // Only songs already revealed (song:ended) — kept server-side so a
+  // reconnecting client can rebuild its history instead of losing it.
+  game.playedSongIds = [];
   game.stageStartedAt = Date.now();
   return game;
 }
@@ -252,6 +255,7 @@ function checkStageProgress(gameId, getDurationForStage, maxStage, pickSongId) {
       score: player.score ?? 0,
       totalScore: player.totalScore ?? 0,
     }));
+    game.playedSongIds.push(finishedSongId);
     game.songIndex += 1;
     game.songId = pickSongId();
     game.stage = 1;
@@ -306,6 +310,7 @@ function confirmReturnToLobby(gameId, playerId) {
     game.stage = 0;
     delete game.songId;
     delete game.songIndex;
+    delete game.playedSongIds;
     delete game.stageStartedAt;
     for (const p of game.players) {
       p.status = 'active';

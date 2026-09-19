@@ -495,6 +495,60 @@ describe('Lobby', () => {
     expect(screen.getByRole('timer')).toHaveTextContent('Temps restant : 10s');
   });
 
+  test('restores the song history and running scores from a game:state resync', async () => {
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+
+    socket.emit({
+      type: 'game:state',
+      status: 'in_progress',
+      stage: 1,
+      maxStage: 6,
+      durationSeconds: 1,
+      remainingMs: 10000,
+      songIndex: 3,
+      songCount: 5,
+      players: [{ playerId: 'p1', nickname: 'Alice', status: 'active', totalScore: 9 }],
+      playedSongs: [
+        { title: 'First Song', artist: 'Artist A', coverUrl: '/covers/a.png' },
+        { title: 'Second Song', artist: 'Artist B', coverUrl: '/covers/b.png' },
+      ],
+    });
+
+    const history = (await screen.findByText('Historique')).closest('aside');
+    expect(history).toHaveTextContent('First Song');
+    expect(history).toHaveTextContent('Second Song');
+    expect(screen.getByText(/Alice — cherche encore/)).toHaveTextContent('9 pts');
+  });
+
+  test('a game:state resync replaces the local history instead of duplicating it', async () => {
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
+    await screen.findByText('Alice');
+    socket.emit({ type: 'stage:start', maxStage: 6, stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
+    socket.emit({
+      type: 'song:ended',
+      song: { title: 'First Song', artist: 'Artist A', coverUrl: '/covers/a.png' },
+      players: [{ playerId: 'p1', nickname: 'Alice', foundStage: 1, score: 6, totalScore: 6 }],
+    });
+    await screen.findByText('Historique');
+
+    socket.emit({
+      type: 'game:state',
+      status: 'in_progress',
+      stage: 2,
+      maxStage: 6,
+      durationSeconds: 2,
+      remainingMs: 10000,
+      players: [{ playerId: 'p1', nickname: 'Alice', status: 'active', totalScore: 6 }],
+      playedSongs: [{ title: 'First Song', artist: 'Artist A', coverUrl: '/covers/a.png' }],
+    });
+
+    await screen.findByText(/Étape 2/);
+    expect(screen.getAllByText('First Song')).toHaveLength(1);
+  });
+
   test('calls onSessionInvalid and does not retry when the socket closes with code 4004', async () => {
     const onSessionInvalid = vi.fn();
     render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={onSessionInvalid} onLeave={vi.fn()} />);

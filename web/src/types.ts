@@ -63,6 +63,7 @@ export interface MultiplayerPlayer {
   forfeitReason?: 'timeout' | 'wrong';
   connected?: boolean;
   returnedToLobby?: boolean;
+  totalScore?: number;
 }
 
 export interface JoinGameResponse {

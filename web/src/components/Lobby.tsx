@@ -117,6 +117,16 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         setPlayers(message.players);
         if (typeof message.songCount === 'number') setSongCount(message.songCount);
         if (typeof message.songIndex === 'number') setSongIndex(message.songIndex);
+        // The server is authoritative for what was missed while offline (or
+        // lost on a page reload), so this replaces local history and scores.
+        if (Array.isArray(message.playedSongs)) setSongHistory(message.playedSongs);
+        setScores(
+          Object.fromEntries(
+            (message.players as MultiplayerPlayer[])
+              .filter((p) => p.totalScore !== undefined)
+              .map((p) => [p.playerId, p.totalScore])
+          )
+        );
         if (message.status === 'in_progress') {
           // On resync, the server already knows how much of the answer
           // window is left (remainingMs) — seed the local countdown with

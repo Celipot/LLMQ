@@ -289,6 +289,10 @@ function attachWebSocketServer(
           players: game.players,
           songIndex: game.songIndex,
           songCount: game.songCount,
+          playedSongs: (game.playedSongIds ?? []).map((songId) => {
+            const { title, artist, coverUrl } = songs.getSongById(songId);
+            return { title, artist, coverUrl };
+          }),
           nextDurationSeconds: nextStageDurationFor(game.stage),
         })
       );

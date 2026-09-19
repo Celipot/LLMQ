@@ -426,6 +426,20 @@ test('checkStageProgress skips straight to the next song once everyone has found
   assert.equal(stored.status, 'in_progress');
 });
 
+test('startGame starts with no played songs, and a finished song is recorded once the game moves to the next one', () => {
+  const game = multiplayerGames.createGame();
+  multiplayerGames.setSongCount(game.gameId, game.hostToken, 2);
+  multiplayerGames.joinGame(game.gameId, 'Alice');
+  multiplayerGames.startGame(game.gameId, game.hostToken, () => 42);
+  const stored = multiplayerGames.getGame(game.gameId);
+  assert.deepEqual(stored.playedSongIds, []);
+
+  multiplayerGames.submitAnswer(game.gameId, stored.players[0].playerId, 'Correct Title', findSongByTitle, computeScore);
+  multiplayerGames.checkStageProgress(game.gameId, durationForStage, 6, () => 99);
+
+  assert.deepEqual(stored.playedSongIds, [42]);
+});
+
 test('players can act on the next song right after the previous one resolved', () => {
   const game = multiplayerGames.createGame();
   multiplayerGames.setSongCount(game.gameId, game.hostToken, 2);
@@ -649,6 +663,7 @@ test('confirmReturnToLobby resets the game and marks the caller returned, others
   assert.equal(game.stage, 0);
   assert.equal(game.songId, undefined);
   assert.equal(game.songIndex, undefined);
+  assert.equal(game.playedSongIds, undefined);
   assert.equal(game.stageStartedAt, undefined);
   assert.equal(alice.status, 'active');
   assert.equal(alice.returnedToLobby, true);
