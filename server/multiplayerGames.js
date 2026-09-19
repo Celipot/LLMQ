@@ -324,6 +324,7 @@ function checkStageProgress(gameId, getDurationForStage, maxStage, pickSongId) {
     players: game.players.map((player) => ({
       playerId: player.playerId,
       nickname: player.nickname,
+      avatarUrl: player.avatarUrl,
       foundStage: player.foundStage ?? null,
       score: player.totalScore ?? 0,
     })),

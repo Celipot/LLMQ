@@ -632,6 +632,22 @@ test('checkStageProgress ends the game once the last stage resolves', () => {
   assert.equal(resultAlice.foundStage, 6);
 });
 
+test('the final ranking carries the avatarUrl of each player', () => {
+  const game = multiplayerGames.createGame();
+  const { playerId } = multiplayerGames.joinGame(game.gameId, 'Alice', undefined, AVATAR);
+  multiplayerGames.joinGame(game.gameId, 'Bob');
+  multiplayerGames.startGame(game.gameId, game.hostToken, () => 42);
+  const stored = multiplayerGames.getGame(game.gameId);
+  stored.stage = 6;
+  for (const player of stored.players) multiplayerGames.forfeitStage(game.gameId, player.playerId);
+
+  const result = multiplayerGames.checkStageProgress(game.gameId, durationForStage, 6);
+
+  assert.equal(result.type, 'ended');
+  assert.equal(result.players.find((p) => p.playerId === playerId).avatarUrl, `/games/${game.gameId}/players/${playerId}/avatar`);
+  assert.equal(result.players.find((p) => p.nickname === 'Bob').avatarUrl, undefined);
+});
+
 test('checkStageProgress is a no-op for a game that has not started', () => {
   const game = createLobbyWithTwoPlayers();
   assert.deepEqual(multiplayerGames.checkStageProgress(game.gameId, durationForStage, 6), { type: 'none' });
