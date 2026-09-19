@@ -9,11 +9,13 @@ import Home from './components/Home';
 import SongList from './components/SongList';
 import JoinGame from './components/JoinGame';
 import Lobby from './components/Lobby';
+import RandomSetup from './components/RandomSetup';
 import { useGameState } from './hooks/useGameState';
+import { useGenerationOptions } from './hooks/useGenerationOptions';
 import { useAudioPlayer } from './hooks/useAudioPlayer';
 import './App.css';
 
-type Screen = 'home' | 'random' | 'list' | 'join' | 'lobby';
+type Screen = 'home' | 'random-setup' | 'random' | 'list' | 'join' | 'lobby';
 
 function parseGameIdFromPath(): string | null {
   const match = window.location.pathname.match(/^\/game\/([^/]+)$/);
@@ -35,6 +37,9 @@ export default function App() {
   const { state, titles, activeSongId, error, guess, skip, reset, startRandom, selectSong, clearError } =
     useGameState();
   const [inputValue, setInputValue] = useState('');
+  const generationOptions = useGenerationOptions();
+  const [randomGenerations, setRandomGenerations] = useState<string[] | null>(null);
+  const selectedGenerations = randomGenerations ?? generationOptions.map((option) => option.generation);
 
   const allowedSeconds = state?.allowedSeconds ?? 1;
   const {
@@ -67,11 +72,11 @@ export default function App() {
     resetProgress();
   }
 
-  async function handleSelectRandom() {
+  async function handleStartRandom() {
     setScreen('random');
     setInputValue('');
     resetProgress();
-    await startRandom();
+    await startRandom(selectedGenerations.length > 0 ? selectedGenerations : undefined);
   }
 
   async function handleSelectSong(id: number) {
@@ -124,9 +129,18 @@ export default function App() {
 
       {screen === 'home' && (
         <Home
-          onSelectRandom={handleSelectRandom}
+          onSelectRandom={() => setScreen('random-setup')}
           onSelectList={() => setScreen('list')}
           onGameCreated={handleGameCreated}
+        />
+      )}
+
+      {screen === 'random-setup' && (
+        <RandomSetup
+          options={generationOptions}
+          selected={selectedGenerations}
+          onChange={setRandomGenerations}
+          onStart={handleStartRandom}
         />
       )}
 

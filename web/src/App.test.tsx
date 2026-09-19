@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import App from './App';
 import * as api from './api';
@@ -10,6 +11,8 @@ vi.mock('./api', async () => {
     fetchState: vi.fn(),
     fetchTitles: vi.fn(),
     fetchGameStatus: vi.fn(),
+    fetchGenerations: vi.fn(),
+    startRandomMode: vi.fn(),
   };
 });
 
@@ -33,6 +36,10 @@ beforeEach(() => {
     guesses: [],
   });
   vi.mocked(api.fetchTitles).mockResolvedValue([]);
+  vi.mocked(api.fetchGenerations).mockResolvedValue([
+    { generation: 'Aqours', count: 189 },
+    { generation: 'Liella', count: 145 },
+  ]);
   vi.stubGlobal('WebSocket', MockWebSocket as unknown as typeof WebSocket);
   localStorage.clear();
 });
@@ -40,6 +47,35 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   window.history.pushState({}, '', '/');
+});
+
+describe('App — Random mode generation filter', () => {
+  test('choosing Mode Aléatoire shows the generation filter before starting any round', async () => {
+    render(<App />);
+
+    await userEvent.click(await screen.findByText('Mode Aléatoire'));
+
+    expect(await screen.findByRole('checkbox', { name: /Aqours/ })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: /Liella/ })).toBeChecked();
+    expect(api.startRandomMode).not.toHaveBeenCalled();
+  });
+
+  test('Lancer starts the round with the checked generations only', async () => {
+    vi.mocked(api.startRandomMode).mockResolvedValue({
+      attemptsUsed: 0,
+      maxAttempts: 6,
+      allowedSeconds: 1,
+      status: 'playing',
+      guesses: [],
+    });
+    render(<App />);
+
+    await userEvent.click(await screen.findByText('Mode Aléatoire'));
+    await userEvent.click(await screen.findByRole('checkbox', { name: /Aqours/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Lancer' }));
+
+    await waitFor(() => expect(api.startRandomMode).toHaveBeenCalledWith(['Liella']));
+  });
 });
 
 describe('App — MP-13 session persistence', () => {

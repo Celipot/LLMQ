@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { ApiError, startMultiplayerGame, updateSongCount, updateAnswerWindow } from '../api';
+import { ApiError, startMultiplayerGame, updateSongCount, updateAnswerWindow, updateGenerations } from '../api';
+import { useGenerationOptions } from '../hooks/useGenerationOptions';
 import type { AnswerFeedback, GameEndedPlayer, GameEndedSong, MultiplayerPlayer } from '../types';
 import GamePlay from './GamePlay';
 import GameResult from './GameResult';
+import GenerationFilter from './GenerationFilter';
 
 interface LobbyProps {
   gameId: string;
@@ -62,6 +64,9 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
   const [songCountError, setSongCountError] = useState<string | null>(null);
   const [answerWindowSeconds, setAnswerWindowSeconds] = useState(DEFAULT_ANSWER_WINDOW_SECONDS);
   const [answerWindowError, setAnswerWindowError] = useState<string | null>(null);
+  const generationOptions = useGenerationOptions();
+  const [generations, setGenerations] = useState<string[] | null>(null);
+  const [generationsError, setGenerationsError] = useState<string | null>(null);
   const [songIndex, setSongIndex] = useState(1);
   // Every song played so far this game, appended to on each `song:ended` —
   // this persists for the whole game so the sidebar history keeps growing.
@@ -108,6 +113,9 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         setPlayers(message.players);
         if (typeof message.songCount === 'number') setSongCount(message.songCount);
         if (typeof message.answerWindowSeconds === 'number') setAnswerWindowSeconds(message.answerWindowSeconds);
+        if (Array.isArray(message.generations)) setGenerations(message.generations);
+      } else if (message.type === 'lobby:generations') {
+        setGenerations(message.generations);
       } else if (message.type === 'lobby:songCount') {
         setSongCount(message.songCount);
       } else if (message.type === 'lobby:answerWindow') {
@@ -213,6 +221,7 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         setPlayers(message.players);
         if (typeof message.songCount === 'number') setSongCount(message.songCount);
         if (typeof message.answerWindowSeconds === 'number') setAnswerWindowSeconds(message.answerWindowSeconds);
+        if (Array.isArray(message.generations)) setGenerations(message.generations);
         setSongIndex(1);
         setScores({});
         setSongHistory([]);
@@ -312,6 +321,18 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
       await updateSongCount(gameId, hostToken, clamped);
     } catch {
       setSongCountError('Impossible de mettre à jour le nombre de musiques.');
+    }
+  }
+
+  async function handleGenerationsChange(next: string[]) {
+    const hostToken = localStorage.getItem(`hostToken:${gameId}`);
+    if (!hostToken) return;
+    setGenerations(next);
+    setGenerationsError(null);
+    try {
+      await updateGenerations(gameId, hostToken, next);
+    } catch {
+      setGenerationsError('Impossible de mettre à jour les générations.');
     }
   }
 
@@ -431,6 +452,21 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
           </p>
         )}
       </div>
+      {generations && generationOptions.length > 0 && (
+        <div className="generations-setting">
+          <GenerationFilter
+            options={generationOptions}
+            selected={generations}
+            onChange={handleGenerationsChange}
+            disabled={!isHost}
+          />
+          {generationsError && (
+            <p className="error-msg" role="alert">
+              {generationsError}
+            </p>
+          )}
+        </div>
+      )}
       <ul className="lobby-players">
         {players.map((player) => (
           <li key={player.playerId}>

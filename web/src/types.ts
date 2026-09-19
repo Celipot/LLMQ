@@ -99,3 +99,12 @@ export interface SongCountResponse {
 export interface AnswerWindowResponse {
   answerWindowSeconds: number;
 }
+
+export interface GenerationOption {
+  generation: string;
+  count: number;
+}
+
+export interface GenerationsResponse {
+  generations: string[];
+}

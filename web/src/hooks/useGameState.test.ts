@@ -133,6 +133,19 @@ describe('useGameState', () => {
     expect(result.current.activeSongId).toBeNull();
   });
 
+  test('startRandom(generations) forwards the chosen generations to the API', async () => {
+    vi.mocked(api.startRandomMode).mockResolvedValue(initialState);
+
+    const { result } = renderHook(() => useGameState());
+    await waitFor(() => expect(result.current.state).not.toBeNull());
+
+    await act(async () => {
+      await result.current.startRandom(['Aqours', 'Liella']);
+    });
+
+    expect(api.startRandomMode).toHaveBeenCalledWith(['Aqours', 'Liella']);
+  });
+
   test('selectSong() replaces state, sets the active song id, and refreshes titles', async () => {
     const listState: GameState = { ...initialState, attemptsUsed: 1 };
     vi.mocked(api.selectSong).mockResolvedValue(listState);

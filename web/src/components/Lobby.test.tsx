@@ -13,6 +13,8 @@ vi.mock('../api', async () => {
     fetchTitles: vi.fn(),
     updateSongCount: vi.fn(),
     updateAnswerWindow: vi.fn(),
+    fetchGenerations: vi.fn(),
+    updateGenerations: vi.fn(),
   };
 });
 
@@ -54,6 +56,11 @@ beforeEach(() => {
   vi.mocked(api.fetchTitles).mockResolvedValue([]);
   vi.mocked(api.updateSongCount).mockResolvedValue({ songCount: 1 });
   vi.mocked(api.updateAnswerWindow).mockResolvedValue({ answerWindowSeconds: 60 });
+  vi.mocked(api.fetchGenerations).mockResolvedValue([
+    { generation: 'Aqours', count: 189 },
+    { generation: 'Liella', count: 145 },
+  ]);
+  vi.mocked(api.updateGenerations).mockResolvedValue({ generations: ['Aqours', 'Liella'] });
 });
 
 afterEach(() => {
@@ -278,6 +285,88 @@ describe('Lobby', () => {
     socket.emit({ type: 'lobby:answerWindow', answerWindowSeconds: 45 });
 
     expect(await screen.findByText('Temps pour deviner : 45s')).toBeInTheDocument();
+  });
+
+  test('shows the allowed generations as read-only checkboxes for a non-host player', async () => {
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({
+      type: 'lobby:state',
+      players: [{ playerId: 'p1', nickname: 'Alice' }],
+      generations: ['Aqours'],
+    });
+
+    const aqours = await screen.findByRole('checkbox', { name: /Aqours/ });
+    expect(aqours).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: /Liella/ })).not.toBeChecked();
+    for (const checkbox of screen.getAllByRole('checkbox')) {
+      expect(checkbox).toBeDisabled();
+    }
+  });
+
+  test('the host can check a generation, which calls updateGenerations', async () => {
+    localStorage.setItem('hostToken:g1', 'the-host-token');
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({
+      type: 'lobby:state',
+      players: [{ playerId: 'p1', nickname: 'Alice' }],
+      generations: ['Aqours'],
+    });
+
+    await userEvent.click(await screen.findByRole('checkbox', { name: /Liella/ }));
+
+    await waitFor(() =>
+      expect(api.updateGenerations).toHaveBeenCalledWith('g1', 'the-host-token', ['Aqours', 'Liella'])
+    );
+  });
+
+  test('shows an error when updating the generations fails', async () => {
+    localStorage.setItem('hostToken:g1', 'the-host-token');
+    vi.mocked(api.updateGenerations).mockRejectedValue(new ApiError('NOT_HOST'));
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({
+      type: 'lobby:state',
+      players: [{ playerId: 'p1', nickname: 'Alice' }],
+      generations: ['Aqours'],
+    });
+
+    await userEvent.click(await screen.findByRole('checkbox', { name: /Liella/ }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Impossible de mettre à jour les générations.');
+  });
+
+  test('updates the checked generations for everyone on lobby:generations', async () => {
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({
+      type: 'lobby:state',
+      players: [{ playerId: 'p1', nickname: 'Alice' }],
+      generations: ['Aqours', 'Liella'],
+    });
+    await screen.findByRole('checkbox', { name: /Liella/ });
+
+    socket.emit({ type: 'lobby:generations', generations: ['Liella'] });
+
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: /Aqours/ })).not.toBeChecked());
+    expect(screen.getByRole('checkbox', { name: /Liella/ })).toBeChecked();
+  });
+
+  test('back in the lobby after game:reset, the checked generations are the ones the server sent', async () => {
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
+    await screen.findByText('Alice');
+
+    socket.emit({
+      type: 'game:reset',
+      players: [{ playerId: 'p1', nickname: 'Alice', status: 'active' }],
+      generations: ['Liella'],
+    });
+
+    expect(await screen.findByRole('checkbox', { name: /Liella/ })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: /Aqours/ })).not.toBeChecked();
   });
 
   test('shows the starting message once game:started is received', async () => {

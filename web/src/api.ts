@@ -4,6 +4,8 @@ import type {
   CreateGameResponse,
   GameState,
   GameSummary,
+  GenerationOption,
+  GenerationsResponse,
   GuessResponse,
   JoinGameResponse,
   PlayableSong,
@@ -51,8 +53,16 @@ export function resetGame(): Promise<GameState> {
   return fetch('/api/reset', { method: 'POST' }).then((res) => parseOrThrow<GameState>(res));
 }
 
-export function startRandomMode(): Promise<GameState> {
-  return fetch('/api/mode/random', { method: 'POST' }).then((res) => parseOrThrow<GameState>(res));
+export function fetchGenerations(): Promise<GenerationOption[]> {
+  return fetch('/api/generations').then((res) => parseOrThrow<GenerationOption[]>(res));
+}
+
+export function startRandomMode(generations?: string[]): Promise<GameState> {
+  return fetch('/api/mode/random', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ generations }),
+  }).then((res) => parseOrThrow<GameState>(res));
 }
 
 export function selectSong(id: number): Promise<GameState> {
@@ -93,6 +103,18 @@ export function updateAnswerWindow(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ hostToken, seconds }),
   }).then((res) => parseOrThrow<AnswerWindowResponse>(res));
+}
+
+export function updateGenerations(
+  gameId: string,
+  hostToken: string,
+  generations: string[]
+): Promise<GenerationsResponse> {
+  return fetch(`/games/${gameId}/generations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken, generations }),
+  }).then((res) => parseOrThrow<GenerationsResponse>(res));
 }
 
 export function startMultiplayerGame(gameId: string, hostToken: string): Promise<{ status: string }> {

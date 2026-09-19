@@ -64,8 +64,8 @@ export function useGameState() {
     refreshTitles();
   }, [refreshTitles]);
 
-  const startRandom = useCallback(async () => {
-    const s = await startRandomMode();
+  const startRandom = useCallback(async (generations?: string[]) => {
+    const s = await startRandomMode(generations);
     setState(s);
     setActiveSongId(null);
     setError(null);
