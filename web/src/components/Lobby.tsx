@@ -97,7 +97,7 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
         }
         // Not a deliberate unmount and not a rejected session — the drop was
         // a network blip; keep retrying, the server holds the player's slot
-        // for 60s (backlog MP-13) regardless of how long this takes.
+        // for 60s (lobby and in-game alike) — after that the reconnect gets 4004.
         retryTimer = setTimeout(connect, RECONNECT_DELAY_MS);
       };
     }

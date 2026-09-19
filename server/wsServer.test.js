@@ -22,7 +22,7 @@ let wsUrl;
 
 before(async () => {
   server = http.createServer(app);
-  wss = attachWebSocketServer(server);
+  wss = attachWebSocketServer(server, { lobbyGraceMs: 150, heartbeatIntervalMs: 50 });
   await new Promise((resolve) => server.listen(0, resolve));
   const port = server.address().port;
   baseUrl = `http://127.0.0.1:${port}`;
@@ -149,6 +149,64 @@ test('other connected players receive player:left and the player is removed once
   assert.ok(!game.players.some((p) => p.playerId === bob.playerId));
 
   aliceSocket.close();
+});
+
+test('a lobby player who reconnects before the lobby grace expires keeps their place', async () => {
+  const { gameId, playerId } = await createGameWithPlayer('Alice');
+  const first = await openSocket(gameId, playerId);
+  await first.nextMessage(); // lobby:state snapshot
+  const firstClosed = new Promise((resolve) => first.once('close', resolve));
+  first.close();
+  await firstClosed;
+
+  const second = new WebSocket(`${wsUrl}?gameId=${gameId}&playerId=${playerId}`);
+  const outcome = await new Promise((resolve) => {
+    second.once('message', (data) => resolve(JSON.parse(data.toString()).type));
+    second.once('close', (code) => resolve(`closed:${code}`));
+  });
+  assert.equal(outcome, 'lobby:state');
+
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  const game = multiplayerGames.getGame(gameId);
+  assert.ok(game?.players.some((p) => p.playerId === playerId));
+
+  second.close();
+});
+
+test('a lobby player who does not reconnect within the lobby grace is removed', async () => {
+  const { gameId, playerId } = await createGameWithPlayer('Alice');
+  const socket = await openSocket(gameId, playerId);
+  await socket.nextMessage(); // lobby:state snapshot
+  socket.close();
+
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  const game = multiplayerGames.getGame(gameId);
+  assert.ok(!game || !game.players.some((p) => p.playerId === playerId));
+});
+
+test('the server pings connected sockets so idle connections are not dropped by proxies', async () => {
+  const { gameId, playerId } = await createGameWithPlayer('Alice');
+  const socket = await openSocket(gameId, playerId);
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('no ping received')), 500);
+    socket.once('ping', () => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
+  socket.close();
+});
+
+test('a socket that stops answering pings is terminated', async () => {
+  const { gameId, playerId } = await createGameWithPlayer('Alice');
+  const socket = new WebSocket(`${wsUrl}?gameId=${gameId}&playerId=${playerId}`, { autoPong: false });
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('socket was not terminated')), 1000);
+    socket.once('close', () => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
 });
 
 test('connecting with an unknown gameId or playerId closes the socket', async () => {

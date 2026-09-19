@@ -73,6 +73,15 @@ function nextStageDurationFor(stage) {
 // answers.
 const DISCONNECT_GRACE_MS = 60000;
 
+// Same idea for the lobby waiting room: an idle WebSocket is routinely cut
+// after ~60s by proxies, and removing the player on that drop also deleted a
+// lobby with a single player. The slot is now held until this grace expires.
+const DEFAULT_LOBBY_GRACE_MS = 60000;
+
+// Pings keep idle sockets alive through proxies; a socket that never answers
+// the previous ping is dead and gets terminated so its close handler runs.
+const DEFAULT_HEARTBEAT_INTERVAL_MS = 25000;
+
 function scheduleDisconnectGrace(gameId, playerId, delayMs = DISCONNECT_GRACE_MS) {
   const key = `${gameId}:${playerId}`;
   const timer = setTimeout(() => {
@@ -82,6 +91,18 @@ function scheduleDisconnectGrace(gameId, playerId, delayMs = DISCONNECT_GRACE_MS
   }, delayMs);
   timer.unref();
   disconnectTimers.set(key, timer);
+}
+
+// `${gameId}:${playerId}` -> pending lobby-removal timer.
+const lobbyGraceTimers = new Map();
+
+function cancelLobbyGrace(gameId, playerId) {
+  const key = `${gameId}:${playerId}`;
+  const timer = lobbyGraceTimers.get(key);
+  if (timer) {
+    clearTimeout(timer);
+    lobbyGraceTimers.delete(key);
+  }
 }
 
 function cancelDisconnectGrace(gameId, playerId) {
@@ -195,8 +216,24 @@ function handleStageProgress(gameId) {
   }
 }
 
-function attachWebSocketServer(httpServer) {
+function attachWebSocketServer(
+  httpServer,
+  { lobbyGraceMs = DEFAULT_LOBBY_GRACE_MS, heartbeatIntervalMs = DEFAULT_HEARTBEAT_INTERVAL_MS } = {}
+) {
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+
+  const heartbeat = setInterval(() => {
+    for (const client of wss.clients) {
+      if (client.isAlive === false) {
+        client.terminate();
+        continue;
+      }
+      client.isAlive = false;
+      client.ping();
+    }
+  }, heartbeatIntervalMs);
+  heartbeat.unref();
+  wss.on('close', () => clearInterval(heartbeat));
 
   wss.on('connection', (socket, req) => {
     const { searchParams } = new URL(req.url, 'http://localhost');
@@ -213,10 +250,15 @@ function attachWebSocketServer(httpServer) {
     // Tagged so a host kick can find and close this exact socket later
     // (socketsFor only tracks the Set, not which player owns which entry).
     socket.playerId = playerId;
+    socket.isAlive = true;
+    socket.on('pong', () => {
+      socket.isAlive = true;
+    });
 
     const wasConnected = player.connected;
     multiplayerGames.markConnected(gameId, playerId);
     cancelDisconnectGrace(gameId, playerId);
+    cancelLobbyGrace(gameId, playerId);
     socketsFor(gameId).add(socket);
 
     if (!wasConnected) {
@@ -339,6 +381,7 @@ function attachWebSocketServer(httpServer) {
         // checkStageProgress's "everyone resolved" check already treats
         // that as counting toward progression — no special status needed.
         socketsFor(gameId).delete(socket);
+        cancelLobbyGrace(gameId, playerId);
         multiplayerGames.removePlayer(gameId, playerId);
         broadcast(gameId, { type: 'player:left', playerId }, socket);
         notifyHostTransfer(gameId, playerId);
@@ -360,9 +403,16 @@ function attachWebSocketServer(httpServer) {
       // should find their status (active/found/forfeited) unchanged. Only
       // the lobby waiting room treats a disconnect as leaving for good.
       if (game.status === 'lobby') {
-        multiplayerGames.removePlayer(gameId, playerId);
-        broadcast(gameId, { type: 'player:left', playerId });
-        notifyHostTransfer(gameId, playerId);
+        const key = `${gameId}:${playerId}`;
+        const timer = setTimeout(() => {
+          lobbyGraceTimers.delete(key);
+          if (multiplayerGames.getGame(gameId)?.status !== 'lobby') return;
+          multiplayerGames.removePlayer(gameId, playerId);
+          broadcast(gameId, { type: 'player:left', playerId });
+          notifyHostTransfer(gameId, playerId);
+        }, lobbyGraceMs);
+        timer.unref();
+        lobbyGraceTimers.set(key, timer);
       } else if (game.status === 'in_progress') {
         scheduleDisconnectGrace(gameId, playerId);
       }
