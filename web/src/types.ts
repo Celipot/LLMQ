@@ -53,7 +53,24 @@ export interface Career {
   suggestionCount: number;
   notebook: CareerSong[];
   releaseDue: boolean;
-  release: { rank: ReleaseRank; song: CareerSong } | null;
+  album: { done: number; total: number };
+  release: AlbumRelease | null;
+}
+
+export type AlbumGrade = 'S' | 'A' | 'B' | 'C' | 'D';
+
+export interface AlbumTrack {
+  song: CareerSong;
+  rank: ReleaseRank;
+  points: number;
+}
+
+// Only present once the album's last track is played, which ends the career.
+export interface AlbumRelease {
+  score: number;
+  maxScore: number;
+  grade: AlbumGrade;
+  tracks: AlbumTrack[];
 }
 
 export interface CareerRound {

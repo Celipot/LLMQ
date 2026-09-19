@@ -794,12 +794,34 @@ button:disabled {
   font-weight: 700;
 }
 
-.career-cover {
+.album-tracks {
   width: 100%;
-  max-width: 240px;
-  aspect-ratio: 1;
-  border-radius: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.album-track {
+  display: grid;
+  grid-template-columns: 40px 1fr auto auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.album-track-cover {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
   object-fit: cover;
+}
+
+.album-track-rank,
+.album-track-points {
+  color: var(--muted);
+  font-size: 0.85rem;
 }
 
 .career-notebook ul {

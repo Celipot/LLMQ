@@ -59,6 +59,11 @@ export default function App() {
   const careerLastAttempt =
     !!careerRound && !careerFinished && careerRound.state.attemptsUsed === careerRound.state.maxAttempts - 1;
 
+  // A finished track is already counted in the album progress, a playing one is not.
+  const albumPosition = (careerState.career?.album.done ?? 0) + (careerFinished ? 0 : 1);
+  const continueLabel =
+    careerRound?.kind !== 'release' ? 'Continuer' : careerState.career?.release ? 'Voir le résultat' : 'Titre suivant';
+
   const allowedSeconds = careerRound?.state.allowedSeconds ?? state?.allowedSeconds ?? 1;
   const {
     audioRef,
@@ -128,6 +133,13 @@ export default function App() {
     setInputValue('');
     resetProgress();
     await action();
+  }
+
+  // The next track of the album starts right away, without going back to the hub.
+  async function handleCareerContinue() {
+    const albumGoesOn = careerRound?.kind === 'release' && careerState.career && !careerState.career.release;
+    if (albumGoesOn) await startCareerRound(careerState.release);
+    else careerState.closeRound();
   }
 
   async function handleCareerSubmit() {
@@ -257,7 +269,9 @@ export default function App() {
       {careerRound && (
         <div className="quiz-area">
           <p className="subtitle">
-            {careerRound.kind === 'study' ? "Étude : deviner le titre à partir de l'intro" : "Sortie de l'album : deviner le titre"}
+            {careerRound.kind === 'study'
+              ? "Étude : deviner le titre à partir de l'intro"
+              : `Sortie de l'album : titre ${albumPosition} / ${careerState.career?.album.total}`}
           </p>
 
           <Player
@@ -308,8 +322,8 @@ export default function App() {
             <>
               <Result state={careerRound.state} />
               <div className="result-actions">
-                <button type="button" onClick={careerState.closeRound}>
-                  Continuer
+                <button type="button" onClick={handleCareerContinue}>
+                  {continueLabel}
                 </button>
               </div>
             </>

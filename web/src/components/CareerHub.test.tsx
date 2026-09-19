@@ -13,6 +13,7 @@ const career: Career = {
   suggestionCount: 1,
   notebook: [],
   releaseDue: false,
+  album: { done: 0, total: 6 },
   release: null,
 };
 
@@ -87,16 +88,44 @@ describe('CareerHub', () => {
     expect(screen.getByText('Awakening Promise')).toBeInTheDocument();
   });
 
-  test('a finished career shows the rank and offers a new one', async () => {
-    const song = { id: 1, title: 'Dream with You', coverUrl: '/covers/d.png' };
-    const { onBegin } = renderHub({ releaseDue: true, turn: 11, release: { rank: 'A', song } });
+  test('an album already started offers to go on, with its progress', async () => {
+    const { onRelease } = renderHub({ releaseDue: true, turn: 11, album: { done: 2, total: 6 } });
 
-    expect(screen.getByText('Rang A')).toBeInTheDocument();
-    expect(screen.getByText('Dream with You')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: "Lancer la sortie de l'album" })).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Nouvelle carrière' }));
+    await userEvent.click(screen.getByRole('button', { name: "Poursuivre l'album (2 / 6)" }));
 
-    expect(onBegin).toHaveBeenCalledOnce();
+    expect(onRelease).toHaveBeenCalledOnce();
+  });
+
+  describe('a released album', () => {
+    const release: Career['release'] = {
+      score: 420,
+      maxScore: 600,
+      grade: 'A',
+      tracks: [
+        { song: { id: 1, title: 'Dream with You', coverUrl: '/covers/d.png' }, rank: 'S', points: 100 },
+        { song: { id: 2, title: 'Kaika Sengen', coverUrl: '/covers/k.png' }, rank: 'FAIL', points: 0 },
+      ],
+    };
+
+    test('shows the grade, the score and every track with its points', () => {
+      renderHub({ releaseDue: true, turn: 11, album: { done: 6, total: 6 }, release });
+
+      expect(screen.getByText('Grade A')).toBeInTheDocument();
+      expect(screen.getByText('Score 420 / 600')).toBeInTheDocument();
+      expect(screen.getByText('Dream with You')).toBeInTheDocument();
+      expect(screen.getByText('Kaika Sengen')).toBeInTheDocument();
+      expect(screen.getByText('100 pts')).toBeInTheDocument();
+      expect(screen.getByText('0 pt')).toBeInTheDocument();
+    });
+
+    test('offers a new career and no more release', async () => {
+      const { onBegin } = renderHub({ releaseDue: true, turn: 11, album: { done: 6, total: 6 }, release });
+
+      expect(screen.queryByRole('button', { name: /album/ })).not.toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: 'Nouvelle carrière' }));
+
+      expect(onBegin).toHaveBeenCalledOnce();
+    });
   });
 
   test('shows the error message', () => {

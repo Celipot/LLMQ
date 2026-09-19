@@ -16,6 +16,7 @@ vi.mock('./api', async () => {
     fetchCareer: vi.fn(),
     startCareer: vi.fn(),
     studyCareer: vi.fn(),
+    releaseCareer: vi.fn(),
   };
 });
 
@@ -28,10 +29,12 @@ const career: Career = {
   suggestionCount: 1,
   notebook: [],
   releaseDue: false,
+  album: { done: 0, total: 6 },
   release: null,
 };
 
 const roundState: GameState = { attemptsUsed: 0, maxAttempts: 3, allowedSeconds: 1, status: 'playing', guesses: [] };
+const wonState: GameState = { ...roundState, attemptsUsed: 1, status: 'won', correctTitle: 'Song', correctArtist: 'Artist' };
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -66,5 +69,58 @@ describe('App — Mode Carrière', () => {
     expect(await screen.findByRole('button', { name: 'Valider' })).toBeInTheDocument();
     expect(api.studyCareer).toHaveBeenCalledWith('oreille');
     expect(screen.queryByText('Tour 1 / 10')).not.toBeInTheDocument();
+  });
+
+  describe('album tracks', () => {
+    const midAlbum: Career = { ...career, turn: 11, releaseDue: true, album: { done: 2, total: 6 } };
+
+    test('shows the position of the track being played', async () => {
+      vi.mocked(api.fetchCareer).mockResolvedValue({
+        career: midAlbum,
+        round: { kind: 'release', stat: null, state: roundState },
+      });
+      render(<App />);
+
+      await userEvent.click(screen.getByText('Mode Carrière'));
+
+      expect(await screen.findByText("Sortie de l'album : titre 3 / 6")).toBeInTheDocument();
+    });
+
+    test('after a track, "Titre suivant" starts the next one without going back to the hub', async () => {
+      vi.mocked(api.fetchCareer).mockResolvedValue({
+        career: midAlbum,
+        round: { kind: 'release', stat: null, state: wonState },
+      });
+      vi.mocked(api.releaseCareer).mockResolvedValue({
+        career: midAlbum,
+        round: { kind: 'release', stat: null, state: roundState },
+      });
+      render(<App />);
+      await userEvent.click(screen.getByText('Mode Carrière'));
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Titre suivant' }));
+
+      expect(api.releaseCareer).toHaveBeenCalledOnce();
+      expect(await screen.findByRole('button', { name: 'Valider' })).toBeInTheDocument();
+    });
+
+    test('after the last track, the result button goes back to the hub with the grade', async () => {
+      const released: Career = {
+        ...midAlbum,
+        album: { done: 6, total: 6 },
+        release: { score: 600, maxScore: 600, grade: 'S', tracks: [] },
+      };
+      vi.mocked(api.fetchCareer).mockResolvedValue({
+        career: released,
+        round: { kind: 'release', stat: null, state: wonState },
+      });
+      render(<App />);
+      await userEvent.click(screen.getByText('Mode Carrière'));
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Voir le résultat' }));
+
+      expect(await screen.findByText('Grade S')).toBeInTheDocument();
+      expect(api.releaseCareer).not.toHaveBeenCalled();
+    });
   });
 });

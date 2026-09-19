@@ -3,7 +3,7 @@
 Suite de [`solo.md`](solo.md) : périmètre de la première version jouable.
 
 ## Contexte
-`solo.md` décrit un Mode Carrière inspiré d'Uma Musume. On démarre par une boucle minimale : un nombre fixe de tours d'**Étude** ou de **Repos**, puis **un seul round de sortie** (l'« album de 6 musiques » sert de contexte). Le mode a ses propres règles de round : 3 paliers de 1 s, 1 seule suggestion de recherche, et trois stats qui font évoluer paliers, secondes et suggestions. Objectif : valider que la boucle étude → stats → sortie est agréable, avant Énergie/Moral avancés, objectifs de saison, finale, Discographie.
+`solo.md` décrit un Mode Carrière inspiré d'Uma Musume. On démarre par une boucle minimale : un nombre fixe de tours d'**Étude** ou de **Repos**, puis la **sortie d'un album de 6 musiques** (6 rounds notés). Le mode a ses propres règles de round : 3 paliers de 1 s, 1 seule suggestion de recherche, et trois stats qui font évoluer paliers, secondes et suggestions. Objectif : valider que la boucle étude → stats → sortie est agréable, avant Énergie/Moral avancés, objectifs de saison, finale, Discographie.
 
 ## Règles de la v1 (valeurs de départ, à équilibrer)
 
@@ -25,10 +25,16 @@ Les effets de chaque stat s'affichent au survol (ou au focus clavier) de la stat
 
 **Tours** : 10 tours fixes puis la sortie. Énergie max 3 ; Étude coûte 1 ; Repos redonne 3 (plafonné : un repos remet toujours l'énergie au maximum). L'énergie ne sert qu'à étudier. Sans énergie, seul le Repos est possible.
 
-**Sortie** : un round complet ; le rang (S/A/B/C/échec selon le palier de réussite) donne un score de fin de carrière. Aucun objectif de saison ni échec de carrière dans cette v1.
+**Sortie de l'album** : 6 rounds enchaînés, avec les paliers et suggestions du joueur. Chaque titre rapporte des points selon l'essai où il est trouvé :
+
+| Essai | 1 | 2 | 3 | 4 | 5 | Raté |
+|---|---|---|---|---|---|---|
+| Points | 100 | 70 | 50 | 35 | 25 | 0 |
+
+Le **score de l'album** est la somme des 6 titres (sur 600). Le **grade** dépend de la part du maximum : S à 90 % et plus, A à 70 %, B à 50 %, C à 30 %, D en dessous. La carrière se termine à la sortie. Aucun objectif de saison ni échec de carrière dans cette v1.
 
 ## Pool de titres
-Les études et la sortie tirent dans la **discographie du personnage** (Ayumu, 64 titres : solos, A・ZU・NA, groupe Nijigasaki, cf. `solo.md` §1). Il n'y a pas de champ « personnage » dans `songs.json` : la discographie se dérive du champ `artist` (solo : `Ayumu Uehara (CV: Aguri Onishi)` ; unité : `A・ZU・NA` ; groupe : la chaîne exacte du groupe Nijigasaki, à relever dans les données). Un filtre dans `career.js` suffit pour la v1. Le tirage évite les titres déjà trouvés dans la carrière.
+Les études et la sortie tirent dans la **discographie du personnage** (Ayumu, 64 titres : solos, A・ZU・NA, groupe Nijigasaki, cf. `solo.md` §1). Il n'y a pas de champ « personnage » dans `songs.json` : la discographie se dérive du champ `artist` (solo : `Ayumu Uehara (CV: Aguri Onishi)` ; unité : `A・ZU・NA` ; groupe : la chaîne exacte du groupe Nijigasaki, à relever dans les données). Un filtre dans `career.js` suffit pour la v1. Le tirage des études évite les titres déjà trouvés dans la carrière. L'album, lui, est tiré des **titres trouvés en étude** (le carnet) : étudier prépare la sortie. S'il y en a moins de 6, il est complété par des titres tirés au hasard dans la discographie ; un titre n'apparaît jamais deux fois sur le même album.
 
 ## Approche technique
 

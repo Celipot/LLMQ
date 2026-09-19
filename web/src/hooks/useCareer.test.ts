@@ -28,6 +28,7 @@ const career: Career = {
   suggestionCount: 1,
   notebook: [],
   releaseDue: false,
+  album: { done: 0, total: 6 },
   release: null,
 };
 

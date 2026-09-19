@@ -41,9 +41,18 @@ export default function CareerHub({ career, error, onBegin, onRest, onStudy, onR
 
       {career.release ? (
         <div className="career-release">
-          <p className="career-rank">{career.release.rank === 'FAIL' ? 'Sortie ratée' : `Rang ${career.release.rank}`}</p>
-          <img className="career-cover" src={career.release.song.coverUrl} alt="" />
-          <p>{career.release.song.title}</p>
+          <p className="career-rank">{`Grade ${career.release.grade}`}</p>
+          <p>{`Score ${career.release.score} / ${career.release.maxScore}`}</p>
+          <ol className="album-tracks">
+            {career.release.tracks.map(({ song, rank, points }) => (
+              <li key={song.id} className="album-track">
+                <img className="album-track-cover" src={song.coverUrl} alt="" />
+                <span className="album-track-title">{song.title}</span>
+                <span className="album-track-rank">{rank === 'FAIL' ? 'Raté' : `Rang ${rank}`}</span>
+                <span className="album-track-points">{`${points} ${points > 1 ? 'pts' : 'pt'}`}</span>
+              </li>
+            ))}
+          </ol>
           <button type="button" onClick={onBegin}>
             Nouvelle carrière
           </button>
@@ -51,7 +60,9 @@ export default function CareerHub({ career, error, onBegin, onRest, onStudy, onR
       ) : career.releaseDue ? (
         <div className="actions">
           <button type="button" onClick={onRelease}>
-            Lancer la sortie de l'album
+            {career.album.done > 0
+              ? `Poursuivre l'album (${career.album.done} / ${career.album.total})`
+              : "Lancer la sortie de l'album"}
           </button>
         </div>
       ) : (
