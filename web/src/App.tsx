@@ -37,8 +37,20 @@ export default function App() {
   const [inputValue, setInputValue] = useState('');
 
   const allowedSeconds = state?.allowedSeconds ?? 1;
-  const { audioRef, progress, playError, volume, play, handleEnded, resetProgress, setVolume } =
-    useAudioPlayer(allowedSeconds);
+  const {
+    audioRef,
+    progress,
+    playError,
+    volume,
+    isPlaying,
+    play,
+    pause,
+    handleAudioPlay,
+    handleAudioPause,
+    handleEnded,
+    resetProgress,
+    setVolume,
+  } = useAudioPlayer(allowedSeconds);
 
   const showQuiz = screen === 'random' || (screen === 'list' && activeSongId !== null);
   const finished = !!state && state.status !== 'playing';
@@ -142,7 +154,11 @@ export default function App() {
                   progress={progress}
                   disabled={false}
                   volume={volume}
+                  isPlaying={isPlaying}
                   onPlay={play}
+                  onPause={pause}
+                  onAudioPlay={handleAudioPlay}
+                  onAudioPause={handleAudioPause}
                   onEnded={handleEnded}
                   onVolumeChange={setVolume}
                 />

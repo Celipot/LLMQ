@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { audioTrackUrl } from '../api';
 
 export function useAudioPlayer(allowedSeconds: number, getTrackUrl: () => string = audioTrackUrl) {
@@ -7,6 +7,13 @@ export function useAudioPlayer(allowedSeconds: number, getTrackUrl: () => string
   const [progress, setProgress] = useState(0);
   const [playError, setPlayError] = useState<string | null>(null);
   const [volume, setVolumeState] = useState(1);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const resumableRef = useRef(false);
+
+  // A paused track was truncated for the previous stage: resuming it would replay stale audio.
+  useEffect(() => {
+    resumableRef.current = false;
+  }, [allowedSeconds, getTrackUrl]);
 
   const stopAnimation = useCallback(() => {
     if (rafRef.current !== null) {
@@ -33,6 +40,17 @@ export function useAudioPlayer(allowedSeconds: number, getTrackUrl: () => string
   const play = useCallback(async () => {
     const audio = audioRef.current;
     if (!audio) return;
+    if (resumableRef.current) {
+      resumableRef.current = false;
+      try {
+        await audio.play();
+        animate();
+        setPlayError(null);
+      } catch {
+        setPlayError("Impossible de lire l'audio.");
+      }
+      return;
+    }
     // Always re-fetch: the server is the only source of truth for how much
     // audio is served, and the allowed duration may have changed.
     audio.src = getTrackUrl();
@@ -47,12 +65,26 @@ export function useAudioPlayer(allowedSeconds: number, getTrackUrl: () => string
     }
   }, [animate, volume, getTrackUrl]);
 
+  const pause = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.pause();
+    stopAnimation();
+    resumableRef.current = true;
+  }, [stopAnimation]);
+
+  const handleAudioPlay = useCallback(() => setIsPlaying(true), []);
+  const handleAudioPause = useCallback(() => setIsPlaying(false), []);
+
   const handleEnded = useCallback(() => {
+    resumableRef.current = false;
+    setIsPlaying(false);
     stopAnimation();
     setProgress(100);
   }, [stopAnimation]);
 
   const resetProgress = useCallback(() => {
+    resumableRef.current = false;
     stopAnimation();
     setProgress(0);
   }, [stopAnimation]);
@@ -63,5 +95,18 @@ export function useAudioPlayer(allowedSeconds: number, getTrackUrl: () => string
     setVolumeState(next);
   }, []);
 
-  return { audioRef, progress, playError, volume, play, handleEnded, resetProgress, setVolume };
+  return {
+    audioRef,
+    progress,
+    playError,
+    volume,
+    isPlaying,
+    play,
+    pause,
+    handleAudioPlay,
+    handleAudioPause,
+    handleEnded,
+    resetProgress,
+    setVolume,
+  };
 }

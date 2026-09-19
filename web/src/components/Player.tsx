@@ -6,7 +6,11 @@ interface PlayerProps {
   progress: number;
   disabled: boolean;
   volume: number;
+  isPlaying: boolean;
   onPlay: () => void;
+  onPause: () => void;
+  onAudioPlay: () => void;
+  onAudioPause: () => void;
   onEnded: () => void;
   onVolumeChange: (volume: number) => void;
 }
@@ -22,7 +26,11 @@ export default function Player({
   progress,
   disabled,
   volume,
+  isPlaying,
   onPlay,
+  onPause,
+  onAudioPlay,
+  onAudioPause,
   onEnded,
   onVolumeChange,
 }: PlayerProps) {
@@ -31,11 +39,11 @@ export default function Player({
       <button
         type="button"
         className="play-btn"
-        aria-label="Écouter"
+        aria-label={isPlaying ? 'Pause' : 'Écouter'}
         disabled={disabled}
-        onClick={onPlay}
+        onClick={isPlaying ? onPause : onPlay}
       >
-        ▶
+        {isPlaying ? '⏸' : '▶'}
       </button>
       <div className="progress-track">
         <div className="progress-fill" style={{ width: `${progress}%` }} />
@@ -51,7 +59,12 @@ export default function Player({
         value={volume}
         onChange={(e) => onVolumeChange(Number(e.target.value))}
       />
-      <audio ref={audioRef} onEnded={onEnded} preload="none" />
+      <audio
+        ref={audioRef}
+        onPlay={onAudioPlay}
+        onPause={onAudioPause}
+        onEnded={onEnded} preload="none"
+      />
     </section>
   );
 }

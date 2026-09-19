@@ -108,10 +108,19 @@ export default function GamePlay({
   }, [answerWindowMs, startedAt]);
 
   const getTrackUrl = useCallback(() => multiplayerAudioTrackUrl(gameId), [gameId]);
-  const { audioRef, progress, playError, volume, play, handleEnded, setVolume } = useAudioPlayer(
-    durationSeconds,
-    getTrackUrl
-  );
+  const {
+    audioRef,
+    progress,
+    playError,
+    volume,
+    isPlaying,
+    play,
+    pause,
+    handleAudioPlay,
+    handleAudioPause,
+    handleEnded,
+    setVolume,
+  } = useAudioPlayer(durationSeconds, getTrackUrl);
 
   function handleSubmit() {
     if (inputValue.trim() === '' || locked || busy) return;
@@ -171,7 +180,11 @@ export default function GamePlay({
           progress={progress}
           disabled={false}
           volume={volume}
+          isPlaying={isPlaying}
           onPlay={play}
+          onPause={pause}
+          onAudioPlay={handleAudioPlay}
+          onAudioPause={handleAudioPause}
           onEnded={handleEnded}
           onVolumeChange={setVolume}
         />
