@@ -728,6 +728,37 @@ button:disabled {
   background: var(--surface);
 }
 
+.stat-bar {
+  position: relative;
+  cursor: help;
+}
+
+.stat-tooltip {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  margin-top: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.85rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.stat-tooltip ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stat-tooltip li.reached {
+  color: var(--accent);
+}
+
 .stat-bar-head {
   display: flex;
   justify-content: space-between;

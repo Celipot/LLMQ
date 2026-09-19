@@ -8,20 +8,22 @@ Suite de [`solo.md`](solo.md) : périmètre de la première version jouable.
 ## Règles de la v1 (valeurs de départ, à équilibrer)
 
 **Round de carrière (étude comme sortie)**
-- Départ : 3 paliers (= 3 essais) de **1 s chacun** ; **1 suggestion** dans l'autocomplétion.
+- Départ : 3 paliers (= 3 essais) **croissants : 1 s, 2 s, 3 s** (durée cumulée de l'extrait à chaque essai, comme dans le jeu classique) ; **1 suggestion** dans l'autocomplétion.
 - Étude : mini-round dans ces conditions. Sortie : même règles, un seul round.
 
 **Stats (0 à ~300), bonus par paliers de 100**
 
 | Stat | Effet | 100 | 200 | 300 |
 |---|---|---|---|---|
-| Oreille | secondes | palier 1 : +0,5 s | palier 2 : +0,5 s | palier 3 : +0,5 s |
-| Culture | nombre de paliers | 4e palier (1 s) | 5e palier | (max) |
+| Oreille | secondes | palier 1 : +0,5 s (1,5 s) | palier 2 : +0,5 s (2,5 s) | palier 3 : +0,5 s (3,5 s) |
+| Culture | nombre de paliers | 4e palier (4 s) | 5e palier (5 s) | (max) |
 | Mémoire | suggestions | 2 | 3 | 4 |
+
+Les effets de chaque stat s'affichent au survol (ou au focus clavier) de la stat dans le hub, avec les paliers atteints marqués « ✓ ».
 
 **Gain d'étude** (le joueur choisit la stat) : échec +30 ; trouvé au palier 1 +80, palier 2 +60, palier 3 +45, palier 4+ +40.
 
-**Tours** : 10 tours fixes puis la sortie. Énergie max 3 ; Étude coûte 1 ; Repos redonne 2 (plafonné). L'énergie ne sert qu'à étudier. Sans énergie, seul le Repos est possible.
+**Tours** : 10 tours fixes puis la sortie. Énergie max 3 ; Étude coûte 1 ; Repos redonne 3 (plafonné : un repos remet toujours l'énergie au maximum). L'énergie ne sert qu'à étudier. Sans énergie, seul le Repos est possible.
 
 **Sortie** : un round complet ; le rang (S/A/B/C/échec selon le palier de réussite) donne un score de fin de carrière. Aucun objectif de saison ni échec de carrière dans cette v1.
 
@@ -43,7 +45,6 @@ Les études et la sortie tirent dans la **discographie du personnage** (Ayumu, 6
 **Tests (TDD)** : `career.test.js`, `gameState.test.js` (paliers paramétrables, défaut inchangé), `index.test.js` (routes career), `useCareer.test.ts`, `CareerHub`/`StatBars`.
 
 ## Hypothèses à ajuster après un premier essai
-- « 3 paliers de 1 s » = 3 clips de 1 s (pas 1/2/4 cumulés).
 - 10 tours, énergie 3, gains d'étude, seuils de stats.
 
 ## Vérification

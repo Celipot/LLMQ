@@ -9,7 +9,9 @@ const DISCOGRAPHY_ARTISTS = new Set([
 
 const STATS = ['oreille', 'memoire', 'culture'];
 const STAT_STEP = 100;
-const BASE_TIERS = [1, 1, 1];
+// Each tier is the total clip length at that attempt, so a wrong guess or a
+// skip always reveals more of the intro.
+const BASE_TIERS = [1, 2, 3];
 const HEARING_BONUS_SECONDS = 0.5;
 const MAX_EXTRA_TIERS = 2;
 const MAX_EXTRA_SUGGESTIONS = 3;
@@ -17,7 +19,7 @@ const MAX_EXTRA_SUGGESTIONS = 3;
 const TOTAL_TURNS = 10;
 const MAX_ENERGY = 3;
 const STUDY_COST = 1;
-const REST_GAIN = 2;
+const REST_GAIN = 3;
 
 // Finding the title earlier teaches more; failing still teaches a little.
 const STUDY_GAIN_BY_STAGE = { 1: 80, 2: 60, 3: 45 };
@@ -37,7 +39,7 @@ function roundTiers(stats) {
   const hearingSteps = Math.min(unlockedSteps(stats.oreille), tiers.length);
   for (let i = 0; i < hearingSteps; i += 1) tiers[i] += HEARING_BONUS_SECONDS;
   const extraTiers = Math.min(unlockedSteps(stats.culture), MAX_EXTRA_TIERS);
-  for (let i = 0; i < extraTiers; i += 1) tiers.push(1);
+  for (let i = 0; i < extraTiers; i += 1) tiers.push(tiers.length + 1);
   return tiers;
 }
 

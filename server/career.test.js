@@ -29,24 +29,28 @@ describe('discographyIds', () => {
 });
 
 describe('roundTiers', () => {
-  test('starts with 3 tiers of 1 second', () => {
-    assert.deepEqual(career.roundTiers(stats()), [1, 1, 1]);
+  test('starts with 3 growing tiers of 1, 2 and 3 seconds', () => {
+    assert.deepEqual(career.roundTiers(stats()), [1, 2, 3]);
   });
 
   test('99 hearing gives nothing, 100 adds 0.5 s to the first tier', () => {
-    assert.deepEqual(career.roundTiers(stats({ oreille: 99 })), [1, 1, 1]);
-    assert.deepEqual(career.roundTiers(stats({ oreille: 100 })), [1.5, 1, 1]);
+    assert.deepEqual(career.roundTiers(stats({ oreille: 99 })), [1, 2, 3]);
+    assert.deepEqual(career.roundTiers(stats({ oreille: 100 })), [1.5, 2, 3]);
   });
 
   test('hearing adds 0.5 s to the second tier at 200 and to the third at 300', () => {
-    assert.deepEqual(career.roundTiers(stats({ oreille: 200 })), [1.5, 1.5, 1]);
-    assert.deepEqual(career.roundTiers(stats({ oreille: 300 })), [1.5, 1.5, 1.5]);
+    assert.deepEqual(career.roundTiers(stats({ oreille: 200 })), [1.5, 2.5, 3]);
+    assert.deepEqual(career.roundTiers(stats({ oreille: 300 })), [1.5, 2.5, 3.5]);
   });
 
-  test('culture adds a 4th tier at 100 and a 5th at 200, and no more', () => {
-    assert.deepEqual(career.roundTiers(stats({ culture: 100 })), [1, 1, 1, 1]);
-    assert.deepEqual(career.roundTiers(stats({ culture: 200 })), [1, 1, 1, 1, 1]);
-    assert.deepEqual(career.roundTiers(stats({ culture: 900 })), [1, 1, 1, 1, 1]);
+  test('culture adds a 4th tier of 4 s at 100 and a 5th of 5 s at 200, and no more', () => {
+    assert.deepEqual(career.roundTiers(stats({ culture: 100 })), [1, 2, 3, 4]);
+    assert.deepEqual(career.roundTiers(stats({ culture: 200 })), [1, 2, 3, 4, 5]);
+    assert.deepEqual(career.roundTiers(stats({ culture: 900 })), [1, 2, 3, 4, 5]);
+  });
+
+  test('a culture tier stays longer than the last hearing-boosted one', () => {
+    assert.deepEqual(career.roundTiers(stats({ oreille: 300, culture: 100 })), [1.5, 2.5, 3.5, 4]);
   });
 });
 
@@ -109,11 +113,12 @@ describe('a career', () => {
     assert.equal(state.energy, 3);
   });
 
-  test('a rest gives 2 energy without exceeding the maximum, and uses the turn', () => {
+  test('a rest gives 3 energy without exceeding the maximum, and uses the turn', () => {
     const state = career.createCareer();
     state.energy = 0;
     career.rest(state);
-    assert.equal(state.energy, 2);
+    assert.equal(state.energy, 3);
+    state.energy = 1;
     career.rest(state);
     assert.equal(state.energy, 3);
     assert.equal(state.turn, 3);

@@ -1010,6 +1010,18 @@ test('POST /api/career/study starts a round of 3 tiers of 1 second, without reve
   assert.ok(!raw.includes(firstDiscographySong.title));
 });
 
+test('a career round lengthens the intro at each attempt: 1 s, then 2 s, then 3 s', async () => {
+  const player = newCareerPlayer();
+  await player.post('/api/career');
+  const started = await (await player.post('/api/career/study', { stat: 'oreille' })).json();
+  const afterFirstSkip = await (await player.post('/api/skip')).json();
+  const afterSecondSkip = await (await player.post('/api/skip')).json();
+  assert.deepEqual(
+    [started.round.state.allowedSeconds, afterFirstSkip.state.allowedSeconds, afterSecondSkip.state.allowedSeconds],
+    [1, 2, 3],
+  );
+});
+
 test('rest and study are refused while a round is in progress', async () => {
   const player = newCareerPlayer();
   await player.post('/api/career');
