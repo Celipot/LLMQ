@@ -135,6 +135,24 @@ test('changing the generations broadcasts lobby:generations to everyone in the l
   socket.close();
 });
 
+test('the lobby:state snapshot carries the avatarUrl of a player who joined with an avatar', async () => {
+  const created = await (await fetch(`${baseUrl}/games`, { method: 'POST' })).json();
+  const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(16)]);
+  const joined = await (
+    await fetch(`${baseUrl}/games/${created.gameId}/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nickname: 'Alice', avatar: `data:image/png;base64,${png.toString('base64')}` }),
+    })
+  ).json();
+
+  const socket = await openSocket(created.gameId, joined.playerId);
+  const message = await socket.nextMessage();
+
+  assert.equal(message.players[0].avatarUrl, `/games/${created.gameId}/players/${joined.playerId}/avatar`);
+  socket.close();
+});
+
 test('an already-connected player receives player:joined when another player connects', async () => {
   const { gameId, playerId: aliceId } = await createGameWithPlayer('Alice');
   const bob = await (

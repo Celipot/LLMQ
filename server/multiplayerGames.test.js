@@ -146,6 +146,54 @@ test('setAnswerWindowSeconds throws INVALID_ANSWER_WINDOW for 9, 301 and non-int
   assert.throws(() => multiplayerGames.setAnswerWindowSeconds(game.gameId, game.hostToken, 'abc'), /INVALID_ANSWER_WINDOW/);
 });
 
+const AVATAR = { mime: 'image/png', buffer: Buffer.from('avatar-bytes') };
+
+test('a player who joins with an avatar gets an avatarUrl, and the avatar can be read back', () => {
+  const game = multiplayerGames.createGame();
+  const { playerId, players } = multiplayerGames.joinGame(game.gameId, 'Alice', undefined, AVATAR);
+
+  assert.equal(players[0].avatarUrl, `/games/${game.gameId}/players/${playerId}/avatar`);
+  assert.deepEqual(multiplayerGames.getAvatar(game.gameId, playerId), AVATAR);
+});
+
+test('a player who joins without an avatar has no avatarUrl', () => {
+  const game = multiplayerGames.createGame();
+  const { playerId, players } = multiplayerGames.joinGame(game.gameId, 'Alice');
+
+  assert.equal(players[0].avatarUrl, undefined);
+  assert.equal(multiplayerGames.getAvatar(game.gameId, playerId), undefined);
+});
+
+test('the avatar bytes never travel inside the player objects that get broadcast', () => {
+  const game = multiplayerGames.createGame();
+  multiplayerGames.joinGame(game.gameId, 'Alice', undefined, AVATAR);
+
+  const serialized = JSON.stringify(multiplayerGames.getGame(game.gameId).players);
+
+  assert.ok(!serialized.includes(AVATAR.buffer.toString('base64')));
+  assert.ok(!serialized.includes('avatar-bytes'));
+});
+
+test('removing a player drops their avatar', () => {
+  const game = multiplayerGames.createGame();
+  const { playerId } = multiplayerGames.joinGame(game.gameId, 'Alice', undefined, AVATAR);
+  multiplayerGames.joinGame(game.gameId, 'Bob');
+
+  multiplayerGames.removePlayer(game.gameId, playerId);
+
+  assert.equal(multiplayerGames.getAvatar(game.gameId, playerId), undefined);
+});
+
+test('purging the game once its last player leaves drops the avatars too', () => {
+  const game = multiplayerGames.createGame();
+  const { playerId } = multiplayerGames.joinGame(game.gameId, 'Alice', undefined, AVATAR);
+
+  multiplayerGames.removePlayer(game.gameId, playerId);
+
+  assert.equal(multiplayerGames.getGame(game.gameId), undefined);
+  assert.equal(multiplayerGames.getAvatar(game.gameId, playerId), undefined);
+});
+
 test('a new game allows every generation by default', () => {
   const game = multiplayerGames.createGame();
   assert.deepEqual(

@@ -8,6 +8,7 @@ const multiplayerGames = require('./multiplayerGames');
 const wsServer = require('./wsServer');
 const songs = require('./songs');
 const songPicker = require('./songPicker');
+const avatars = require('./avatars');
 const { truncateWavFile } = require('./wavTruncate');
 
 const app = express();
@@ -224,18 +225,38 @@ const JOIN_ERROR_STATUS = {
 };
 
 app.post('/games/:id/join', (req, res) => {
-  const { nickname, hostToken } = req.body || {};
+  const { nickname, hostToken, avatar } = req.body || {};
   if (typeof nickname !== 'string' || nickname.trim() === '') {
     return res.status(400).json({ error: 'NICKNAME_REQUIRED' });
   }
+  let parsedAvatar;
+  if (avatar !== undefined && avatar !== null) {
+    parsedAvatar = avatars.parseAvatar(avatar);
+    if (!parsedAvatar) {
+      return res.status(400).json({ error: 'INVALID_AVATAR' });
+    }
+  }
 
   try {
-    const result = multiplayerGames.joinGame(req.params.id, nickname.trim(), hostToken);
+    const result = multiplayerGames.joinGame(req.params.id, nickname.trim(), hostToken, parsedAvatar);
     res.json(result);
   } catch (err) {
     const status = JOIN_ERROR_STATUS[err.code] || 500;
     res.status(status).json({ error: err.code || 'JOIN_FAILED' });
   }
+});
+
+app.get('/games/:id/players/:playerId/avatar', (req, res) => {
+  const avatar = multiplayerGames.getAvatar(req.params.id, req.params.playerId);
+  if (!avatar) {
+    return res.status(404).json({ error: 'AVATAR_NOT_FOUND' });
+  }
+  res.set({
+    'Content-Type': avatar.mime,
+    'X-Content-Type-Options': 'nosniff',
+    'Cache-Control': 'private, max-age=3600',
+  });
+  res.send(avatar.buffer);
 });
 
 const START_ERROR_STATUS = {

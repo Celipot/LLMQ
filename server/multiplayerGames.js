@@ -32,7 +32,20 @@ function fail(code) {
   return err;
 }
 
-function joinGame(gameId, nickname, hostToken) {
+// Profile pictures live apart from the player objects: those are broadcast to
+// everyone on every change, so carrying the bytes would resend them each time.
+// Players only carry an avatarUrl that the image route resolves.
+const avatars = new Map();
+
+function avatarKey(gameId, playerId) {
+  return `${gameId}:${playerId}`;
+}
+
+function getAvatar(gameId, playerId) {
+  return avatars.get(avatarKey(gameId, playerId));
+}
+
+function joinGame(gameId, nickname, hostToken, avatar) {
   const game = games.get(gameId);
   if (!game) {
     throw fail('GAME_NOT_FOUND');
@@ -44,6 +57,10 @@ function joinGame(gameId, nickname, hostToken) {
     throw fail('NICKNAME_TAKEN');
   }
   const player = { playerId: crypto.randomUUID(), nickname, status: 'active', connected: true };
+  if (avatar) {
+    avatars.set(avatarKey(gameId, player.playerId), avatar);
+    player.avatarUrl = `/games/${gameId}/players/${player.playerId}/avatar`;
+  }
   game.players.push(player);
   // Links the creator's secret hostToken to their own playerId, the only way
   // the server can later tell "the host" apart from any other player (e.g.
@@ -60,6 +77,7 @@ function removePlayer(gameId, playerId) {
   const game = games.get(gameId);
   if (!game) return;
   game.players = game.players.filter((player) => player.playerId !== playerId);
+  avatars.delete(avatarKey(gameId, playerId));
   if (game.players.length === 0) {
     games.delete(gameId);
   }
@@ -408,6 +426,7 @@ module.exports = {
   createGame,
   getGame,
   joinGame,
+  getAvatar,
   removePlayer,
   setSongCount,
   setAnswerWindowSeconds,

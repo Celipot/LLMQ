@@ -361,6 +361,49 @@ test('POST /games/:id/join requires a non-empty nickname', async () => {
   assert.equal(res.status, 400);
 });
 
+const PNG_BYTES = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(24, 7)]);
+const PNG_DATA_URL = `data:image/png;base64,${PNG_BYTES.toString('base64')}`;
+
+async function joinWithAvatar(gameId, nickname, avatar) {
+  return fetch(`${baseUrl}/games/${gameId}/join`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nickname, avatar }),
+  });
+}
+
+test('POST /games/:id/join with an avatar exposes an avatarUrl that serves the image', async () => {
+  const { gameId } = await (await fetch(`${baseUrl}/games`, { method: 'POST' })).json();
+
+  const joined = await (await joinWithAvatar(gameId, 'Alice', PNG_DATA_URL)).json();
+  const player = joined.players.find((p) => p.playerId === joined.playerId);
+  const image = await fetch(`${baseUrl}${player.avatarUrl}`);
+
+  assert.equal(image.status, 200);
+  assert.equal(image.headers.get('content-type'), 'image/png');
+  assert.equal(image.headers.get('x-content-type-options'), 'nosniff');
+  assert.deepEqual(Buffer.from(await image.arrayBuffer()), PNG_BYTES);
+});
+
+test('POST /games/:id/join rejects an invalid avatar without adding the player', async () => {
+  const { gameId } = await (await fetch(`${baseUrl}/games`, { method: 'POST' })).json();
+
+  const res = await joinWithAvatar(gameId, 'Alice', 'data:image/svg+xml;base64,PHN2Zy8+');
+
+  assert.equal(res.status, 400);
+  assert.equal((await res.json()).error, 'INVALID_AVATAR');
+  assert.equal(multiplayerGames.getGame(gameId).players.length, 0);
+});
+
+test('GET /games/:id/players/:playerId/avatar returns 404 for a player without avatar', async () => {
+  const { gameId } = await (await fetch(`${baseUrl}/games`, { method: 'POST' })).json();
+  const joined = await (await joinWithAvatar(gameId, 'Alice', undefined)).json();
+
+  const res = await fetch(`${baseUrl}/games/${gameId}/players/${joined.playerId}/avatar`);
+
+  assert.equal(res.status, 404);
+});
+
 test('POST /games/:id/join links the joining player as host when hostToken matches', async () => {
   const created = await (await fetch(`${baseUrl}/games`, { method: 'POST' })).json();
   const res = await fetch(`${baseUrl}/games/${created.gameId}/join`, {
