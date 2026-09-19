@@ -500,3 +500,66 @@ button:disabled {
 .result h2 {
   margin: 0 0 0.5rem;
 }
+
+.stage-banner-region {
+  position: fixed;
+  top: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  pointer-events: none;
+}
+
+.stage-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.9rem 2rem;
+  border-radius: 12px;
+  border: 2px solid var(--accent);
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  animation: stage-banner-in 2.5s ease both;
+}
+
+.stage-banner strong {
+  font-size: 1.15rem;
+  color: var(--accent);
+}
+
+.stage-banner-song {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.stage-banner-song strong {
+  font-size: 1.5rem;
+  color: var(--bg);
+}
+
+.stage-banner-song span {
+  color: var(--bg);
+  font-weight: 600;
+}
+
+@keyframes stage-banner-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.95);
+  }
+  10%,
+  80% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage-banner {
+    animation: none;
+  }
+}

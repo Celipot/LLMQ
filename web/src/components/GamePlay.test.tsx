@@ -847,4 +847,54 @@ describe('GamePlay', () => {
 
     expect(screen.queryByText('Historique')).not.toBeInTheDocument();
   });
+  describe('stage change banner', () => {
+    function renderGamePlay(overrides: { stage: number; songIndex: number }) {
+      return (
+        <GamePlay
+          gameId="g1"
+          stage={overrides.stage}
+          maxStage={6}
+          durationSeconds={4}
+          nextDurationSeconds={null}
+          answerWindowMs={30000}
+          startedAt={Date.now()}
+          songIndex={overrides.songIndex}
+          songCount={5}
+          scores={{}}
+          onSubmitAnswer={vi.fn()}
+          answerFeedback={null}
+          forfeited={false}
+          onForfeit={vi.fn()}
+          answerPending={false}
+          forfeitPending={false}
+          players={[]}
+          songHistory={[]}
+        />
+      );
+    }
+
+    test('flags a new song when the game starts on its first stage', () => {
+      vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
+      render(renderGamePlay({ stage: 1, songIndex: 1 }));
+
+      expect(screen.getByText('Nouvelle musique')).toBeInTheDocument();
+    });
+
+    test('flags a new stage when the stage advances', () => {
+      vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
+      const { rerender } = render(renderGamePlay({ stage: 2, songIndex: 1 }));
+
+      rerender(renderGamePlay({ stage: 3, songIndex: 1 }));
+
+      expect(screen.getByText('Nouvelle étape')).toBeInTheDocument();
+    });
+
+    test('does not flag anything when the game is joined mid-song', () => {
+      vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
+      render(renderGamePlay({ stage: 3, songIndex: 2 }));
+
+      expect(screen.queryByText('Nouvelle étape')).not.toBeInTheDocument();
+      expect(screen.queryByText('Nouvelle musique')).not.toBeInTheDocument();
+    });
+  });
 });

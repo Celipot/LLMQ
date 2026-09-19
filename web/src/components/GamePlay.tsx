@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import Player from './Player';
 import SearchAutocomplete from './SearchAutocomplete';
+import StageChangeBanner from './StageChangeBanner';
 import { useAudioPlayer } from '../hooks/useAudioPlayer';
+import { useStageChangeNotice } from '../hooks/useStageChangeNotice';
 import { fetchTitles, multiplayerAudioTrackUrl } from '../api';
 import type {
   AnswerFeedback,
@@ -87,6 +89,7 @@ export default function GamePlay({
   const wrong = answerFeedback?.correct === false;
   const locked = found || forfeited;
   const busy = answerPending || forfeitPending;
+  const stageChangeNotice = useStageChangeNotice({ songIndex, songCount, stage, maxStage, durationSeconds });
 
   useEffect(() => {
     fetchTitles()
@@ -118,6 +121,7 @@ export default function GamePlay({
 
   return (
     <div className="game-layout">
+      <StageChangeBanner notice={stageChangeNotice} />
       <div className="sidebar">
         <aside className="stage-info">
           <p className="stage-info-song">
