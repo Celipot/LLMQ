@@ -225,6 +225,8 @@ const CAREER_ERROR_STATUS = {
   NO_ENERGY: 409,
   RELEASE_DUE: 409,
   RELEASE_NOT_DUE: 409,
+  CONCERT_DUE: 409,
+  CONCERT_NOT_DUE: 409,
   CAREER_FINISHED: 409,
 };
 
@@ -261,6 +263,11 @@ app.post('/api/career', requireSession, (req, res) => {
   res.json(careerResponse(req.solo));
 });
 
+app.delete('/api/career', requireSession, (req, res) => {
+  careerRounds.abandonCareer(req.solo);
+  res.status(204).end();
+});
+
 app.get('/api/career', requireSession, requireCareer, (req, res) => {
   careerRounds.resumeRound(req.solo);
   res.json(careerResponse(req.solo));
@@ -283,11 +290,27 @@ app.post(
 );
 
 app.post(
+  '/api/career/single',
+  requireSession,
+  requireCareer,
+  requireNoCareerRound,
+  careerAction((session) => careerRounds.startSingle(session)),
+);
+
+app.post(
   '/api/career/release',
   requireSession,
   requireCareer,
   requireNoCareerRound,
   careerAction((session) => careerRounds.startRelease(session)),
+);
+
+app.post(
+  '/api/career/concert',
+  requireSession,
+  requireCareer,
+  requireNoCareerRound,
+  careerAction((session) => careerRounds.startConcert(session)),
 );
 
 app.post('/games', (req, res) => {

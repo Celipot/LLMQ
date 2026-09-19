@@ -25,11 +25,31 @@ function createCareer(session) {
   session.careerRound = null;
 }
 
+function abandonCareer(session) {
+  session.career = null;
+  session.careerRound = null;
+}
+
+function publicTracks(tracks) {
+  return tracks.map(({ songId, rank, points }) => ({ song: songSummary(songId), rank, points }));
+}
+
+function publicResult(result, maxScore) {
+  if (!result) return null;
+  return {
+    score: result.score,
+    maxScore,
+    grade: result.grade,
+    tracks: publicTracks(result.tracks),
+  };
+}
+
 function publicCareer(session) {
   const state = session.career;
   return {
     turn: state.turn,
     totalTurns: career.TOTAL_TURNS,
+    releaseAt: career.RELEASE_AFTER_TURN,
     energy: state.energy,
     maxEnergy: career.MAX_ENERGY,
     stats: { ...state.stats },
@@ -37,18 +57,13 @@ function publicCareer(session) {
     notebook: state.notebook.map(songSummary),
     releaseDue: career.isReleaseDue(state),
     album: { done: state.album.length, total: career.ALBUM_SIZE },
-    release: state.release
-      ? {
-          score: state.release.score,
-          maxScore: career.MAX_ALBUM_SCORE,
-          grade: state.release.grade,
-          tracks: state.release.tracks.map(({ songId, rank, points }) => ({
-            song: songSummary(songId),
-            rank,
-            points,
-          })),
-        }
-      : null,
+    release: publicResult(state.release, career.MAX_ALBUM_SCORE),
+    fans: { current: state.fans, required: career.FANS_REQUIRED },
+    failure: state.failure,
+    albumGoalGrade: career.ALBUM_GOAL_GRADE,
+    concertDue: career.isConcertDue(state),
+    concert: { done: state.concertTracks.length, total: career.CONCERT_SIZE },
+    concertResult: publicResult(state.concert, career.MAX_CONCERT_SCORE),
   };
 }
 
@@ -89,12 +104,32 @@ function startStudy(session, stat) {
   startRound(session, 'study', stat, career.pickSongId(discography, session.career.notebook));
 }
 
+// A single trains harder than a study, on a random stat, and its title is not
+// added to the notebook.
+function startSingle(session) {
+  const stat = career.pickStat();
+  career.assertCanSingle(session.career, stat);
+  startRound(session, 'single', stat, career.pickSongId(discography, session.career.notebook));
+}
+
+function trackSongIds(tracks) {
+  return tracks.map((track) => track.songId);
+}
+
 // Starts the next track of the album: it goes on until the 6th one is played.
 function startRelease(session) {
   const { notebook, album } = session.career;
   career.assertCanRelease(session.career);
-  const albumSongIds = album.map((track) => track.songId);
-  startRound(session, 'release', null, career.pickAlbumSongId(discography, notebook, albumSongIds));
+  const songId = career.pickPreparedSongId(discography, notebook, trackSongIds(album));
+  startRound(session, 'release', null, songId);
+}
+
+// Starts the next track of the concert: it goes on until the 15th one is played.
+function startConcert(session) {
+  const { notebook, concertTracks } = session.career;
+  career.assertCanConcert(session.career);
+  const songId = career.pickPreparedSongId(discography, notebook, trackSongIds(concertTracks));
+  startRound(session, 'concert', null, songId);
 }
 
 // Returns true when a finished round was applied to the career.
@@ -105,8 +140,12 @@ function settleRound(session) {
   const foundAtStage = status === 'won' ? attemptsUsed : null;
   if (round.kind === 'study') {
     career.study(session.career, round.stat, foundAtStage, round.songId);
-  } else {
+  } else if (round.kind === 'single') {
+    career.single(session.career, round.stat, foundAtStage);
+  } else if (round.kind === 'release') {
     career.finishAlbumTrack(session.career, foundAtStage, round.songId);
+  } else {
+    career.finishConcertTrack(session.career, foundAtStage, round.songId);
   }
   session.careerRound = null;
   return true;
@@ -114,11 +153,14 @@ function settleRound(session) {
 
 module.exports = {
   createCareer,
+  abandonCareer,
   publicCareer,
   publicRound,
   resumeRound,
   rest,
   startStudy,
+  startSingle,
   startRelease,
+  startConcert,
   settleRound,
 };

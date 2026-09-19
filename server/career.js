@@ -1,5 +1,5 @@
-// Pure rules of the Mode Carrière (see us/carriere-v1.md): stats, energy,
-// turns and ranks. Isolated from Express and from song data, like gameState.js.
+// Pure rules of the Mode Carrière (see us/carriere-v1.md and us/carriere-v2.md):
+// stats, energy, turns and ranks. Isolated from Express and from song data, like gameState.js.
 
 const DISCOGRAPHY_ARTISTS = new Set([
   'Ayumu Uehara (CV: Aguri Onishi)',
@@ -16,21 +16,34 @@ const HEARING_BONUS_SECONDS = 0.5;
 const MAX_EXTRA_TIERS = 2;
 const MAX_EXTRA_SUGGESTIONS = 3;
 
-const TOTAL_TURNS = 10;
-const MAX_ENERGY = 3;
+// Two phases of 10 turns: the album is released after the first, the concert
+// after the second.
+const RELEASE_AFTER_TURN = 10;
+const TOTAL_TURNS = 2 * RELEASE_AFTER_TURN;
+const MAX_ENERGY = 4;
 const STUDY_COST = 1;
-const REST_GAIN = 3;
+const SINGLE_COST = 2;
 
 // Finding the title earlier teaches more; failing still teaches a little.
-const STUDY_GAIN_BY_STAGE = { 1: 80, 2: 60, 3: 45 };
-const STUDY_GAIN_LATE = 40;
-const STUDY_GAIN_FAILED = 30;
+const STUDY_GAINS = { byStage: { 1: 40, 2: 30, 3: 25 }, late: 20, failed: 15 };
+const SINGLE_GAINS = { byStage: { 1: 90, 2: 65, 3: 50 }, late: 45, failed: 30 };
+
+// Fans (FSI, "fan de school idols") are only won by releasing music: singles
+// and the album. A minimum is required to take part in the concert.
+const FANS_REQUIRED = 300;
+const SINGLE_FANS = { byStage: { 1: 40, 2: 30, 3: 25 }, late: 20, failed: 10 };
+const ALBUM_FANS_DIVISOR = 2;
+// The album must be graded at least this well, otherwise the career is failed.
+const ALBUM_GOAL_GRADE = 'B';
+const GRADE_ORDER = ['S', 'A', 'B', 'C', 'D'];
 
 const ALBUM_SIZE = 6;
+const CONCERT_SIZE = 15;
 const TRACK_POINTS_BY_STAGE = { 1: 100, 2: 70, 3: 50, 4: 35, 5: 25 };
 const MAX_ALBUM_SCORE = ALBUM_SIZE * TRACK_POINTS_BY_STAGE[1];
+const MAX_CONCERT_SCORE = CONCERT_SIZE * TRACK_POINTS_BY_STAGE[1];
 // Minimum share of the maximum score (in %) for each grade, best first.
-const ALBUM_GRADES = [
+const GRADES = [
   ['S', 90],
   ['A', 70],
   ['B', 50],
@@ -58,9 +71,25 @@ function suggestionCount(stats) {
   return 1 + Math.min(unlockedSteps(stats.memoire), MAX_EXTRA_SUGGESTIONS);
 }
 
+function gainFor(gains, foundAtStage) {
+  if (foundAtStage === null) return gains.failed;
+  return gains.byStage[foundAtStage] ?? gains.late;
+}
+
 function studyGain(foundAtStage) {
-  if (foundAtStage === null) return STUDY_GAIN_FAILED;
-  return STUDY_GAIN_BY_STAGE[foundAtStage] ?? STUDY_GAIN_LATE;
+  return gainFor(STUDY_GAINS, foundAtStage);
+}
+
+function singleGain(foundAtStage) {
+  return gainFor(SINGLE_GAINS, foundAtStage);
+}
+
+function singleFans(foundAtStage) {
+  return gainFor(SINGLE_FANS, foundAtStage);
+}
+
+function albumGoalReached(grade) {
+  return GRADE_ORDER.indexOf(grade) <= GRADE_ORDER.indexOf(ALBUM_GOAL_GRADE);
 }
 
 function createCareer() {
@@ -70,23 +99,47 @@ function createCareer() {
     stats: { oreille: 0, memoire: 0, culture: 0 },
     notebook: [],
     album: [],
+    concertTracks: [],
+    fans: 0,
+    failure: null,
   };
 }
 
+// state.release is the released album, state.concert the finished concert.
 function isReleaseDue(state) {
-  return state.turn > TOTAL_TURNS;
+  return !state.release && state.turn > RELEASE_AFTER_TURN;
+}
+
+function isConcertDue(state) {
+  return Boolean(state.release) && !state.failure && !state.concert && state.turn > TOTAL_TURNS;
+}
+
+// Spending a turn ends the second phase on a failure when the fans needed for
+// the concert were not won in time.
+function advanceTurn(state) {
+  state.turn += 1;
+  if (state.release && state.turn > TOTAL_TURNS && state.fans < FANS_REQUIRED) state.failure = 'FANS';
 }
 
 function assertTurnAvailable(state) {
-  if (state.release) throw new Error('CAREER_FINISHED');
+  if (state.concert || state.failure) throw new Error('CAREER_FINISHED');
   if (isReleaseDue(state)) throw new Error('RELEASE_DUE');
+  if (isConcertDue(state)) throw new Error('CONCERT_DUE');
 }
 
-// Checked before a study round starts, so a refused study never draws a title.
-function assertCanStudy(state, stat) {
+// Checked before a round starts, so a refused action never draws a title.
+function assertCanSpend(state, stat, cost) {
   assertTurnAvailable(state);
   if (!STATS.includes(stat)) throw new Error('INVALID_STAT');
-  if (state.energy < STUDY_COST) throw new Error('NO_ENERGY');
+  if (state.energy < cost) throw new Error('NO_ENERGY');
+}
+
+function assertCanStudy(state, stat) {
+  assertCanSpend(state, stat, STUDY_COST);
+}
+
+function assertCanSingle(state, stat) {
+  assertCanSpend(state, stat, SINGLE_COST);
 }
 
 // foundAtStage is the 1-based tier the title was found at, null when the study
@@ -96,13 +149,22 @@ function study(state, stat, foundAtStage, songId) {
   state.energy -= STUDY_COST;
   state.stats[stat] += studyGain(foundAtStage);
   if (foundAtStage !== null) state.notebook.push(songId);
-  state.turn += 1;
+  advanceTurn(state);
+}
+
+// A single trains harder than a study but its title never enters the notebook.
+function single(state, stat, foundAtStage) {
+  assertCanSingle(state, stat);
+  state.energy -= SINGLE_COST;
+  state.stats[stat] += singleGain(foundAtStage);
+  state.fans += singleFans(foundAtStage);
+  advanceTurn(state);
 }
 
 function rest(state) {
   assertTurnAvailable(state);
-  state.energy = Math.min(MAX_ENERGY, state.energy + REST_GAIN);
-  state.turn += 1;
+  state.energy = MAX_ENERGY;
+  advanceTurn(state);
 }
 
 function releaseRank(foundAtStage) {
@@ -118,23 +180,53 @@ function trackPoints(foundAtStage) {
 }
 
 // Integer comparison: a share like 70% of 600 must not depend on float rounding.
-function albumGrade(score) {
-  const grade = ALBUM_GRADES.find(([, percent]) => score * 100 >= percent * MAX_ALBUM_SCORE);
-  return grade ? grade[0] : 'D';
+function grade(score, maxScore) {
+  const found = GRADES.find(([, percent]) => score * 100 >= percent * maxScore);
+  return found ? found[0] : 'D';
 }
 
 function assertCanRelease(state) {
-  if (state.release) throw new Error('CAREER_FINISHED');
+  if (state.concert || state.failure) throw new Error('CAREER_FINISHED');
   if (!isReleaseDue(state)) throw new Error('RELEASE_NOT_DUE');
 }
 
-// The album is released once its last track is recorded, which ends the career.
+function assertCanConcert(state) {
+  if (state.concert || state.failure) throw new Error('CAREER_FINISHED');
+  if (!isConcertDue(state)) throw new Error('CONCERT_NOT_DUE');
+}
+
+function recordTrack(tracks, foundAtStage, songId) {
+  tracks.push({ songId, rank: releaseRank(foundAtStage), points: trackPoints(foundAtStage) });
+}
+
+function summarize(tracks, maxScore) {
+  const score = tracks.reduce((total, track) => total + track.points, 0);
+  return { score, grade: grade(score, maxScore), tracks };
+}
+
+// The album is released once its last track is recorded; the career goes on
+// with a second phase of turns.
 function finishAlbumTrack(state, foundAtStage, songId) {
   assertCanRelease(state);
-  state.album.push({ songId, rank: releaseRank(foundAtStage), points: trackPoints(foundAtStage) });
+  recordTrack(state.album, foundAtStage, songId);
   if (state.album.length < ALBUM_SIZE) return;
-  const score = state.album.reduce((total, track) => total + track.points, 0);
-  state.release = { score, grade: albumGrade(score), tracks: state.album };
+  state.release = summarize(state.album, MAX_ALBUM_SCORE);
+  state.fans += Math.floor(state.release.score / ALBUM_FANS_DIVISOR);
+  if (!albumGoalReached(state.release.grade)) state.failure = 'ALBUM_GRADE';
+}
+
+// The concert ends the career once its last track is recorded.
+function finishConcertTrack(state, foundAtStage, songId) {
+  assertCanConcert(state);
+  recordTrack(state.concertTracks, foundAtStage, songId);
+  if (state.concertTracks.length === CONCERT_SIZE) {
+    state.concert = summarize(state.concertTracks, MAX_CONCERT_SCORE);
+  }
+}
+
+// A single trains a stat the player does not choose.
+function pickStat(random = Math.random) {
+  return STATS[Math.floor(random() * STATS.length)];
 }
 
 // Prefers a title the player has not found yet; once the whole pool is found
@@ -145,35 +237,48 @@ function pickSongId(pool, foundIds, random = Math.random) {
   return source[Math.floor(random() * source.length)];
 }
 
-// The album is drawn from the titles found while studying; when there are not
-// enough (or none), it is completed with random titles of the pool. A title
-// never appears twice on the same album.
-function pickAlbumSongId(pool, studiedIds, albumSongIds, random = Math.random) {
-  const unused = pool.filter((id) => !albumSongIds.includes(id));
+// The album and the concert are drawn from the titles found while studying;
+// when there are not enough (or none), they are completed with random titles
+// of the pool. A title never appears twice on the same album or concert.
+function pickPreparedSongId(pool, studiedIds, usedIds, random = Math.random) {
+  const unused = pool.filter((id) => !usedIds.includes(id));
   const studied = unused.filter((id) => studiedIds.includes(id));
   const source = studied.length > 0 ? studied : unused;
   return source[Math.floor(random() * source.length)];
 }
 
 module.exports = {
+  FANS_REQUIRED,
+  ALBUM_GOAL_GRADE,
+  RELEASE_AFTER_TURN,
   TOTAL_TURNS,
   MAX_ENERGY,
   ALBUM_SIZE,
+  CONCERT_SIZE,
   MAX_ALBUM_SCORE,
+  MAX_CONCERT_SCORE,
   discographyIds,
   roundTiers,
   suggestionCount,
   studyGain,
+  singleGain,
+  singleFans,
   createCareer,
   isReleaseDue,
+  isConcertDue,
   assertCanStudy,
+  assertCanSingle,
   study,
+  single,
   rest,
   assertCanRelease,
+  assertCanConcert,
   finishAlbumTrack,
+  finishConcertTrack,
   trackPoints,
-  albumGrade,
+  grade,
   releaseRank,
+  pickStat,
   pickSongId,
-  pickAlbumSongId,
+  pickPreparedSongId,
 };
