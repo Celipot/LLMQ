@@ -30,16 +30,46 @@ async function parseOrThrow<T>(res: Response): Promise<T> {
   return data as T;
 }
 
+const SOLO_SESSION_KEY = 'soloSessionId';
+let memorySoloSessionId: string | null = null;
+
+function newSoloSessionId(): string {
+  // getRandomValues works on plain-http pages (LAN dev), randomUUID does not.
+  return Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+// The server keeps each player's solo round under this id. It lives in
+// sessionStorage, not localStorage: tabs of one browser share localStorage and
+// would then play (and disturb) the same round. Storage can be blocked
+// (private mode): the id then lives for the page's lifetime only.
+function soloSessionId(): string {
+  try {
+    let id = sessionStorage.getItem(SOLO_SESSION_KEY);
+    if (!id) {
+      id = newSoloSessionId();
+      sessionStorage.setItem(SOLO_SESSION_KEY, id);
+    }
+    return id;
+  } catch {
+    memorySoloSessionId ??= newSoloSessionId();
+    return memorySoloSessionId;
+  }
+}
+
+function soloFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  return fetch(url, { ...init, headers: { ...init.headers, 'X-Solo-Session': soloSessionId() } });
+}
+
 export function fetchState(): Promise<GameState> {
-  return fetch('/api/state').then((res) => parseOrThrow<GameState>(res));
+  return soloFetch('/api/state').then((res) => parseOrThrow<GameState>(res));
 }
 
 export function fetchTitles(): Promise<PlayableSong[]> {
-  return fetch('/api/titles').then((res) => parseOrThrow<PlayableSong[]>(res));
+  return soloFetch('/api/titles').then((res) => parseOrThrow<PlayableSong[]>(res));
 }
 
 export function submitGuess(title: string): Promise<GuessResponse> {
-  return fetch('/api/guess', {
+  return soloFetch('/api/guess', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ title }),
@@ -47,11 +77,11 @@ export function submitGuess(title: string): Promise<GuessResponse> {
 }
 
 export function submitSkip(): Promise<SkipResponse> {
-  return fetch('/api/skip', { method: 'POST' }).then((res) => parseOrThrow<SkipResponse>(res));
+  return soloFetch('/api/skip', { method: 'POST' }).then((res) => parseOrThrow<SkipResponse>(res));
 }
 
 export function resetGame(history?: SongHistory): Promise<GameState> {
-  return fetch('/api/reset', {
+  return soloFetch('/api/reset', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ history }),
@@ -63,7 +93,7 @@ export function fetchGenerations(): Promise<GenerationOption[]> {
 }
 
 export function startRandomMode(generations?: string[], history?: SongHistory): Promise<GameState> {
-  return fetch('/api/mode/random', {
+  return soloFetch('/api/mode/random', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ generations, history }),
@@ -71,7 +101,7 @@ export function startRandomMode(generations?: string[], history?: SongHistory): 
 }
 
 export function selectSong(id: number): Promise<GameState> {
-  return fetch(`/api/songs/${id}/select`, { method: 'POST' }).then((res) => parseOrThrow<GameState>(res));
+  return soloFetch(`/api/songs/${id}/select`, { method: 'POST' }).then((res) => parseOrThrow<GameState>(res));
 }
 
 export function createMultiplayerGame(): Promise<CreateGameResponse> {
@@ -138,7 +168,7 @@ export function startMultiplayerGame(gameId: string, hostToken: string): Promise
 export function audioTrackUrl(): string {
   // Cache-busted: the allowed duration may have changed since the last fetch,
   // and the server is the only source of truth for how much audio is served.
-  return `/audio/track?ts=${Date.now()}`;
+  return `/audio/track?sid=${soloSessionId()}&ts=${Date.now()}`;
 }
 
 export function multiplayerAudioTrackUrl(gameId: string): string {

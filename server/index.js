@@ -8,6 +8,7 @@ const multiplayerGames = require('./multiplayerGames');
 const wsServer = require('./wsServer');
 const songs = require('./songs');
 const songPicker = require('./songPicker');
+const soloSessions = require('./soloSessions');
 const avatars = require('./avatars');
 const { truncateWavFile } = require('./wavTruncate');
 
@@ -24,18 +25,36 @@ app.get('/game/:id', (req, res) => {
 });
 
 // Namespaced so a Random-mode pick never shows up as "en cours" in the List
-// mode badges for the same song (that would leak the answer while playing).
-function keyFor(mode, songId) {
-  return `${mode}:${songId}`;
+// mode badges for the same song (that would leak the answer while playing),
+// and per session so two players on the same song never share their attempts.
+function keyFor(session, mode, songId) {
+  return `${session.id}:${mode}:${songId}`;
 }
 
-let activeSongId = null;
-let activeKey = null;
-let lastRandomSongId = null;
+const soloStore = soloSessions.createStore({
+  createSession: () => ({
+    activeSongId: null,
+    activeKey: null,
+    lastRandomSongId: null,
+    randomGenerations: songs.getGenerations().map((g) => g.generation),
+  }),
+  onExpire: (id) => gameState.deleteByPrefix(`${id}:`),
+});
 
-function correctSongIfFinished() {
-  if (!activeKey || !gameState.isFinished(activeKey)) return undefined;
-  const { id, title, artist, coverUrl } = songs.getSongById(activeSongId);
+// <audio src> cannot send headers, so the audio route also takes the id as ?sid=.
+function requireSoloSession(req, res, next) {
+  const id = req.get('X-Solo-Session') ?? (req.path === '/audio/track' ? req.query.sid : undefined);
+  if (!soloSessions.isValidSessionId(id)) {
+    return res.status(400).json({ error: 'SESSION_REQUIRED' });
+  }
+  req.solo = soloStore.get(id);
+  if (req.solo.activeKey === null) enterRandomMode(req.solo);
+  next();
+}
+
+function correctSongIfFinished(session) {
+  if (!session.activeKey || !gameState.isFinished(session.activeKey)) return undefined;
+  const { id, title, artist, coverUrl } = songs.getSongById(session.activeSongId);
   return { id, title, artist, coverUrl };
 }
 
@@ -46,61 +65,60 @@ function readHistory(body) {
   return songPicker.sanitizeHistory(body.history, (id) => songs.getSongById(id) !== null, Date.now());
 }
 
-function drawRandomSongId(history) {
-  if (Object.keys(history).length === 0) return songs.pickRandomSongId(randomGenerations);
-  return songPicker.pickWeightedSongId(songs.getPoolIds(randomGenerations), history, Date.now());
+function drawRandomSongId(session, history) {
+  if (Object.keys(history).length === 0) return songs.pickRandomSongId(session.randomGenerations);
+  return songPicker.pickWeightedSongId(songs.getPoolIds(session.randomGenerations), history, Date.now());
 }
-
-let randomGenerations = songs.getGenerations().map((g) => g.generation);
 
 function sameSelection(a, b) {
   return a.length === b.length && a.every((generation) => b.includes(generation));
 }
 
+function startRandomRound(session, history) {
+  session.activeSongId = drawRandomSongId(session, history);
+  session.lastRandomSongId = session.activeSongId;
+  session.activeKey = keyFor(session, 'random', session.activeSongId);
+  gameState.resetState(session.activeKey);
+}
+
 // A new selection must not resume the unfinished round: it was drawn from the
 // previous pool, so it may not belong to the generations the player just picked.
-function enterRandomMode(generations, history = {}) {
-  const selectionChanged = generations !== undefined && !sameSelection(generations, randomGenerations);
-  if (selectionChanged) randomGenerations = generations;
+function enterRandomMode(session, generations, history = {}) {
+  const selectionChanged = generations !== undefined && !sameSelection(generations, session.randomGenerations);
+  if (selectionChanged) session.randomGenerations = generations;
   if (
     !selectionChanged &&
-    lastRandomSongId !== null &&
-    !gameState.isFinished(keyFor('random', lastRandomSongId))
+    session.lastRandomSongId !== null &&
+    !gameState.isFinished(keyFor(session, 'random', session.lastRandomSongId))
   ) {
-    activeSongId = lastRandomSongId;
+    session.activeSongId = session.lastRandomSongId;
+    session.activeKey = keyFor(session, 'random', session.activeSongId);
   } else {
-    activeSongId = drawRandomSongId(history);
-    lastRandomSongId = activeSongId;
-    gameState.resetState(keyFor('random', activeSongId));
+    startRandomRound(session, history);
   }
-  activeKey = keyFor('random', activeSongId);
-  return gameState.getPublicState(activeKey, correctSongIfFinished());
+  return gameState.getPublicState(session.activeKey, correctSongIfFinished(session));
 }
 
-function forceNewRandomRound(history = {}) {
-  activeSongId = drawRandomSongId(history);
-  lastRandomSongId = activeSongId;
-  gameState.resetState(keyFor('random', activeSongId));
-  activeKey = keyFor('random', activeSongId);
-  return gameState.getPublicState(activeKey, correctSongIfFinished());
+function forceNewRandomRound(session, history = {}) {
+  startRandomRound(session, history);
+  return gameState.getPublicState(session.activeKey, correctSongIfFinished(session));
 }
 
-function selectListSong(songId) {
-  activeSongId = songId;
-  activeKey = keyFor('list', songId);
-  return gameState.getPublicState(activeKey, correctSongIfFinished());
+function selectListSong(session, songId) {
+  session.activeSongId = songId;
+  session.activeKey = keyFor(session, 'list', songId);
+  return gameState.getPublicState(session.activeKey, correctSongIfFinished(session));
 }
 
-enterRandomMode();
-
-app.get('/api/state', (req, res) => {
-  res.json(gameState.getPublicState(activeKey, correctSongIfFinished()));
+app.get('/api/state', requireSoloSession, (req, res) => {
+  const session = req.solo;
+  res.json(gameState.getPublicState(session.activeKey, correctSongIfFinished(session)));
 });
 
-app.get('/api/titles', (req, res) => {
+app.get('/api/titles', requireSoloSession, (req, res) => {
   const titles = songs.getPlayableTitles().map((song) => ({
     ...song,
-    status: gameState.getStatus(keyFor('list', song.id)),
+    status: gameState.getStatus(keyFor(req.solo, 'list', song.id)),
   }));
   res.json(titles);
 });
@@ -109,7 +127,7 @@ app.get('/api/generations', (req, res) => {
   res.json(songs.getGenerations());
 });
 
-app.post('/api/mode/random', (req, res) => {
+app.post('/api/mode/random', requireSoloSession, (req, res) => {
   const { generations } = req.body || {};
   if (generations !== undefined && !songs.isValidGenerationSelection(generations)) {
     return res.status(400).json({ error: 'INVALID_GENERATIONS' });
@@ -118,19 +136,20 @@ app.post('/api/mode/random', (req, res) => {
   if (history === null) {
     return res.status(400).json({ error: 'INVALID_HISTORY' });
   }
-  res.json(enterRandomMode(generations, history));
+  res.json(enterRandomMode(req.solo, generations, history));
 });
 
-app.post('/api/songs/:id/select', (req, res) => {
+app.post('/api/songs/:id/select', requireSoloSession, (req, res) => {
   const songId = Number(req.params.id);
   const song = songs.getSongById(songId);
   if (!song) {
     return res.status(404).json({ error: 'UNKNOWN_SONG' });
   }
-  res.json(selectListSong(songId));
+  res.json(selectListSong(req.solo, songId));
 });
 
-app.get('/audio/track', async (req, res) => {
+app.get('/audio/track', requireSoloSession, async (req, res) => {
+  const { activeKey, activeSongId } = req.solo;
   const seconds = gameState.isFinished(activeKey) ? Infinity : gameState.currentAllowedSeconds(activeKey);
   const filePath = songs.getAudioPath(activeSongId);
   res.set('Content-Type', 'audio/wav');
@@ -153,7 +172,9 @@ app.get('/audio/track', async (req, res) => {
   }
 });
 
-app.post('/api/guess', (req, res) => {
+app.post('/api/guess', requireSoloSession, (req, res) => {
+  const session = req.solo;
+  const { activeKey, activeSongId } = session;
   if (gameState.isFinished(activeKey)) {
     return res.status(409).json({ error: 'GAME_FINISHED' });
   }
@@ -173,32 +194,31 @@ app.post('/api/guess', (req, res) => {
 
   res.json({
     correct: isCorrect,
-    state: gameState.getPublicState(activeKey, correctSongIfFinished()),
+    state: gameState.getPublicState(activeKey, correctSongIfFinished(session)),
   });
 });
 
-app.post('/api/skip', (req, res) => {
-  if (gameState.isFinished(activeKey)) {
+app.post('/api/skip', requireSoloSession, (req, res) => {
+  const session = req.solo;
+  if (gameState.isFinished(session.activeKey)) {
     return res.status(409).json({ error: 'GAME_FINISHED' });
   }
 
-  gameState.applySkip(activeKey);
+  gameState.applySkip(session.activeKey);
 
   res.json({
-    state: gameState.getPublicState(activeKey, correctSongIfFinished()),
+    state: gameState.getPublicState(session.activeKey, correctSongIfFinished(session)),
   });
 });
 
-app.post('/api/reset', (req, res) => {
-  // Dev-only convenience route, not authenticated. Must be protected/removed
-  // before any multi-user deployment (see US-6.1 known limitation). Always
-  // forces a fresh Random-mode draw, matching its pre-existing "rejouer"
-  // semantics from the MVP screen.
+app.post('/api/reset', requireSoloSession, (req, res) => {
+  // Only touches the caller's own session. Always forces a fresh Random-mode
+  // draw, matching its pre-existing "rejouer" semantics from the MVP screen.
   const history = readHistory(req.body);
   if (history === null) {
     return res.status(400).json({ error: 'INVALID_HISTORY' });
   }
-  res.json(forceNewRandomRound(history));
+  res.json(forceNewRandomRound(req.solo, history));
 });
 
 app.post('/games', (req, res) => {

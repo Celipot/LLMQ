@@ -1,8 +1,8 @@
 // In-memory game state machine, keyed per round (see server/index.js for how
-// keys are built: 'random:<songId>' vs 'list:<songId>', kept in separate
-// namespaces so a Random-mode pick never leaks into the List-mode badges for
-// the same song). Isolated from song data and from Express so a future
-// per-player store can wrap this same shape.
+// keys are built: '<sessionId>:random:<songId>' vs '<sessionId>:list:<songId>',
+// kept in separate namespaces so a Random-mode pick never leaks into the
+// List-mode badges for the same song, nor one player's round into another's).
+// Isolated from song data and from Express.
 
 const TIERS_SECONDS = [1, 2, 4, 7, 11, 16];
 const MAX_ATTEMPTS = TIERS_SECONDS.length;
@@ -27,6 +27,12 @@ function getOrCreate(key) {
 function resetState(key) {
   states.set(key, createInitialState());
   return getPublicState(key);
+}
+
+function deleteByPrefix(prefix) {
+  for (const key of states.keys()) {
+    if (key.startsWith(prefix)) states.delete(key);
+  }
 }
 
 function currentAllowedSeconds(key) {
@@ -105,6 +111,7 @@ module.exports = {
   TIERS_SECONDS,
   MAX_ATTEMPTS,
   resetState,
+  deleteByPrefix,
   currentAllowedSeconds,
   isFinished,
   getStatus,

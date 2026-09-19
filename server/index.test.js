@@ -7,6 +7,18 @@ const multiplayerGames = require('./multiplayerGames');
 const wsServer = require('./wsServer');
 const gameState = require('./gameState');
 
+const SESSION_HEADER = 'X-Solo-Session';
+const DEFAULT_SESSION = 'test-session-default-0000000000';
+
+// Solo routes require a session; every test runs as one player unless it
+// passes its own header to model a second player.
+function fetch(url, options = {}) {
+  return globalThis.fetch(url, {
+    ...options,
+    headers: { [SESSION_HEADER]: DEFAULT_SESSION, ...options.headers },
+  });
+}
+
 let server;
 let baseUrl;
 
@@ -791,6 +803,100 @@ test('GET /games/:id/audio clip length is unaffected by the host-configured answ
   ).arrayBuffer();
 
   assert.equal(longAnswerWindowBytes.byteLength, defaultBytes.byteLength);
+});
+
+const PLAYER_A = { [SESSION_HEADER]: 'player-a-session-000000000000' };
+const PLAYER_B = { [SESSION_HEADER]: 'player-b-session-000000000000' };
+
+async function asPlayer(headers, route, options = {}) {
+  const res = await fetch(`${baseUrl}${route}`, { ...options, headers: { ...headers, ...options.headers } });
+  return res.json();
+}
+
+test('solo rounds are isolated per session: one player skipping does not advance another', async () => {
+  await asPlayer(PLAYER_A, '/api/reset', { method: 'POST' });
+  await asPlayer(PLAYER_B, '/api/reset', { method: 'POST' });
+
+  await asPlayer(PLAYER_A, '/api/skip', { method: 'POST' });
+
+  assert.equal((await asPlayer(PLAYER_A, '/api/state')).attemptsUsed, 1);
+  assert.equal((await asPlayer(PLAYER_B, '/api/state')).attemptsUsed, 0);
+});
+
+test('solo rounds are isolated per session even when both players are on the same song', async () => {
+  await asPlayer(PLAYER_A, `/api/songs/${songA.id}/select`, { method: 'POST' });
+  await asPlayer(PLAYER_B, `/api/songs/${songA.id}/select`, { method: 'POST' });
+
+  await asPlayer(PLAYER_A, '/api/skip', { method: 'POST' });
+
+  assert.equal((await asPlayer(PLAYER_B, '/api/state')).attemptsUsed, 0);
+  const titlesForB = await asPlayer(PLAYER_B, '/api/titles');
+  assert.equal(titlesForB.find((t) => t.id === songA.id).status, 'playing');
+  const titlesForA = await asPlayer(PLAYER_A, '/api/titles');
+  assert.equal(titlesForA.find((t) => t.id === songA.id).status, 'playing');
+});
+
+test('a reset by one player leaves the other player round untouched', async () => {
+  await asPlayer(PLAYER_A, '/api/reset', { method: 'POST' });
+  await asPlayer(PLAYER_B, '/api/reset', { method: 'POST' });
+  await asPlayer(PLAYER_B, '/api/skip', { method: 'POST' });
+
+  await asPlayer(PLAYER_A, '/api/reset', { method: 'POST' });
+
+  assert.equal((await asPlayer(PLAYER_B, '/api/state')).attemptsUsed, 1);
+});
+
+test('the generations chosen by one player do not change the pool of another', async () => {
+  await asPlayer(PLAYER_A, '/api/mode/random', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ generations: ['Musical'] }),
+  });
+  await asPlayer(PLAYER_B, '/api/reset', { method: 'POST' });
+
+  const pool = new Set(songs.getPoolIds(ALL_GENERATIONS));
+  for (let i = 0; i < 6; i++) await asPlayer(PLAYER_B, '/api/skip', { method: 'POST' });
+  const revealed = await asPlayer(PLAYER_B, '/api/state');
+  assert.ok(pool.has(revealed.correctSongId));
+
+  for (let i = 0; i < 6; i++) await asPlayer(PLAYER_A, '/api/skip', { method: 'POST' });
+  const revealedForA = await asPlayer(PLAYER_A, '/api/state');
+  assert.equal(songs.getSongById(revealedForA.correctSongId).generation, 'Musical');
+});
+
+test('GET /audio/track serves the clip length of the calling session only', async () => {
+  await asPlayer(PLAYER_A, `/api/songs/${songA.id}/select`, { method: 'POST' });
+  await asPlayer(PLAYER_B, `/api/songs/${songA.id}/select`, { method: 'POST' });
+  await asPlayer(PLAYER_A, '/api/skip', { method: 'POST' });
+
+  const clipA = await (await fetch(`${baseUrl}/audio/track`, { headers: PLAYER_A })).arrayBuffer();
+  const clipB = await (await fetch(`${baseUrl}/audio/track`, { headers: PLAYER_B })).arrayBuffer();
+
+  assert.ok(clipA.byteLength > clipB.byteLength);
+});
+
+test('GET /audio/track accepts the session as a query parameter since <audio> cannot send headers', async () => {
+  await asPlayer(PLAYER_A, `/api/songs/${songA.id}/select`, { method: 'POST' });
+  await asPlayer(PLAYER_A, '/api/skip', { method: 'POST' });
+
+  const viaHeader = await (await fetch(`${baseUrl}/audio/track`, { headers: PLAYER_A })).arrayBuffer();
+  const viaQuery = await (
+    await globalThis.fetch(`${baseUrl}/audio/track?sid=${PLAYER_A[SESSION_HEADER]}`)
+  ).arrayBuffer();
+
+  assert.equal(viaQuery.byteLength, viaHeader.byteLength);
+});
+
+test('solo routes reject a missing or malformed session id', async () => {
+  const routes = ['/api/state', '/api/titles', '/audio/track'];
+  for (const route of routes) {
+    const missing = await globalThis.fetch(`${baseUrl}${route}`);
+    assert.equal(missing.status, 400);
+    assert.equal((await missing.json()).error, 'SESSION_REQUIRED');
+
+    const malformed = await globalThis.fetch(`${baseUrl}${route}`, { headers: { [SESSION_HEADER]: 'nope' } });
+    assert.equal(malformed.status, 400);
+  }
 });
 
 test('List mode guesses never affect the concurrent Random mode round for the same song', async () => {
