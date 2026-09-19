@@ -1,6 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const multiplayerGames = require('./multiplayerGames');
+const songs = require('./songs');
 
 test('createGame returns a lobby game with an id, host token, no players and stage 0', () => {
   const game = multiplayerGames.createGame();
@@ -143,6 +144,58 @@ test('setAnswerWindowSeconds throws INVALID_ANSWER_WINDOW for 9, 301 and non-int
   assert.throws(() => multiplayerGames.setAnswerWindowSeconds(game.gameId, game.hostToken, 301), /INVALID_ANSWER_WINDOW/);
   assert.throws(() => multiplayerGames.setAnswerWindowSeconds(game.gameId, game.hostToken, 30.5), /INVALID_ANSWER_WINDOW/);
   assert.throws(() => multiplayerGames.setAnswerWindowSeconds(game.gameId, game.hostToken, 'abc'), /INVALID_ANSWER_WINDOW/);
+});
+
+test('a new game allows every generation by default', () => {
+  const game = multiplayerGames.createGame();
+  assert.deepEqual(
+    game.generations,
+    songs.getGenerations().map((g) => g.generation)
+  );
+});
+
+test('setGenerations updates the host-chosen generations while in the lobby', () => {
+  const game = createLobbyWithTwoPlayers();
+  const updated = multiplayerGames.setGenerations(game.gameId, game.hostToken, ['Aqours', 'Liella']);
+  assert.deepEqual(updated.generations, ['Aqours', 'Liella']);
+});
+
+test('setGenerations throws GAME_NOT_FOUND for an unknown gameId', () => {
+  assert.throws(() => multiplayerGames.setGenerations('unknown-id', 'token', ['Aqours']), /GAME_NOT_FOUND/);
+});
+
+test('setGenerations throws NOT_HOST when the token does not match', () => {
+  const game = createLobbyWithTwoPlayers();
+  assert.throws(() => multiplayerGames.setGenerations(game.gameId, 'wrong-token', ['Aqours']), /NOT_HOST/);
+});
+
+test('setGenerations throws GAME_NOT_IN_LOBBY once the game has started', () => {
+  const game = createLobbyWithTwoPlayers();
+  multiplayerGames.startGame(game.gameId, game.hostToken, () => 1);
+  assert.throws(
+    () => multiplayerGames.setGenerations(game.gameId, game.hostToken, ['Aqours']),
+    /GAME_NOT_IN_LOBBY/
+  );
+});
+
+test('setGenerations throws INVALID_GENERATIONS for an empty or unknown selection', () => {
+  const game = createLobbyWithTwoPlayers();
+  assert.throws(() => multiplayerGames.setGenerations(game.gameId, game.hostToken, []), /INVALID_GENERATIONS/);
+  assert.throws(
+    () => multiplayerGames.setGenerations(game.gameId, game.hostToken, ['Unknown']),
+    /INVALID_GENERATIONS/
+  );
+});
+
+test('startGame asks for a song among the chosen generations', () => {
+  const game = createLobbyWithTwoPlayers();
+  multiplayerGames.setGenerations(game.gameId, game.hostToken, ['Musical']);
+  let received;
+  multiplayerGames.startGame(game.gameId, game.hostToken, (generations) => {
+    received = generations;
+    return 1;
+  });
+  assert.deepEqual(received, ['Musical']);
 });
 
 test('startGame moves a lobby with 2+ players to in_progress, sets stage 1 and picks a song', () => {

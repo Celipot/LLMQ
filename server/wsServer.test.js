@@ -100,6 +100,41 @@ test('a joined player receives a lobby:state snapshot with the current players o
   socket.close();
 });
 
+test('the lobby:state snapshot carries the generations allowed for the game', async () => {
+  const { gameId, playerId } = await createGameWithPlayer('Alice');
+  const socket = await openSocket(gameId, playerId);
+  const message = await socket.nextMessage();
+  assert.deepEqual(
+    message.generations,
+    songs.getGenerations().map((g) => g.generation)
+  );
+  socket.close();
+});
+
+test('changing the generations broadcasts lobby:generations to everyone in the lobby', async () => {
+  const created = await (await fetch(`${baseUrl}/games`, { method: 'POST' })).json();
+  const joined = await (
+    await fetch(`${baseUrl}/games/${created.gameId}/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nickname: 'Alice', hostToken: created.hostToken }),
+    })
+  ).json();
+  const socket = await openSocket(created.gameId, joined.playerId);
+  await socket.nextMessage(); // lobby:state snapshot
+
+  await fetch(`${baseUrl}/games/${created.gameId}/generations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken: created.hostToken, generations: ['Aqours'] }),
+  });
+  const message = await socket.nextMessage();
+
+  assert.equal(message.type, 'lobby:generations');
+  assert.deepEqual(message.generations, ['Aqours']);
+  socket.close();
+});
+
 test('an already-connected player receives player:joined when another player connects', async () => {
   const { gameId, playerId: aliceId } = await createGameWithPlayer('Alice');
   const bob = await (
@@ -807,6 +842,21 @@ test('reconnecting mid-game sends a game:state resync with stage, players and re
   assert.ok(snapshot.remainingMs <= DEFAULT_ANSWER_WINDOW_MS);
   assert.equal(snapshot.nextDurationSeconds, gameState.TIERS_SECONDS[1]);
   assert.ok(snapshot.players.some((p) => p.playerId === aliceId));
+
+  reconnectedSocket.close();
+  bobSocket.close();
+});
+
+test('a game:state resync carries the generations allowed for the game', async () => {
+  const { gameId, aliceId, aliceSocket, bobSocket } = await createStartedGameWithSockets();
+  multiplayerGames.getGame(gameId).generations = ['Aqours'];
+  aliceSocket.close();
+
+  const reconnectedSocket = await openSocket(gameId, aliceId);
+  const snapshot = await reconnectedSocket.nextMessage();
+
+  assert.equal(snapshot.type, 'game:state');
+  assert.deepEqual(snapshot.generations, ['Aqours']);
 
   reconnectedSocket.close();
   bobSocket.close();

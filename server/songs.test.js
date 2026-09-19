@@ -25,6 +25,33 @@ test('every song in data/songs.json has exactly one known generation', () => {
   );
 });
 
+test('pickRandomSongId only returns songs of the requested generations', () => {
+  for (let i = 0; i < 50; i += 1) {
+    const song = songs.getSongById(songs.pickRandomSongId(['Musical', 'Ikizulive']));
+    assert.ok(['Musical', 'Ikizulive'].includes(song.generation));
+  }
+});
+
+test('getGenerations lists every generation with its song count', () => {
+  const all = require('../data/songs.json');
+  const generations = songs.getGenerations();
+  assert.deepEqual(
+    generations.map((g) => g.generation),
+    ["µ's", 'Aqours', 'Nijigasaki', 'Liella', 'Hasunosora', 'Ikizulive', 'Musical', 'CrossGen']
+  );
+  for (const { generation, count } of generations) {
+    assert.equal(count, all.filter((song) => song.generation === generation).length);
+  }
+});
+
+test('isValidGenerationSelection accepts a non-empty list of known generations only', () => {
+  assert.equal(songs.isValidGenerationSelection(['Aqours', 'Liella']), true);
+  assert.equal(songs.isValidGenerationSelection([]), false);
+  assert.equal(songs.isValidGenerationSelection(['Unknown']), false);
+  assert.equal(songs.isValidGenerationSelection('Aqours'), false);
+  assert.equal(songs.isValidGenerationSelection(undefined), false);
+});
+
 test('getSongById returns null for an unknown id', () => {
   assert.equal(songs.getSongById(-1), null);
 });

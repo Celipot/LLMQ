@@ -3,6 +3,7 @@
 // multiplayer game tracks lobby/players/stage rather than guesses.
 
 const crypto = require('crypto');
+const songs = require('./songs');
 
 const games = new Map();
 
@@ -15,6 +16,7 @@ function createGame() {
     stage: 0,
     songCount: 1,
     answerWindowSeconds: 60,
+    generations: songs.getGenerations().map((g) => g.generation),
   };
   games.set(game.gameId, game);
   return game;
@@ -106,6 +108,26 @@ function setAnswerWindowSeconds(gameId, hostToken, seconds) {
   return game;
 }
 
+// Host-only, lobby-only. Restricts which generations the game's songs are
+// drawn from (pickSongId receives them in startGame / checkStageProgress).
+function setGenerations(gameId, hostToken, generations) {
+  const game = games.get(gameId);
+  if (!game) {
+    throw fail('GAME_NOT_FOUND');
+  }
+  if (game.hostToken !== hostToken) {
+    throw fail('NOT_HOST');
+  }
+  if (game.status !== 'lobby') {
+    throw fail('GAME_NOT_IN_LOBBY');
+  }
+  if (!songs.isValidGenerationSelection(generations)) {
+    throw fail('INVALID_GENERATIONS');
+  }
+  game.generations = generations;
+  return game;
+}
+
 function startGame(gameId, hostToken, pickSongId) {
   const game = games.get(gameId);
   if (!game) {
@@ -123,7 +145,7 @@ function startGame(gameId, hostToken, pickSongId) {
   game.status = 'in_progress';
   game.stage = 1;
   game.songIndex = 1;
-  game.songId = pickSongId();
+  game.songId = pickSongId(game.generations);
   // Only songs already revealed (song:ended) — kept server-side so a
   // reconnecting client can rebuild its history instead of losing it.
   game.playedSongIds = [];
@@ -257,7 +279,7 @@ function checkStageProgress(gameId, getDurationForStage, maxStage, pickSongId) {
     }));
     game.playedSongIds.push(finishedSongId);
     game.songIndex += 1;
-    game.songId = pickSongId();
+    game.songId = pickSongId(game.generations);
     game.stage = 1;
     game.stageStartedAt = Date.now();
     for (const player of game.players) {
@@ -389,6 +411,7 @@ module.exports = {
   removePlayer,
   setSongCount,
   setAnswerWindowSeconds,
+  setGenerations,
   startGame,
   submitAnswer,
   forfeitStage,

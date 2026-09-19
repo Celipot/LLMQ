@@ -37,11 +37,25 @@ function correctSongIfFinished() {
   return { title, artist, coverUrl };
 }
 
-function enterRandomMode() {
-  if (lastRandomSongId !== null && !gameState.isFinished(keyFor('random', lastRandomSongId))) {
+let randomGenerations = songs.getGenerations().map((g) => g.generation);
+
+function sameSelection(a, b) {
+  return a.length === b.length && a.every((generation) => b.includes(generation));
+}
+
+// A new selection must not resume the unfinished round: it was drawn from the
+// previous pool, so it may not belong to the generations the player just picked.
+function enterRandomMode(generations) {
+  const selectionChanged = generations !== undefined && !sameSelection(generations, randomGenerations);
+  if (selectionChanged) randomGenerations = generations;
+  if (
+    !selectionChanged &&
+    lastRandomSongId !== null &&
+    !gameState.isFinished(keyFor('random', lastRandomSongId))
+  ) {
     activeSongId = lastRandomSongId;
   } else {
-    activeSongId = songs.pickRandomSongId();
+    activeSongId = songs.pickRandomSongId(randomGenerations);
     lastRandomSongId = activeSongId;
     gameState.resetState(keyFor('random', activeSongId));
   }
@@ -50,7 +64,7 @@ function enterRandomMode() {
 }
 
 function forceNewRandomRound() {
-  activeSongId = songs.pickRandomSongId();
+  activeSongId = songs.pickRandomSongId(randomGenerations);
   lastRandomSongId = activeSongId;
   gameState.resetState(keyFor('random', activeSongId));
   activeKey = keyFor('random', activeSongId);
@@ -77,8 +91,16 @@ app.get('/api/titles', (req, res) => {
   res.json(titles);
 });
 
+app.get('/api/generations', (req, res) => {
+  res.json(songs.getGenerations());
+});
+
 app.post('/api/mode/random', (req, res) => {
-  res.json(enterRandomMode());
+  const { generations } = req.body || {};
+  if (generations !== undefined && !songs.isValidGenerationSelection(generations)) {
+    return res.status(400).json({ error: 'INVALID_GENERATIONS' });
+  }
+  res.json(enterRandomMode(generations));
 });
 
 app.post('/api/songs/:id/select', (req, res) => {
@@ -245,6 +267,26 @@ app.post('/games/:id/songCount', (req, res) => {
   } catch (err) {
     const status = SONG_COUNT_ERROR_STATUS[err.code] || 500;
     res.status(status).json({ error: err.code || 'SONG_COUNT_FAILED' });
+  }
+});
+
+const GENERATIONS_ERROR_STATUS = {
+  GAME_NOT_FOUND: 404,
+  NOT_HOST: 403,
+  GAME_NOT_IN_LOBBY: 409,
+  INVALID_GENERATIONS: 400,
+};
+
+app.post('/games/:id/generations', (req, res) => {
+  const { hostToken, generations } = req.body || {};
+
+  try {
+    const game = multiplayerGames.setGenerations(req.params.id, hostToken, generations);
+    wsServer.broadcastToGame(game.gameId, { type: 'lobby:generations', generations: game.generations });
+    res.json({ generations: game.generations });
+  } catch (err) {
+    const status = GENERATIONS_ERROR_STATUS[err.code] || 500;
+    res.status(status).json({ error: err.code || 'GENERATIONS_FAILED' });
   }
 });
 

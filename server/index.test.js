@@ -110,6 +110,67 @@ test('POST /api/mode/random draws a new round once the current one is finished',
   assert.equal(fresh.status, 'playing');
 });
 
+test('GET /api/generations lists every generation with its song count', async () => {
+  const res = await fetch(`${baseUrl}/api/generations`);
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), songs.getGenerations());
+});
+
+const ALL_GENERATIONS = songs.getGenerations().map((g) => g.generation);
+
+function startRandomWith(generations) {
+  return fetch(`${baseUrl}/api/mode/random`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ generations }),
+  });
+}
+
+async function revealedGeneration() {
+  for (let i = 0; i < 6; i++) {
+    await fetch(`${baseUrl}/api/skip`, { method: 'POST' });
+  }
+  const state = await (await fetch(`${baseUrl}/api/state`)).json();
+  return songs.findSongByTitle(state.correctTitle).generation;
+}
+
+test('POST /api/mode/random with generations draws the round from those generations only', async () => {
+  try {
+    await startRandomWith(['Musical']);
+    assert.equal(await revealedGeneration(), 'Musical');
+  } finally {
+    await startRandomWith(ALL_GENERATIONS);
+  }
+});
+
+test('POST /api/reset keeps the generations chosen for Random mode', async () => {
+  try {
+    await startRandomWith(['Musical']);
+    await fetch(`${baseUrl}/api/reset`, { method: 'POST' });
+    assert.equal(await revealedGeneration(), 'Musical');
+  } finally {
+    await startRandomWith(ALL_GENERATIONS);
+  }
+});
+
+test('POST /api/mode/random with a different selection starts a fresh round instead of resuming', async () => {
+  try {
+    await fetch(`${baseUrl}/api/skip`, { method: 'POST' });
+    const fresh = await (await startRandomWith(['Musical'])).json();
+    assert.equal(fresh.attemptsUsed, 0);
+  } finally {
+    await startRandomWith(ALL_GENERATIONS);
+  }
+});
+
+test('POST /api/mode/random rejects an empty or unknown selection', async () => {
+  for (const generations of [[], ['Unknown']]) {
+    const res = await startRandomWith(generations);
+    assert.equal(res.status, 400);
+    assert.equal((await res.json()).error, 'INVALID_GENERATIONS');
+  }
+});
+
 test('POST /api/songs/:id/select with an unknown id is rejected', async () => {
   const res = await fetch(`${baseUrl}/api/songs/-1/select`, { method: 'POST' });
   assert.equal(res.status, 404);
@@ -391,6 +452,67 @@ test('POST /games/:id/answerWindow returns 404 for an unknown gameId', async () 
     body: JSON.stringify({ hostToken: 'whatever', seconds: 45 }),
   });
   assert.equal(res.status, 404);
+});
+
+function postGenerations(gameId, body) {
+  return fetch(`${baseUrl}/games/${gameId}/generations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+test('POST /games/:id/generations lets the host restrict the generations', async () => {
+  const { gameId, hostToken } = await createLobbyWithTwoPlayers();
+  const res = await postGenerations(gameId, { hostToken, generations: ['Aqours', 'Liella'] });
+  assert.equal(res.status, 200);
+  assert.deepEqual((await res.json()).generations, ['Aqours', 'Liella']);
+  assert.deepEqual(multiplayerGames.getGame(gameId).generations, ['Aqours', 'Liella']);
+});
+
+test('POST /games/:id/generations rejects a wrong hostToken', async () => {
+  const { gameId } = await createLobbyWithTwoPlayers();
+  const res = await postGenerations(gameId, { hostToken: 'wrong-token', generations: ['Aqours'] });
+  assert.equal(res.status, 403);
+  assert.equal((await res.json()).error, 'NOT_HOST');
+});
+
+test('POST /games/:id/generations rejects an empty or unknown selection', async () => {
+  const { gameId, hostToken } = await createLobbyWithTwoPlayers();
+  for (const generations of [[], ['Unknown']]) {
+    const res = await postGenerations(gameId, { hostToken, generations });
+    assert.equal(res.status, 400);
+    assert.equal((await res.json()).error, 'INVALID_GENERATIONS');
+  }
+});
+
+test('POST /games/:id/generations rejects once the game has started', async () => {
+  const { gameId, hostToken } = await createLobbyWithTwoPlayers();
+  await fetch(`${baseUrl}/games/${gameId}/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken }),
+  });
+  const res = await postGenerations(gameId, { hostToken, generations: ['Aqours'] });
+  assert.equal(res.status, 409);
+  assert.equal((await res.json()).error, 'GAME_NOT_IN_LOBBY');
+});
+
+test('POST /games/:id/generations returns 404 for an unknown gameId', async () => {
+  const res = await postGenerations('unknown-id', { hostToken: 'token', generations: ['Aqours'] });
+  assert.equal(res.status, 404);
+  assert.equal((await res.json()).error, 'GAME_NOT_FOUND');
+});
+
+test('POST /games/:id/start draws the song from the chosen generations', async () => {
+  const { gameId, hostToken } = await createLobbyWithTwoPlayers();
+  await postGenerations(gameId, { hostToken, generations: ['Musical'] });
+  await fetch(`${baseUrl}/games/${gameId}/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostToken }),
+  });
+  assert.equal(songs.getSongById(multiplayerGames.getGame(gameId).songId).generation, 'Musical');
 });
 
 test('POST /games/:id/start moves the game to in_progress with 2+ players and the correct hostToken', async () => {

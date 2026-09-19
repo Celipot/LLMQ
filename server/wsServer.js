@@ -272,6 +272,7 @@ function attachWebSocketServer(
           players: game.players,
           songCount: game.songCount,
           answerWindowSeconds: game.answerWindowSeconds,
+          generations: game.generations,
         })
       );
     } else {
@@ -289,6 +290,7 @@ function attachWebSocketServer(
           players: game.players,
           songIndex: game.songIndex,
           songCount: game.songCount,
+          generations: game.generations,
           playedSongs: (game.playedSongIds ?? []).map((songId) => {
             const { title, artist, coverUrl } = songs.getSongById(songId);
             return { title, artist, coverUrl };
@@ -350,6 +352,7 @@ function attachWebSocketServer(
             players: updatedGame.players,
             songCount: updatedGame.songCount,
             answerWindowSeconds: updatedGame.answerWindowSeconds,
+            generations: updatedGame.generations,
           });
         } catch (err) {
           socket.send(JSON.stringify({ type: 'player:returnToLobby:error', error: err.code || 'RETURN_FAILED' }));
