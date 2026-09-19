@@ -107,10 +107,11 @@ test('POST /api/reset always starts a fresh, unfinished round', async () => {
   assert.deepEqual(body.guesses, []);
 });
 
-test('POST /api/mode/random resumes the current Random round when it is unfinished', async () => {
+test('POST /api/mode/random discards an unfinished Random round and starts a fresh one', async () => {
   await fetch(`${baseUrl}/api/skip`, { method: 'POST' });
-  const resumed = await (await fetch(`${baseUrl}/api/mode/random`, { method: 'POST' })).json();
-  assert.equal(resumed.attemptsUsed, 1);
+  const fresh = await (await fetch(`${baseUrl}/api/mode/random`, { method: 'POST' })).json();
+  assert.equal(fresh.attemptsUsed, 0);
+  assert.equal(fresh.status, 'playing');
 });
 
 test('POST /api/mode/random draws a new round once the current one is finished', async () => {
@@ -160,16 +161,6 @@ test('POST /api/reset keeps the generations chosen for Random mode', async () =>
     await startRandomWith(['Musical']);
     await fetch(`${baseUrl}/api/reset`, { method: 'POST' });
     assert.equal(await revealedGeneration(), 'Musical');
-  } finally {
-    await startRandomWith(ALL_GENERATIONS);
-  }
-});
-
-test('POST /api/mode/random with a different selection starts a fresh round instead of resuming', async () => {
-  try {
-    await fetch(`${baseUrl}/api/skip`, { method: 'POST' });
-    const fresh = await (await startRandomWith(['Musical'])).json();
-    assert.equal(fresh.attemptsUsed, 0);
   } finally {
     await startRandomWith(ALL_GENERATIONS);
   }

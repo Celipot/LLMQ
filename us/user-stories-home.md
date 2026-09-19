@@ -17,12 +17,13 @@ En tant que **joueur**, je veux **arriver sur une page d'accueil proposant deux 
 - Sélectionner un mode navigue vers l'écran correspondant sans recharger l'état d'une partie précédente non liée à ce mode.
 - Si une partie est déjà en cours (non terminée) dans un mode, la revisite de l'accueil ne la perd pas silencieusement (cf. US-H1.2).
 
-### US-H1.2 (P1) — Revenir à l'accueil sans perdre une partie en cours
-En tant que **joueur**, je veux **pouvoir revenir à l'accueil pendant une partie sans que ma progression soit perdue si je reviens ensuite au même mode/chanson**, afin de **explorer les deux modes sans crainte de perdre mes essais**.
+### US-H1.2 (P1) — Revenir à l'accueil pendant une partie
+En tant que **joueur**, je veux **pouvoir revenir à l'accueil pendant une partie**, afin de **changer de mode sans quitter l'application**.
 
 **Critères d'acceptation :**
 - Un lien/bouton "Accueil" est visible pendant une partie.
-- Revenir à l'accueil puis rechoisir le même mode (et, en mode Liste, la même chanson) restaure l'état de la partie en cours (essais utilisés, palier, historique).
+- **Mode Solo :** revenir à l'accueil abandonne la partie en cours. Si au moins un essai a été joué, une popup de confirmation ("Quitter la partie ?", boutons "Continuer" et "Quitter") s'affiche d'abord ; sans essai joué, le retour est direct. Relancer le Mode Solo tire toujours une nouvelle chanson.
+- **Bibliothèque :** revenir à l'accueil puis rechoisir la même chanson restaure l'état de sa partie en cours (essais utilisés, palier, historique), sans confirmation.
 - Cette persistance reste limitée à la session serveur en mémoire (pas de nouvelle contrainte de stockage durable à ce stade).
 
 ---

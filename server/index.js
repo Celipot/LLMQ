@@ -35,7 +35,6 @@ const soloStore = soloSessions.createStore({
   createSession: () => ({
     activeSongId: null,
     activeKey: null,
-    lastRandomSongId: null,
     randomGenerations: songs.getGenerations().map((g) => g.generation),
   }),
   onExpire: (id) => gameState.deleteByPrefix(`${id}:`),
@@ -70,38 +69,21 @@ function drawRandomSongId(session, history) {
   return songPicker.pickWeightedSongId(songs.getPoolIds(session.randomGenerations), history, Date.now());
 }
 
-function sameSelection(a, b) {
-  return a.length === b.length && a.every((generation) => b.includes(generation));
-}
-
 function startRandomRound(session, history) {
   session.activeSongId = drawRandomSongId(session, history);
-  session.lastRandomSongId = session.activeSongId;
   session.activeKey = keyFor(session, 'random', session.activeSongId);
   gameState.resetState(session.activeKey);
-}
-
-// A new selection must not resume the unfinished round: it was drawn from the
-// previous pool, so it may not belong to the generations the player just picked.
-function enterRandomMode(session, generations, history = {}) {
-  const selectionChanged = generations !== undefined && !sameSelection(generations, session.randomGenerations);
-  if (selectionChanged) session.randomGenerations = generations;
-  if (
-    !selectionChanged &&
-    session.lastRandomSongId !== null &&
-    !gameState.isFinished(keyFor(session, 'random', session.lastRandomSongId))
-  ) {
-    session.activeSongId = session.lastRandomSongId;
-    session.activeKey = keyFor(session, 'random', session.activeSongId);
-  } else {
-    startRandomRound(session, history);
-  }
-  return gameState.getPublicState(session.activeKey, correctSongIfFinished(session));
 }
 
 function forceNewRandomRound(session, history = {}) {
   startRandomRound(session, history);
   return gameState.getPublicState(session.activeKey, correctSongIfFinished(session));
+}
+
+// Leaving Mode Solo abandons its round: entering it again always draws a new one.
+function enterRandomMode(session, generations, history = {}) {
+  if (generations !== undefined) session.randomGenerations = generations;
+  return forceNewRandomRound(session, history);
 }
 
 function selectListSong(session, songId) {

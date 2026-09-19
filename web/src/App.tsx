@@ -12,6 +12,7 @@ import Lobby from './components/Lobby';
 import RandomSetup from './components/RandomSetup';
 import ProfileEditor from './components/ProfileEditor';
 import Toast from './components/Toast';
+import ConfirmDialog from './components/ConfirmDialog';
 import { useGameState } from './hooks/useGameState';
 import { useGenerationOptions } from './hooks/useGenerationOptions';
 import { useSongHistory } from './hooks/useSongHistory';
@@ -45,6 +46,7 @@ export default function App() {
   const { state, titles, activeSongId, error, guess, skip, reset, startRandom, selectSong, clearError } =
     useGameState(recordResult);
   const [inputValue, setInputValue] = useState('');
+  const [confirmingHome, setConfirmingHome] = useState(false);
   const generationOptions = useGenerationOptions();
   const [randomGenerations, setRandomGenerations] = useState<string[] | null>(null);
   const selectedGenerations = randomGenerations ?? generationOptions.map((option) => option.generation);
@@ -69,6 +71,19 @@ export default function App() {
   const finished = !!state && state.status !== 'playing';
   const showAnswer = screen === 'random' && finished;
   const isLastAttempt = !!state && !finished && state.attemptsUsed === state.maxAttempts - 1;
+
+  // Leaving Mode Solo abandons its round, so an in-progress one needs a confirmation.
+  const roundInProgress = screen === 'random' && !!state && !finished && state.attemptsUsed > 0;
+
+  function handleHomeClick() {
+    if (roundInProgress) setConfirmingHome(true);
+    else setScreen('home');
+  }
+
+  function handleConfirmHome() {
+    setConfirmingHome(false);
+    setScreen('home');
+  }
 
   async function handleSubmit() {
     await guess(inputValue);
@@ -141,11 +156,22 @@ export default function App() {
           </button>
         )}
         {screen !== 'home' && !showAnswer && (
-          <button type="button" className="secondary" onClick={() => setScreen('home')}>
+          <button type="button" className="secondary" onClick={handleHomeClick}>
             Accueil
           </button>
         )}
       </div>
+
+      {confirmingHome && (
+        <ConfirmDialog
+          title="Quitter la partie ?"
+          message="La partie en cours sera supprimée."
+          confirmLabel="Quitter"
+          cancelLabel="Continuer"
+          onConfirm={handleConfirmHome}
+          onCancel={() => setConfirmingHome(false)}
+        />
+      )}
 
       {screen === 'home' && (
         <Home

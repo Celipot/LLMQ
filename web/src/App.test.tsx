@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import App from './App';
 import * as api from './api';
 import { resizeImageToDataUrl } from './imageResize';
+import type { GameState } from './types';
 
 vi.mock('./imageResize', () => ({ resizeImageToDataUrl: vi.fn() }));
 
@@ -206,6 +207,71 @@ describe('App — solo answer screen', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Accueil' }));
 
     expect(await screen.findByText('Choisir un mode pour commencer')).toBeInTheDocument();
+  });
+});
+
+describe('App — leaving a solo round', () => {
+  const oneAttemptState: GameState = {
+    ...playingState,
+    attemptsUsed: 1,
+    allowedSeconds: 2,
+    guesses: [{ type: 'skip', title: null, correct: null }],
+  };
+
+  async function startSoloRound(state: GameState) {
+    vi.mocked(api.startRandomMode).mockResolvedValue(state);
+    render(<App />);
+    await userEvent.click(await screen.findByText('Mode Solo'));
+    await userEvent.click(await screen.findByRole('button', { name: 'Lancer' }));
+    await screen.findByRole('button', { name: 'Valider' });
+  }
+
+  test('Accueil asks for a confirmation once an attempt was played, and stays on the quiz', async () => {
+    await startSoloRound(oneAttemptState);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Accueil' }));
+
+    expect(screen.getByRole('alertdialog', { name: 'Quitter la partie ?' })).toBeInTheDocument();
+    expect(screen.queryByText('Choisir un mode pour commencer')).not.toBeInTheDocument();
+  });
+
+  test('"Continuer" closes the confirmation and keeps the round', async () => {
+    await startSoloRound(oneAttemptState);
+    await userEvent.click(screen.getByRole('button', { name: 'Accueil' }));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Continuer' }));
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Valider' })).toBeInTheDocument();
+  });
+
+  test('"Quitter" goes back to the mode choice', async () => {
+    await startSoloRound(oneAttemptState);
+    await userEvent.click(screen.getByRole('button', { name: 'Accueil' }));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Quitter' }));
+
+    expect(await screen.findByText('Choisir un mode pour commencer')).toBeInTheDocument();
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  });
+
+  test('Accueil goes straight home while no attempt was played yet', async () => {
+    await startSoloRound(playingState);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Accueil' }));
+
+    expect(await screen.findByText('Choisir un mode pour commencer')).toBeInTheDocument();
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  });
+
+  test('Accueil never asks for a confirmation in the Bibliothèque', async () => {
+    render(<App />);
+    await userEvent.click(await screen.findByText('Bibliothèque'));
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Accueil' }));
+
+    expect(await screen.findByText('Choisir un mode pour commencer')).toBeInTheDocument();
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   });
 });
 
