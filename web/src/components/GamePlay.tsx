@@ -163,15 +163,19 @@ export default function GamePlay({
                     : STATUS_DISPLAY[player.status ?? 'active'];
                 return (
                   <li key={player.playerId}>
-                    <PlayerAvatar nickname={player.nickname} avatarUrl={player.avatarUrl} />
-                    <strong>{player.nickname}</strong> — <span className={display.className}>{display.label}</span>
-                    {player.connected === false && <span className="player-disconnected"> (déconnecté)</span>}
-                    {player.playerId in scores && (
-                      <span className="player-score">
-                        {' '}
-                        — {scores[player.playerId]} pt{scores[player.playerId] > 1 ? 's' : ''}
-                      </span>
-                    )}
+                    <div className="player-line">
+                      <PlayerAvatar nickname={player.nickname} avatarUrl={player.avatarUrl} />
+                      <strong>{player.nickname}</strong>
+                      {player.playerId in scores && (
+                        <span className="player-score">
+                          {scores[player.playerId]} pt{scores[player.playerId] > 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
+                    <div className="player-status-line">
+                      <span className={display.className}>{display.label}</span>
+                      {player.connected === false && <span className="player-disconnected"> (déconnecté)</span>}
+                    </div>
                   </li>
                 );
               })}

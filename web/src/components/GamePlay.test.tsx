@@ -231,6 +231,62 @@ describe('GamePlay', () => {
     expect(screen.getByText('a abandonné')).toBeInTheDocument();
   });
 
+  describe('score recap layout', () => {
+    function renderRecap(players: MultiplayerPlayer[], scores: Record<string, number>) {
+      vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
+      render(
+        <GamePlay
+          gameId="g1"
+          stage={1}
+          maxStage={6}
+          durationSeconds={1}
+          nextDurationSeconds={null}
+          answerWindowMs={30000}
+          startedAt={Date.now()}
+          songIndex={1}
+          songCount={3}
+          scores={scores}
+          onSubmitAnswer={vi.fn()}
+          answerFeedback={null}
+          forfeited={false}
+          onForfeit={vi.fn()}
+          songHistory={[]}
+          answerPending={false}
+          forfeitPending={false}
+          players={players}
+        />
+      );
+      return screen.getByText('Alice').closest('li') as HTMLElement;
+    }
+
+    test('puts the score on the same line as the nickname, and the status on the line below', () => {
+      const row = renderRecap([{ playerId: 'p1', nickname: 'Alice', status: 'found' }], { p1: 6 });
+
+      const nicknameLine = row.querySelector('.player-line') as HTMLElement;
+      const statusLine = row.querySelector('.player-status-line') as HTMLElement;
+      expect(nicknameLine).toContainElement(screen.getByText('Alice'));
+      expect(nicknameLine).toHaveTextContent('6 pts');
+      expect(nicknameLine).not.toHaveTextContent('a trouvé');
+      expect(statusLine).toHaveTextContent('a trouvé');
+      expect(statusLine).not.toHaveTextContent('6 pts');
+      expect(nicknameLine.compareDocumentPosition(statusLine) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    test('shows no score next to the nickname before the first song has finished', () => {
+      const row = renderRecap([{ playerId: 'p1', nickname: 'Alice', status: 'active' }], {});
+
+      expect(row.querySelector('.player-line')).not.toHaveTextContent('pt');
+      expect(row.querySelector('.player-status-line')).toHaveTextContent('cherche encore');
+    });
+
+    test('puts the disconnected indicator on the status line', () => {
+      const row = renderRecap([{ playerId: 'p1', nickname: 'Alice', status: 'active', connected: false }], { p1: 4 });
+
+      expect(row.querySelector('.player-status-line')).toHaveTextContent('(déconnecté)');
+      expect(row.querySelector('.player-line')).not.toHaveTextContent('(déconnecté)');
+    });
+  });
+
   describe('status list styling', () => {
     function renderWithPlayers(players: MultiplayerPlayer[]) {
       vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
@@ -261,8 +317,8 @@ describe('GamePlay', () => {
     test("shows the player's picture to the left of their nickname", () => {
       renderWithPlayers([{ playerId: 'p1', nickname: 'Alice', status: 'active', avatarUrl: '/games/g1/players/p1/avatar' }]);
 
-      const row = screen.getByText('Alice').closest('li') as HTMLElement;
-      expect(row.firstElementChild).toHaveAttribute('src', '/games/g1/players/p1/avatar');
+      const nicknameLine = screen.getByText('Alice').closest('.player-line') as HTMLElement;
+      expect(nicknameLine.firstElementChild).toHaveAttribute('src', '/games/g1/players/p1/avatar');
     });
 
     test('renders the nickname in bold', () => {
@@ -381,9 +437,9 @@ describe('GamePlay', () => {
       />
     );
 
-    expect(screen.getByText('Alice').parentElement).toHaveTextContent('Alice — cherche encore');
-    expect(screen.getByText('Bob').parentElement).toHaveTextContent('Bob — a trouvé');
-    expect(screen.getByText('Chris').parentElement).toHaveTextContent('Chris — a abandonné');
+    expect(screen.getByText('Alice').closest('li')).toHaveTextContent('cherche encore');
+    expect(screen.getByText('Bob').closest('li')).toHaveTextContent('a trouvé');
+    expect(screen.getByText('Chris').closest('li')).toHaveTextContent('a abandonné');
   });
 
   test('does not reveal the answer or song name in the player status list', async () => {
@@ -689,7 +745,7 @@ describe('GamePlay', () => {
       />
     );
 
-    expect(screen.getByText('Alice').closest('li')).toHaveTextContent('Alice — cherche encore');
+    expect(screen.getByText('Alice').closest('li')).toHaveTextContent('cherche encore');
     expect(screen.queryByText(/pt/)).not.toBeInTheDocument();
   });
 
@@ -780,8 +836,9 @@ describe('GamePlay', () => {
     );
 
     const recap = screen.getByText('Scores').closest('aside');
-    const items = recap ? Array.from(recap.querySelectorAll('li')).map((li) => li.textContent) : [];
-    expect(items).toEqual(['Alice — a trouvé — 6 pts', 'Bob — cherche encore — 16 pts']);
+    const rows = recap ? Array.from(recap.querySelectorAll('li')) : [];
+    expect(rows.map((li) => li.querySelector('.player-line')?.textContent)).toEqual(['Alice6 pts', 'Bob16 pts']);
+    expect(rows.map((li) => li.querySelector('.player-status-line')?.textContent)).toEqual(['a trouvé', 'cherche encore']);
   });
 
   test('shows the score recap from the very start of play, before any song has finished', () => {
@@ -810,7 +867,7 @@ describe('GamePlay', () => {
     );
 
     const recap = screen.getByText('Scores').closest('aside');
-    expect(recap).toHaveTextContent('Alice — cherche encore');
+    expect(recap).toHaveTextContent(/Alice.*cherche encore/);
   });
 
   test('shows the song history on the right once a song has ended', () => {

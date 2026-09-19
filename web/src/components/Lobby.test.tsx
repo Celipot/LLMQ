@@ -556,7 +556,7 @@ describe('Lobby', () => {
     socket.emit({ type: 'stage:start', maxStage: 6, stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000 });
     await screen.findByText(/Étape 1/);
 
-    expect((await screen.findByText('Bob')).closest('li')).toHaveTextContent('Bob — cherche encore');
+    expect((await screen.findByText('Bob')).closest('li')).toHaveTextContent('cherche encore');
 
     socket.emit({ type: 'player:status', playerId: 'p2', status: 'found', stage: 1 });
 
@@ -592,7 +592,7 @@ describe('Lobby', () => {
 
     socket.emit({ type: 'stage:start', maxStage: 6, stage: 2, durationSeconds: 2, serverTimestamp: Date.now(), answerWindowMs: 30000 });
 
-    expect((await screen.findByText('Alice')).closest('li')).toHaveTextContent('Alice — cherche encore');
+    expect((await screen.findByText('Alice')).closest('li')).toHaveTextContent('cherche encore');
     expect(screen.getByRole('textbox')).toBeEnabled();
   });
 
@@ -642,7 +642,7 @@ describe('Lobby', () => {
 
     socket.emit({ type: 'stage:start', maxStage: 6, stage: 1, durationSeconds: 1, serverTimestamp: Date.now(), answerWindowMs: 30000, songIndex: 2, songCount: 2 });
 
-    expect((await screen.findByText('Alice')).closest('li')).toHaveTextContent('Alice — cherche encore');
+    expect((await screen.findByText('Alice')).closest('li')).toHaveTextContent('cherche encore');
     expect(screen.getByRole('textbox')).toBeEnabled();
   });
 

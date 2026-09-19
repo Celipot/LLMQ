@@ -43,7 +43,7 @@ body {
   margin-inline: auto;
 }
 
-.game-layout-multi .score-recap {
+.lobby.game-layout-multi .score-recap {
   align-self: start;
 }
 
@@ -241,6 +241,33 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
+}
+
+.score-recap li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.player-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  overflow-wrap: anywhere;
+}
+
+.player-line .player-avatar {
+  margin-right: 0;
+}
+
+.player-score {
+  margin-left: auto;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.player-status-line {
+  font-size: 0.9rem;
 }
 
 .player-avatar {
