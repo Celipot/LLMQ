@@ -58,6 +58,7 @@ function publicCareer(session) {
     releaseDue: career.isReleaseDue(state),
     album: { done: state.album.length, total: career.ALBUM_SIZE },
     release: publicResult(state.release, career.MAX_ALBUM_SCORE),
+    finalScore: career.isOver(state) ? career.careerScore(state) : null,
     fans: { current: state.fans, required: career.FANS_REQUIRED },
     failure: state.failure,
     albumGoalGrade: career.ALBUM_GOAL_GRADE,

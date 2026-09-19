@@ -368,6 +368,39 @@ describe('fans', () => {
   });
 });
 
+describe('careerScore', () => {
+  test('adds the album score, the concert score, every stat and the fans', () => {
+    const state = career.createCareer();
+    state.stats = { oreille: 100, memoire: 50, culture: 20 };
+    state.fans = 200;
+    state.release = { score: 420, grade: 'A', tracks: [] };
+    state.concert = { score: 1000, grade: 'A', tracks: [] };
+    assert.deepEqual(career.careerScore(state), { album: 420, concert: 1000, stats: 170, fans: 200, total: 1790 });
+  });
+
+  test('a part never reached counts for nothing', () => {
+    const state = career.createCareer();
+    assert.deepEqual(career.careerScore(state), { album: 0, concert: 0, stats: 0, fans: 0, total: 0 });
+  });
+
+  test('a failed career is scored on what was played', () => {
+    const state = career.createCareer();
+    state.release = { score: 200, grade: 'C', tracks: [] };
+    state.failure = 'ALBUM_GRADE';
+    assert.equal(career.careerScore(state).total, 200);
+  });
+
+  test('is only final once the career is over', () => {
+    const state = career.createCareer();
+    assert.equal(career.isOver(state), false);
+    state.failure = 'FANS';
+    assert.equal(career.isOver(state), true);
+    state.failure = null;
+    state.concert = { score: 0, grade: 'D', tracks: [] };
+    assert.equal(career.isOver(state), true);
+  });
+});
+
 describe('the second phase and the concert', () => {
   function careerAfterAlbum() {
     const state = career.createCareer();

@@ -121,8 +121,20 @@ function advanceTurn(state) {
   if (state.release && state.turn > TOTAL_TURNS && state.fans < FANS_REQUIRED) state.failure = 'FANS';
 }
 
+function isOver(state) {
+  return Boolean(state.failure || state.concert);
+}
+
+// What was played counts, so a career failed early still gets a (low) score.
+function careerScore(state) {
+  const album = state.release?.score ?? 0;
+  const concert = state.concert?.score ?? 0;
+  const stats = Object.values(state.stats).reduce((total, value) => total + value, 0);
+  return { album, concert, stats, fans: state.fans, total: album + concert + stats + state.fans };
+}
+
 function assertTurnAvailable(state) {
-  if (state.concert || state.failure) throw new Error('CAREER_FINISHED');
+  if (isOver(state)) throw new Error('CAREER_FINISHED');
   if (isReleaseDue(state)) throw new Error('RELEASE_DUE');
   if (isConcertDue(state)) throw new Error('CONCERT_DUE');
 }
@@ -186,12 +198,12 @@ function grade(score, maxScore) {
 }
 
 function assertCanRelease(state) {
-  if (state.concert || state.failure) throw new Error('CAREER_FINISHED');
+  if (isOver(state)) throw new Error('CAREER_FINISHED');
   if (!isReleaseDue(state)) throw new Error('RELEASE_NOT_DUE');
 }
 
 function assertCanConcert(state) {
-  if (state.concert || state.failure) throw new Error('CAREER_FINISHED');
+  if (isOver(state)) throw new Error('CAREER_FINISHED');
   if (!isConcertDue(state)) throw new Error('CONCERT_NOT_DUE');
 }
 
@@ -266,6 +278,8 @@ module.exports = {
   createCareer,
   isReleaseDue,
   isConcertDue,
+  isOver,
+  careerScore,
   assertCanStudy,
   assertCanSingle,
   study,

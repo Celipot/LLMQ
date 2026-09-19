@@ -973,6 +973,7 @@ test('POST /api/career starts a career with full energy, no stats and the base h
   assert.equal(body.career.concertDue, false);
   assert.deepEqual(body.career.fans, { current: 0, required: 300 });
   assert.equal(body.career.failure, null);
+  assert.equal(body.career.finalScore, null);
   assert.equal(body.career.albumGoalGrade, 'B');
   assert.deepEqual(body.career.concert, { done: 0, total: 15 });
   assert.equal(body.career.concertResult, null);
@@ -1467,4 +1468,35 @@ test('an album graded B is enough to go on, but without fans the concert is lost
   const res = await player.post('/api/career/concert');
   assert.equal(res.status, 409);
   assert.equal((await res.json()).error, 'CAREER_FINISHED');
+});
+
+test('the final score is only given once the career is over', async () => {
+  const player = newCareerPlayer();
+  await restUntilRelease(player);
+  for (let i = 0; i < 6; i += 1) await playAlbumTrack(player, i);
+
+  const during = (await (await player.get('/api/career')).json()).career;
+
+  assert.equal(during.finalScore, null);
+});
+
+test('a finished concert gives a final score from the album, the concert, the stats and the fans', async () => {
+  const player = newCareerPlayer();
+  await restUntilConcert(player);
+  let last;
+  for (let i = 0; i < 15; i += 1) last = await playConcertTrack(player, i);
+
+  assert.deepEqual(last.career.finalScore, { album: 600, concert: 1500, stats: 0, fans: 300, total: 2400 });
+});
+
+test('a failed career also gets a final score', async () => {
+  const player = newCareerPlayer();
+  await restUntilRelease(player);
+  let last;
+  for (let i = 0; i < 6; i += 1) {
+    await withFirstDraw(() => player.post('/api/career/release'));
+    last = await skipRound(player);
+  }
+
+  assert.deepEqual(last.career.finalScore, { album: 0, concert: 0, stats: 0, fans: 0, total: 0 });
 });
