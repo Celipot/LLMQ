@@ -129,7 +129,7 @@ export default function GamePlay({
   }
 
   return (
-    <div className="game-layout">
+    <div className="game-layout game-layout-multi">
       <StageChangeBanner notice={stageChangeNotice} />
       <div className="sidebar">
         <aside className="stage-info">

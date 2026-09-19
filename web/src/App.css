@@ -25,6 +25,33 @@ body {
   max-width: 840px;
 }
 
+.app:has(.game-layout-multi) {
+  max-width: none;
+}
+
+.game-layout-multi {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 220px;
+  gap: 1.5rem;
+}
+
+.game-layout-multi .game-play {
+  width: 100%;
+  max-width: 560px;
+  margin-inline: auto;
+}
+
+@media (max-width: 900px) {
+  .game-layout-multi {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .game-layout-multi .sidebar,
+  .game-layout-multi .song-history {
+    width: auto;
+  }
+}
+
 .app-header {
   display: flex;
   align-items: baseline;
