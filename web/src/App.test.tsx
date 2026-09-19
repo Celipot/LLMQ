@@ -49,6 +49,14 @@ afterEach(() => {
   window.history.pushState({}, '', '/');
 });
 
+const playingState = {
+  attemptsUsed: 0,
+  maxAttempts: 6,
+  allowedSeconds: 1,
+  status: 'playing' as const,
+  guesses: [],
+};
+
 describe('App — Random mode generation filter', () => {
   test('choosing Mode Aléatoire shows the generation filter before starting any round', async () => {
     render(<App />);
@@ -74,7 +82,41 @@ describe('App — Random mode generation filter', () => {
     await userEvent.click(await screen.findByRole('checkbox', { name: /Aqours/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Lancer' }));
 
-    await waitFor(() => expect(api.startRandomMode).toHaveBeenCalledWith(['Liella']));
+    await waitFor(() => expect(api.startRandomMode).toHaveBeenCalledWith(['Liella'], {}));
+  });
+
+  test('Lancer sends the stored play history while the adaptive draw is enabled', async () => {
+    const history = { 7: { plays: 2, wins: 1, stageSum: 3, lastPlayedAt: 1_700_000_000_000 } };
+    localStorage.setItem('songHistory', JSON.stringify(history));
+    vi.mocked(api.startRandomMode).mockResolvedValue(playingState);
+    render(<App />);
+
+    await userEvent.click(await screen.findByText('Mode Aléatoire'));
+    await userEvent.click(await screen.findByRole('button', { name: 'Lancer' }));
+
+    await waitFor(() => expect(api.startRandomMode).toHaveBeenCalledWith(['Aqours', 'Liella'], history));
+  });
+
+  test('Lancer sends no history once the adaptive draw is unchecked', async () => {
+    localStorage.setItem('songHistory', JSON.stringify({ 7: { plays: 1, wins: 1, stageSum: 1, lastPlayedAt: 1 } }));
+    vi.mocked(api.startRandomMode).mockResolvedValue(playingState);
+    render(<App />);
+
+    await userEvent.click(await screen.findByText('Mode Aléatoire'));
+    await userEvent.click(await screen.findByRole('checkbox', { name: /Tirage adaptatif/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Lancer' }));
+
+    await waitFor(() => expect(api.startRandomMode).toHaveBeenCalledWith(['Aqours', 'Liella'], undefined));
+  });
+
+  test('"Effacer mon historique" empties the stored history', async () => {
+    localStorage.setItem('songHistory', JSON.stringify({ 7: { plays: 1, wins: 1, stageSum: 1, lastPlayedAt: 1 } }));
+    render(<App />);
+
+    await userEvent.click(await screen.findByText('Mode Aléatoire'));
+    await userEvent.click(await screen.findByRole('button', { name: 'Effacer mon historique' }));
+
+    expect(JSON.parse(localStorage.getItem('songHistory') ?? '{}')).toEqual({});
   });
 });
 

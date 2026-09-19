@@ -143,7 +143,103 @@ describe('useGameState', () => {
       await result.current.startRandom(['Aqours', 'Liella']);
     });
 
-    expect(api.startRandomMode).toHaveBeenCalledWith(['Aqours', 'Liella']);
+    expect(api.startRandomMode).toHaveBeenCalledWith(['Aqours', 'Liella'], undefined);
+  });
+
+  test('startRandom(generations, history) forwards the play history to the API', async () => {
+    vi.mocked(api.startRandomMode).mockResolvedValue(initialState);
+    const history = { 7: { plays: 2, wins: 1, stageSum: 3, lastPlayedAt: 1 } };
+
+    const { result } = renderHook(() => useGameState());
+    await waitFor(() => expect(result.current.state).not.toBeNull());
+
+    await act(async () => {
+      await result.current.startRandom(['Aqours'], history);
+    });
+
+    expect(api.startRandomMode).toHaveBeenCalledWith(['Aqours'], history);
+  });
+
+  test('reset(history) forwards the play history to the API', async () => {
+    vi.mocked(api.resetGame).mockResolvedValue(initialState);
+    const history = { 7: { plays: 2, wins: 1, stageSum: 3, lastPlayedAt: 1 } };
+
+    const { result } = renderHook(() => useGameState());
+    await waitFor(() => expect(result.current.state).not.toBeNull());
+
+    await act(async () => {
+      await result.current.reset(history);
+    });
+
+    expect(api.resetGame).toHaveBeenCalledWith(history);
+  });
+
+  test('finding the song of a Random round reports the song id, the win and the stage', async () => {
+    const onRoundFinished = vi.fn();
+    const wonState: GameState = { ...initialState, attemptsUsed: 3, status: 'won', correctSongId: 5 };
+    vi.mocked(api.submitGuess).mockResolvedValue({ correct: true, state: wonState });
+
+    const { result } = renderHook(() => useGameState(onRoundFinished));
+    await waitFor(() => expect(result.current.state).not.toBeNull());
+
+    await act(async () => {
+      await result.current.guess('Placeholder Track');
+    });
+
+    expect(onRoundFinished).toHaveBeenCalledWith({ songId: 5, won: true, stage: 3 });
+  });
+
+  test('losing a Random round reports a loss', async () => {
+    const onRoundFinished = vi.fn();
+    const lostState: GameState = { ...initialState, attemptsUsed: 6, status: 'lost', correctSongId: 5 };
+    vi.mocked(api.submitSkip).mockResolvedValue({ state: lostState });
+
+    const { result } = renderHook(() => useGameState(onRoundFinished));
+    await waitFor(() => expect(result.current.state).not.toBeNull());
+
+    await act(async () => {
+      await result.current.skip();
+    });
+
+    expect(onRoundFinished).toHaveBeenCalledWith({ songId: 5, won: false, stage: 6 });
+  });
+
+  test('a round still being played is not reported', async () => {
+    const onRoundFinished = vi.fn();
+    vi.mocked(api.submitGuess).mockResolvedValue({
+      correct: false,
+      state: { ...initialState, attemptsUsed: 1 },
+    });
+
+    const { result } = renderHook(() => useGameState(onRoundFinished));
+    await waitFor(() => expect(result.current.state).not.toBeNull());
+
+    await act(async () => {
+      await result.current.guess('Wrong');
+    });
+
+    expect(onRoundFinished).not.toHaveBeenCalled();
+  });
+
+  test('a List mode round is not reported', async () => {
+    const onRoundFinished = vi.fn();
+    vi.mocked(api.selectSong).mockResolvedValue(initialState);
+    vi.mocked(api.submitGuess).mockResolvedValue({
+      correct: true,
+      state: { ...initialState, attemptsUsed: 1, status: 'won', correctSongId: 1 },
+    });
+
+    const { result } = renderHook(() => useGameState(onRoundFinished));
+    await waitFor(() => expect(result.current.state).not.toBeNull());
+    await act(async () => {
+      await result.current.selectSong(1);
+    });
+
+    await act(async () => {
+      await result.current.guess('Placeholder Track');
+    });
+
+    expect(onRoundFinished).not.toHaveBeenCalled();
   });
 
   test('selectSong() replaces state, sets the active song id, and refreshes titles', async () => {

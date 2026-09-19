@@ -235,6 +235,17 @@ body {
   gap: 1rem;
 }
 
+.adaptive-draw {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.adaptive-draw input {
+  accent-color: var(--accent);
+  margin-top: 0.25rem;
+}
+
 .generations-setting {
   margin-top: 0.75rem;
 }

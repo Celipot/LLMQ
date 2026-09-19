@@ -12,6 +12,7 @@ import Lobby from './components/Lobby';
 import RandomSetup from './components/RandomSetup';
 import { useGameState } from './hooks/useGameState';
 import { useGenerationOptions } from './hooks/useGenerationOptions';
+import { useSongHistory } from './hooks/useSongHistory';
 import { useAudioPlayer } from './hooks/useAudioPlayer';
 import './App.css';
 
@@ -34,8 +35,9 @@ export default function App() {
     if (!urlGameId) return 'home';
     return getPersistedPlayerId(urlGameId) ? 'lobby' : 'join';
   });
+  const { history, adaptive, setAdaptive, recordResult, clearHistory } = useSongHistory();
   const { state, titles, activeSongId, error, guess, skip, reset, startRandom, selectSong, clearError } =
-    useGameState();
+    useGameState(recordResult);
   const [inputValue, setInputValue] = useState('');
   const generationOptions = useGenerationOptions();
   const [randomGenerations, setRandomGenerations] = useState<string[] | null>(null);
@@ -67,7 +69,7 @@ export default function App() {
   }
 
   async function handleReset() {
-    await reset();
+    await reset(adaptive ? history : undefined);
     setInputValue('');
     resetProgress();
   }
@@ -76,7 +78,7 @@ export default function App() {
     setScreen('random');
     setInputValue('');
     resetProgress();
-    await startRandom(selectedGenerations.length > 0 ? selectedGenerations : undefined);
+    await startRandom(selectedGenerations.length > 0 ? selectedGenerations : undefined, adaptive ? history : undefined);
   }
 
   async function handleSelectSong(id: number) {
@@ -140,6 +142,9 @@ export default function App() {
           options={generationOptions}
           selected={selectedGenerations}
           onChange={setRandomGenerations}
+          adaptive={adaptive}
+          onAdaptiveChange={setAdaptive}
+          onClearHistory={clearHistory}
           onStart={handleStartRandom}
         />
       )}

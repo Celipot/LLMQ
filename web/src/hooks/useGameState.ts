@@ -9,9 +9,9 @@ import {
   submitGuess,
   submitSkip,
 } from '../api';
-import type { GameState, PlayableSong } from '../types';
+import type { GameState, PlayableSong, RoundResult, SongHistory } from '../types';
 
-export function useGameState() {
+export function useGameState(onRandomRoundFinished?: (result: RoundResult) => void) {
   const [state, setState] = useState<GameState | null>(null);
   const [titles, setTitles] = useState<PlayableSong[]>([]);
   const [activeSongId, setActiveSongId] = useState<number | null>(null);
@@ -28,6 +28,16 @@ export function useGameState() {
     });
   }, []);
 
+  // Only a Random round feeds the adaptive draw: in List mode the player picks
+  // the song (activeSongId is set), so the result says nothing about difficulty.
+  const reportFinishedRound = useCallback(
+    (s: GameState) => {
+      if (activeSongId !== null || s.status === 'playing' || s.correctSongId === undefined) return;
+      onRandomRoundFinished?.({ songId: s.correctSongId, won: s.status === 'won', stage: s.attemptsUsed });
+    },
+    [activeSongId, onRandomRoundFinished],
+  );
+
   const guess = useCallback(
     async (title: string) => {
       if (!title.trim()) {
@@ -39,11 +49,12 @@ export function useGameState() {
         setState(res.state);
         setError(null);
         refreshTitles();
+        reportFinishedRound(res.state);
       } catch (err) {
         setError(errorText(err));
       }
     },
-    [refreshTitles],
+    [refreshTitles, reportFinishedRound],
   );
 
   const skip = useCallback(async () => {
@@ -52,20 +63,21 @@ export function useGameState() {
       setState(res.state);
       setError(null);
       refreshTitles();
+      reportFinishedRound(res.state);
     } catch (err) {
       setError(errorText(err));
     }
-  }, [refreshTitles]);
+  }, [refreshTitles, reportFinishedRound]);
 
-  const reset = useCallback(async () => {
-    const s = await resetGame();
+  const reset = useCallback(async (history?: SongHistory) => {
+    const s = await resetGame(history);
     setState(s);
     setError(null);
     refreshTitles();
   }, [refreshTitles]);
 
-  const startRandom = useCallback(async (generations?: string[]) => {
-    const s = await startRandomMode(generations);
+  const startRandom = useCallback(async (generations?: string[], history?: SongHistory) => {
+    const s = await startRandomMode(generations, history);
     setState(s);
     setActiveSongId(null);
     setError(null);

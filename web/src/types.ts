@@ -13,6 +13,7 @@ export interface GameState {
   allowedSeconds: number;
   status: GameStatus;
   guesses: GuessEntry[];
+  correctSongId?: number;
   correctTitle?: string;
   correctArtist?: string;
   correctCoverUrl?: string;
@@ -98,6 +99,23 @@ export interface SongCountResponse {
 
 export interface AnswerWindowResponse {
   answerWindowSeconds: number;
+}
+
+// Per-song solo results kept in the browser and sent to the server, which
+// computes the weights (no comparison/scoring logic on the client).
+export interface SongStats {
+  plays: number;
+  wins: number;
+  stageSum: number;
+  lastPlayedAt: number;
+}
+
+export type SongHistory = Record<number, SongStats>;
+
+export interface RoundResult {
+  songId: number;
+  won: boolean;
+  stage: number;
 }
 
 export interface GenerationOption {

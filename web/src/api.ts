@@ -11,6 +11,7 @@ import type {
   PlayableSong,
   SkipResponse,
   SongCountResponse,
+  SongHistory,
 } from './types';
 
 export class ApiError extends Error {
@@ -49,19 +50,23 @@ export function submitSkip(): Promise<SkipResponse> {
   return fetch('/api/skip', { method: 'POST' }).then((res) => parseOrThrow<SkipResponse>(res));
 }
 
-export function resetGame(): Promise<GameState> {
-  return fetch('/api/reset', { method: 'POST' }).then((res) => parseOrThrow<GameState>(res));
+export function resetGame(history?: SongHistory): Promise<GameState> {
+  return fetch('/api/reset', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ history }),
+  }).then((res) => parseOrThrow<GameState>(res));
 }
 
 export function fetchGenerations(): Promise<GenerationOption[]> {
   return fetch('/api/generations').then((res) => parseOrThrow<GenerationOption[]>(res));
 }
 
-export function startRandomMode(generations?: string[]): Promise<GameState> {
+export function startRandomMode(generations?: string[], history?: SongHistory): Promise<GameState> {
   return fetch('/api/mode/random', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ generations }),
+    body: JSON.stringify({ generations, history }),
   }).then((res) => parseOrThrow<GameState>(res));
 }
 
