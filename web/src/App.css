@@ -947,6 +947,16 @@ button:disabled {
   font-size: 0.85rem;
 }
 
+.career-notebook-hint {
+  margin: 0 0 0.5rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
 .career-notebook ul {
   margin: 0;
   padding-left: 1.25rem;
@@ -1122,8 +1132,9 @@ button:disabled {
   overflow-y: auto;
   padding: 2rem;
   border-radius: 16px;
-  background: var(--card-bg, #fff);
-  color: var(--text, #222);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
   text-align: center;
 }
 
@@ -1171,17 +1182,30 @@ button:disabled {
   padding-left: 1.25rem;
 }
 
-.career-round-layout {
-  display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
-  align-items: start;
-  gap: 1.5rem;
+.app:has(.career-round-layout) {
+  max-width: none;
 }
 
-.career-round-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 1rem;
+.career-round-title {
+  margin: 0 0 0.25rem;
+  text-align: center;
+}
+
+.career-round-layout .career-illustration {
+  margin-bottom: 1.5rem;
+}
+
+.career-round-layout > .quiz-area {
+  width: 100%;
+  max-width: 560px;
+  margin-inline: auto;
+}
+
+.career-round-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 220px;
+  align-items: start;
+  gap: 1.5rem;
 }
 
 .career-round-controls {
@@ -1197,18 +1221,12 @@ button:disabled {
 }
 
 .career-round-answer {
-  flex: 0 0 9rem;
-  font-size: 0.8rem;
-  text-align: right;
+  overflow-wrap: anywhere;
 }
 
-.career-round-answer .result h2 {
-  font-size: 1rem;
-}
-
-.career-round-answer .result-cover {
-  max-width: 5rem;
-  margin: 0.5rem 0 0.5rem auto;
+.career-round-answer .result {
+  margin-top: 0;
+  padding: 1rem;
 }
 
 @media (max-width: 900px) {

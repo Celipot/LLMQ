@@ -738,29 +738,48 @@ describe('the effective stats', () => {
 
 describe('pickPreparedSongId', () => {
   const POOL = [1, 2, 3, 4, 5, 6, 7, 8];
+  const NOTEBOOK = [1, 2, 3, 4];
 
-  test('draws from the studied titles first', () => {
+  // Plays a whole sortie of `total` tracks; `coin` is what the notebook-or-pool draw
+  // sees, the title itself is always the last candidate of its source.
+  function playSortie(total, coin, notebook = NOTEBOOK) {
+    const used = [];
+    for (let i = 0; i < total; i += 1) {
+      const draws = [coin(), 0.999];
+      used.push(career.pickPreparedSongId(POOL, notebook, used, total, () => draws.shift()));
+    }
+    return used;
+  }
+
+  const fromNotebook = (used, notebook = NOTEBOOK) => used.filter((id) => notebook.includes(id)).length;
+
+  test('takes half of the tracks from the notebook when the coin favours it', () => {
+    assert.equal(fromNotebook(playSortie(6, () => 0)), 3);
+  });
+
+  test('rounds the notebook half up on an odd total', () => {
+    assert.equal(fromNotebook(playSortie(5, () => 0)), 3);
+  });
+
+  test('still takes the notebook quota when the coin never favours it', () => {
+    assert.equal(fromNotebook(playSortie(6, () => 0.999)), 3);
+  });
+
+  test('never repeats a title already used on the same sortie', () => {
     for (let i = 0; i < 30; i += 1) {
-      assert.ok([2, 5].includes(career.pickPreparedSongId(POOL, [2, 5], [])));
+      const used = playSortie(6, Math.random);
+      assert.equal(new Set(used).size, used.length);
     }
   });
 
-  test('never repeats a title already used on the same album or concert', () => {
-    for (let i = 0; i < 30; i += 1) {
-      assert.equal(career.pickPreparedSongId(POOL, [2, 5], [2]), 5);
-    }
+  test('completes with the pool when the notebook is smaller than its quota', () => {
+    const used = playSortie(6, () => 0, [2]);
+    assert.equal(fromNotebook(used, [2]), 1);
+    assert.equal(new Set(used).size, 6);
   });
 
-  test('completes with a random title of the pool once the studied ones are used', () => {
-    const picked = new Set();
-    for (let i = 0; i < 100; i += 1) picked.add(career.pickPreparedSongId(POOL, [2], [2]));
-    assert.ok(![...picked].includes(2));
-    assert.ok(picked.size > 1);
-    assert.ok([...picked].every((id) => POOL.includes(id)));
-  });
-
-  test('completes at random from the whole pool when nothing was studied', () => {
-    assert.ok(POOL.includes(career.pickPreparedSongId(POOL, [], [])));
+  test('draws from the whole pool when the notebook is empty', () => {
+    assert.ok(POOL.includes(career.pickPreparedSongId(POOL, [], [], 6)));
   });
 });
 

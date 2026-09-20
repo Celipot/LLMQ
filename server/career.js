@@ -399,13 +399,18 @@ function pickSongId(pool, foundIds, random = Math.random) {
   return source[Math.floor(random() * source.length)];
 }
 
-// The album and the concert are drawn from the titles found while studying;
-// when there are not enough (or none), they are completed with random titles
-// of the pool. A title never appears twice on the same album or concert.
-function pickPreparedSongId(pool, studiedIds, usedIds, random = Math.random) {
+// Half of the tracks of an album, a concert or a finale (rounded up) come from the
+// titles found while studying, the other half from the whole pool: the notebook only
+// prepares the player, it does not make the sortie predictable. The source of each
+// track is drawn with the odds of the quota still to fill, so the quota is met exactly
+// wherever the notebook tracks land. A title never appears twice on the same sortie.
+function pickPreparedSongId(pool, studiedIds, usedIds, total, random = Math.random) {
   const unused = pool.filter((id) => !usedIds.includes(id));
   const studied = unused.filter((id) => studiedIds.includes(id));
-  const source = studied.length > 0 ? studied : unused;
+  const quotaLeft = Math.ceil(total / 2) - usedIds.filter((id) => studiedIds.includes(id)).length;
+  const tracksLeft = total - usedIds.length;
+  const fromNotebook = studied.length > 0 && random() < quotaLeft / tracksLeft;
+  const source = fromNotebook ? studied : unused;
   return source[Math.floor(random() * source.length)];
 }
 

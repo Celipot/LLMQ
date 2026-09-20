@@ -1217,23 +1217,51 @@ async function studyFirstSongThenRestUntilRelease(player) {
   for (let i = 0; i < 9; i += 1) await player.post('/api/career/rest');
 }
 
-test('the album is drawn from the studied titles first, whatever the random draw', async () => {
+test('an album track comes from the notebook when the source draw favours it', async () => {
+  const player = newCareerPlayer();
+  await studyFirstSongThenRestUntilRelease(player);
+
+  const { result } = await playAlbumTrack(player, 0, { draw: 0 });
+
+  assert.equal(result.correct, true);
+});
+
+test('an album track comes from the whole pool when the source draw does not favour the notebook', async () => {
   const player = newCareerPlayer();
   await studyFirstSongThenRestUntilRelease(player);
 
   const { result } = await playAlbumTrack(player, 0, { draw: 0.999 });
 
-  assert.equal(result.correct, true);
+  assert.equal(result.correct, false);
 });
 
 test('once the studied titles are used the album is completed with other titles', async () => {
   const player = newCareerPlayer();
   await studyFirstSongThenRestUntilRelease(player);
-  await playAlbumTrack(player, 0, { draw: 0.999 });
+  await playAlbumTrack(player, 0, { draw: 0 });
 
   const { result } = await playAlbumTrack(player, 0);
 
   assert.equal(result.correct, false);
+});
+
+test('the round tells when its title is in the notebook, without revealing the title', async () => {
+  const player = newCareerPlayer();
+  await studyFirstSongThenRestUntilRelease(player);
+
+  const { round } = await playAlbumTrack(player, 0, { draw: 0 });
+
+  assert.equal(round.inNotebook, true);
+  assert.ok(!JSON.stringify(round).includes(albumSong(0).title));
+});
+
+test('the round tells when its title is not in the notebook', async () => {
+  const player = newCareerPlayer();
+  await studyFirstSongThenRestUntilRelease(player);
+
+  const { round } = await playAlbumTrack(player, 0, { draw: 0.999 });
+
+  assert.equal(round.inNotebook, false);
 });
 
 // --- Single, deuxième phase et concert -------------------------------------
@@ -1319,7 +1347,7 @@ async function restUntilConcert(player) {
   await spendTurnsOnSingles(player, 10);
 }
 
-// The concert is drawn from the notebook first, and events add or remove titles from it
+// Half of the concert is drawn from the notebook, and events add or remove titles from it
 // (the third one takes two away when the concert becomes due): the expected title is
 // the one the server draws with Math.random at 0, from the notebook of the moment.
 const concertPlayed = new WeakMap();
@@ -1332,6 +1360,7 @@ async function playConcertTrack(player, index) {
     discographyIds,
     state.notebook.map((song) => song.id),
     played,
+    career.CONCERT_SIZE,
     () => 0,
   );
   concertPlayed.set(player, [...played, id]);

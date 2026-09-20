@@ -27,7 +27,7 @@ Album et concert sont **débloqués après le premier concert** (celui de la pha
 | Concert (15 titres) | 4 | 1 (consommé à la fin) | aucun | 0 |
 | Repos | 0 (+4 : énergie au maximum) | 1 | — | 0 |
 
-L'énergie d'une sortie est prélevée dès le premier titre (un refus `NO_ENERGY` ne tire aucun titre). Le concert vide donc toute la jauge (max 4). Points par essai, grades et pools comme en v2 : carnet en priorité, puis discographie, aucun doublon dans une même sortie, doublons permis d'une sortie à l'autre. Les stats peuvent dépasser 300 (leurs bonus sont plafonnés, elles continuent de compter dans le score).
+L'énergie d'une sortie est prélevée dès le premier titre (un refus `NO_ENERGY` ne tire aucun titre). Le concert vide donc toute la jauge (max 4). Points par essai, grades et pools comme en v2 : la moitié des titres (arrondie au-dessus) tirée du carnet, l'autre de toute la discographie, aucun doublon dans une même sortie, doublons permis d'une sortie à l'autre. Les stats peuvent dépasser 300 (leurs bonus sont plafonnés, elles continuent de compter dans le score).
 
 ## SIF (finale)
 
@@ -165,4 +165,4 @@ Trois objectifs affichés l'un après l'autre, avec leur échéance en tours (v2
 - **Événements du SIF** : les événements 12 à 15 se déclenchent avant une piste tirée au hasard entre la 2e et la 25e, et durent 3 titres (la piste de départ comprise). Le tirage est fait au démarrage du SIF ; la stat d'un malus est tirée parmi celles dont la valeur effective n'est pas déjà négative. Ils sont annoncés comme les autres événements.
 - **Fenêtre d'événement** : elle liste aussi les titres gagnés par un gain de carnet (`career.newEvents[].gained`) et est plus grande.
 - **Historique des sorties** : la colonne de gauche liste chaque album, concert et le SIF avec le tour où il a été joué (les sorties imposées des phases 1 et 2 sont datées 10 et 20).
-- **Écran de devinage** : le carnet est affiché à gauche ; « Continuer » / « Titre suivant » passe sous « Valider » et la réponse s'affiche en plus petit, à droite.
+- **Écran de devinage** : le carnet est affiché à gauche, avec au-dessus l'indicateur « Ce titre est dans ton carnet » quand le titre à deviner y figure (`round.inNotebook`) ; « Continuer » / « Titre suivant » passe sous « Valider » et la réponse s'affiche en plus petit, à droite.

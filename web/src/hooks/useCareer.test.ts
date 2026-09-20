@@ -63,7 +63,7 @@ const career: Career = {
 };
 
 const playing: GameState = { attemptsUsed: 0, maxAttempts: 3, allowedSeconds: 1, status: 'playing', guesses: [] };
-const studyRound: CareerResponse = { career, round: { kind: 'study', stat: 'oreille', state: playing } };
+const studyRound: CareerResponse = { career, round: { kind: 'study', stat: 'oreille', inNotebook: false, state: playing } };
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -149,7 +149,7 @@ describe('useCareer', () => {
   test('single() starts a single round on the stat drawn by the server', async () => {
     vi.mocked(api.singleCareer).mockResolvedValue({
       career,
-      round: { kind: 'single', stat: 'culture', state: playing },
+      round: { kind: 'single', stat: 'culture', inNotebook: false, state: playing },
     });
     const { result } = renderHook(() => useCareer());
 
@@ -198,7 +198,7 @@ describe('useCareer', () => {
   test('concert() starts the next track of the concert', async () => {
     vi.mocked(api.concertCareer).mockResolvedValue({
       career,
-      round: { kind: 'concert', stat: null, state: playing },
+      round: { kind: 'concert', stat: null, inNotebook: false, state: playing },
     });
     const { result } = renderHook(() => useCareer());
 
@@ -333,7 +333,7 @@ describe('useCareer events', () => {
   test('finale() starts the finale round', async () => {
     vi.mocked(api.finaleCareer).mockResolvedValue({
       career,
-      round: { kind: 'finale', stat: null, state: playing },
+      round: { kind: 'finale', stat: null, inNotebook: false, state: playing },
     });
     const { result } = renderHook(() => useCareer());
 

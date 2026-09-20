@@ -26,7 +26,7 @@ Stats, carnet et énergie sont conservés d'une phase à l'autre. La sortie de l
 
 Le Single ne laisse pas le choix de la stat : le serveur en tire une au hasard (oreille, mémoire ou culture, à probabilité égale) et l'annonce dans le round. Il tire un titre de la discographie non encore trouvé, comme l'Étude, mais le titre trouvé n'entre pas dans le carnet : le joueur arbitre entre stats et préparation de l'album/concert. Chaque action consomme un tour.
 
-**Concert** : 15 rounds enchaînés avec les paliers et suggestions du joueur. Mêmes points par essai que l'album (100/70/50/35/25/0), maximum **1500**, mêmes grades (S ≥ 90 %, A ≥ 70 %, B ≥ 50 %, C ≥ 30 %, D). Pool : titres du carnet en priorité, puis repli sur la discographie ; aucun doublon dans le concert (les titres de l'album sont autorisés en repli). La carrière se termine à la fin du concert.
+**Concert** : 15 rounds enchaînés avec les paliers et suggestions du joueur. Mêmes points par essai que l'album (100/70/50/35/25/0), maximum **1500**, mêmes grades (S ≥ 90 %, A ≥ 70 %, B ≥ 50 %, C ≥ 30 %, D). Pool : la moitié des titres (arrondie au-dessus) vient du carnet, l'autre moitié de toute la discographie (repli sur la discographie si le carnet est trop petit) ; aucun doublon dans le concert (les titres de l'album sont autorisés en repli). La carrière se termine à la fin du concert.
 
 ## Objectifs et fans (FSI)
 

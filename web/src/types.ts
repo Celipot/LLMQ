@@ -164,6 +164,7 @@ export interface CareerResult {
 export interface CareerRound {
   kind: 'study' | 'single' | 'release' | 'concert' | 'finale';
   stat: CareerStat | null;
+  inNotebook: boolean;
   state: GameState;
 }
 

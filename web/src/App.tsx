@@ -25,6 +25,8 @@ import { useToast } from './hooks/useToast';
 import { useAudioPlayer } from './hooks/useAudioPlayer';
 import './App.css';
 
+const CAREER_ROUND_TITLES = { study: 'Étude', single: 'Single', release: 'Album', concert: 'Concert', finale: 'SIF' };
+
 type Screen = 'home' | 'profile' | 'random-setup' | 'random' | 'career' | 'list' | 'join' | 'lobby';
 
 function parseGameIdFromPath(): string | null {
@@ -327,11 +329,14 @@ export default function App() {
       {careerRound && (
         <div className="career-round-layout">
           <aside className="career-column" aria-label="Carnet">
-            <CareerNotebook notebook={career?.notebook ?? []} />
+            <CareerNotebook notebook={career?.notebook ?? []} songInNotebook={careerRound.inNotebook} />
           </aside>
 
           <div className="quiz-area">
+            <h2 className="career-round-title">{CAREER_ROUND_TITLES[careerRound.kind]}</h2>
             <p className="subtitle">{roundSubtitle}</p>
+
+            <img className="career-illustration" src="/career-placeholder.svg" alt="Illustration de la carrière" />
 
             <Player
               audioRef={audioRef}
@@ -362,7 +367,7 @@ export default function App() {
                 }}
                 onSubmit={handleCareerSubmit}
               />
-              <div className="career-round-row">
+              <div>
                 <div className="career-round-controls">
                   <div className="actions">
                     <button type="button" id="guess-btn" disabled={careerFinished} onClick={handleCareerSubmit}>
@@ -380,11 +385,6 @@ export default function App() {
                     </div>
                   )}
                 </div>
-                {careerFinished && (
-                  <div className="career-round-answer">
-                    <Result state={careerRound.state} />
-                  </div>
-                )}
               </div>
               <p className="error-msg" role="alert">
                 {careerState.error || playError}
@@ -393,6 +393,10 @@ export default function App() {
 
             <History guesses={careerRound.state.guesses} />
           </div>
+
+          <aside className="career-column career-round-answer" aria-label="Réponse">
+            {careerFinished && <Result state={careerRound.state} />}
+          </aside>
         </div>
       )}
 

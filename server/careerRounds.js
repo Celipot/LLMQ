@@ -109,6 +109,7 @@ function publicRound(session) {
   return {
     kind: round.kind,
     stat: round.stat,
+    inNotebook: session.career.notebook.includes(round.songId),
     state: gameState.getPublicState(round.key, { id, title, artist, coverUrl }),
   };
 }
@@ -175,7 +176,7 @@ function startLive(session, kind, roundKind) {
   career.startLive(session.career, kind);
   session.careerNewEvents = [];
   if (kind === 'finale') startFinaleTrack(session);
-  const songId = career.pickPreparedSongId(discography, notebook, career.liveSongIds(session.career));
+  const songId = career.pickPreparedSongId(discography, notebook, career.liveSongIds(session.career), career.LIVES[kind].size);
   startRound(session, roundKind, null, songId);
 }
 
@@ -185,7 +186,7 @@ function startRelease(session) {
   const { notebook, album } = session.career;
   career.assertCanRelease(session.career);
   session.careerNewEvents = [];
-  const songId = career.pickPreparedSongId(discography, notebook, trackSongIds(album));
+  const songId = career.pickPreparedSongId(discography, notebook, trackSongIds(album), career.ALBUM_SIZE);
   return startRound(session, 'release', null, songId);
 }
 
@@ -195,7 +196,7 @@ function startConcert(session) {
   const { notebook, concertTracks } = session.career;
   career.assertCanConcert(session.career);
   session.careerNewEvents = [];
-  const songId = career.pickPreparedSongId(discography, notebook, trackSongIds(concertTracks));
+  const songId = career.pickPreparedSongId(discography, notebook, trackSongIds(concertTracks), career.CONCERT_SIZE);
   return startRound(session, 'concert', null, songId);
 }
 

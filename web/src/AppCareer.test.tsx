@@ -85,7 +85,7 @@ describe('App — Mode Carrière', () => {
     vi.mocked(api.startCareer).mockResolvedValue({ career, round: null });
     vi.mocked(api.studyCareer).mockResolvedValue({
       career,
-      round: { kind: 'study', stat: 'oreille', state: roundState },
+      round: { kind: 'study', stat: 'oreille', inNotebook: false, state: roundState },
     });
     render(<App />);
     await userEvent.click(screen.getByText('Mode Carrière'));
@@ -103,7 +103,7 @@ describe('App — Mode Carrière', () => {
     vi.mocked(api.fetchCareer).mockResolvedValue({ career, round: null });
     vi.mocked(api.singleCareer).mockResolvedValue({
       career,
-      round: { kind: 'single', stat: 'culture', state: roundState },
+      round: { kind: 'single', stat: 'culture', inNotebook: false, state: roundState },
     });
     render(<App />);
     await userEvent.click(screen.getByText('Mode Carrière'));
@@ -115,11 +115,40 @@ describe('App — Mode Carrière', () => {
     expect(screen.getByText(/Single \(Culture\) : deviner le titre/)).toBeInTheDocument();
   });
 
+  test.each([
+    ['study', 'Étude'],
+    ['single', 'Single'],
+    ['release', 'Album'],
+    ['concert', 'Concert'],
+    ['finale', 'SIF'],
+  ] as const)('the guessing screen of a %s round is titled %s', async (kind, title) => {
+    vi.mocked(api.fetchCareer).mockResolvedValue({
+      career: { ...career, live: { kind: 'album', done: 0, total: 6 } },
+      round: { kind, stat: kind === 'study' || kind === 'single' ? 'oreille' : null, inNotebook: false, state: roundState },
+    });
+    render(<App />);
+    await userEvent.click(screen.getByText('Mode Carrière'));
+
+    expect(await screen.findByRole('heading', { name: title })).toBeInTheDocument();
+  });
+
+  test('the guessing screen shows the career placeholder image', async () => {
+    vi.mocked(api.fetchCareer).mockResolvedValue({
+      career,
+      round: { kind: 'study', stat: 'oreille', inNotebook: false, state: roundState },
+    });
+    render(<App />);
+    await userEvent.click(screen.getByText('Mode Carrière'));
+
+    const image = await screen.findByRole('img', { name: 'Illustration de la carrière' });
+    expect(image).toHaveAttribute('src', '/career-placeholder.svg');
+  });
+
   test('the notebook stays on the left of the guessing screen', async () => {
     const notebook = [{ id: 1, title: 'Awakening Promise', coverUrl: '/covers/a.png' }];
     vi.mocked(api.fetchCareer).mockResolvedValue({
       career: { ...career, notebook },
-      round: { kind: 'study', stat: 'oreille', state: roundState },
+      round: { kind: 'study', stat: 'oreille', inNotebook: false, state: roundState },
     });
     render(<App />);
     await userEvent.click(screen.getByText('Mode Carrière'));
@@ -130,10 +159,22 @@ describe('App — Mode Carrière', () => {
     expect(notebookColumn.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  test('the guessing screen tells when the title is in the notebook', async () => {
+    const notebook = [{ id: 1, title: 'Awakening Promise', coverUrl: '/covers/a.png' }];
+    vi.mocked(api.fetchCareer).mockResolvedValue({
+      career: { ...career, notebook },
+      round: { kind: 'release', stat: null, inNotebook: true, state: roundState },
+    });
+    render(<App />);
+    await userEvent.click(screen.getByText('Mode Carrière'));
+
+    expect(await screen.findByText('Ce titre est dans ton carnet')).toBeInTheDocument();
+  });
+
   test('once a round is over, Continuer sits under Valider and the answer is smaller, on the right', async () => {
     vi.mocked(api.fetchCareer).mockResolvedValue({
       career,
-      round: { kind: 'study', stat: 'oreille', state: wonState },
+      round: { kind: 'study', stat: 'oreille', inNotebook: false, state: wonState },
     });
     render(<App />);
     await userEvent.click(screen.getByText('Mode Carrière'));
@@ -160,7 +201,7 @@ describe('App — Mode Carrière', () => {
   test('the restart button is hidden while a round is in progress', async () => {
     vi.mocked(api.fetchCareer).mockResolvedValue({
       career,
-      round: { kind: 'study', stat: 'oreille', state: roundState },
+      round: { kind: 'study', stat: 'oreille', inNotebook: false, state: roundState },
     });
     render(<App />);
     await userEvent.click(screen.getByText('Mode Carrière'));
@@ -197,7 +238,7 @@ describe('App — Mode Carrière', () => {
     test('shows the position of the track being played', async () => {
       vi.mocked(api.fetchCareer).mockResolvedValue({
         career: midAlbum,
-        round: { kind: 'release', stat: null, state: roundState },
+        round: { kind: 'release', stat: null, inNotebook: false, state: roundState },
       });
       render(<App />);
 
@@ -209,11 +250,11 @@ describe('App — Mode Carrière', () => {
     test('after a track, "Titre suivant" starts the next one without going back to the hub', async () => {
       vi.mocked(api.fetchCareer).mockResolvedValue({
         career: midAlbum,
-        round: { kind: 'release', stat: null, state: wonState },
+        round: { kind: 'release', stat: null, inNotebook: false, state: wonState },
       });
       vi.mocked(api.releaseCareer).mockResolvedValue({
         career: midAlbum,
-        round: { kind: 'release', stat: null, state: roundState },
+        round: { kind: 'release', stat: null, inNotebook: false, state: roundState },
       });
       render(<App />);
       await userEvent.click(screen.getByText('Mode Carrière'));
@@ -232,7 +273,7 @@ describe('App — Mode Carrière', () => {
       };
       vi.mocked(api.fetchCareer).mockResolvedValue({
         career: released,
-        round: { kind: 'release', stat: null, state: wonState },
+        round: { kind: 'release', stat: null, inNotebook: false, state: wonState },
       });
       render(<App />);
       await userEvent.click(screen.getByText('Mode Carrière'));
@@ -256,7 +297,7 @@ describe('App — Mode Carrière', () => {
     test('shows the position of the track being played', async () => {
       vi.mocked(api.fetchCareer).mockResolvedValue({
         career: midConcert,
-        round: { kind: 'concert', stat: null, state: roundState },
+        round: { kind: 'concert', stat: null, inNotebook: false, state: roundState },
       });
       render(<App />);
 
@@ -268,11 +309,11 @@ describe('App — Mode Carrière', () => {
     test('after a track, "Titre suivant" starts the next one of the concert', async () => {
       vi.mocked(api.fetchCareer).mockResolvedValue({
         career: midConcert,
-        round: { kind: 'concert', stat: null, state: wonState },
+        round: { kind: 'concert', stat: null, inNotebook: false, state: wonState },
       });
       vi.mocked(api.concertCareer).mockResolvedValue({
         career: midConcert,
-        round: { kind: 'concert', stat: null, state: roundState },
+        round: { kind: 'concert', stat: null, inNotebook: false, state: roundState },
       });
       render(<App />);
       await userEvent.click(screen.getByText('Mode Carrière'));
@@ -291,7 +332,7 @@ describe('App — Mode Carrière', () => {
       };
       vi.mocked(api.fetchCareer).mockResolvedValue({
         career: over,
-        round: { kind: 'concert', stat: null, state: wonState },
+        round: { kind: 'concert', stat: null, inNotebook: false, state: wonState },
       });
       render(<App />);
       await userEvent.click(screen.getByText('Mode Carrière'));
