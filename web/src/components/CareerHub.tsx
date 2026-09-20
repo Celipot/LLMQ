@@ -1,3 +1,4 @@
+import type { CareerChanges } from '../careerChanges';
 import { CAREER_STATS } from '../careerStats';
 import type { Career, CareerEvent as CareerEventData, CareerStat, RewardOption } from '../types';
 import CareerEvent from './CareerEvent';
@@ -5,6 +6,7 @@ import CareerNotebook from './CareerNotebook';
 import CareerObjective from './CareerObjective';
 import CareerResult from './CareerResult';
 import CareerScore from './CareerScore';
+import ChangeBadge from './ChangeBadge';
 import StatBars from './StatBars';
 
 // Only used to disable the button: the server refuses a single without enough energy.
@@ -24,6 +26,8 @@ interface CareerHubProps {
   events: CareerEventData[];
   onDismissEvent: () => void;
   onChooseReward: (option: RewardOption) => void;
+  // What the last round brought, highlighted for a few seconds.
+  changes?: CareerChanges | null;
 }
 
 const LIVE_LABELS = { album: "l'album", concert: 'le concert', finale: 'le SIF' };
@@ -41,6 +45,7 @@ export default function CareerHub({
   events,
   onDismissEvent,
   onChooseReward,
+  changes,
 }: CareerHubProps) {
   if (!career) {
     return (
@@ -85,11 +90,17 @@ export default function CareerHub({
       <aside className="career-column" aria-label="Statistiques">
         <div className="career-status">
           <span>{`Tour ${turn}`}</span>
-          <span>{`Énergie ${career.energy} / ${career.maxEnergy}`}</span>
-          <span>{`FSI ${career.fans.current}`}</span>
+          <span className="career-status-item">
+            {`Énergie ${career.energy} / ${career.maxEnergy}`}
+            {changes?.energy ? <ChangeBadge label="Énergie" amount={changes.energy} /> : null}
+          </span>
+          <span className="career-status-item">
+            {`Fans ${career.fans.current}`}
+            {changes?.fans ? <ChangeBadge label="Fans" amount={changes.fans} /> : null}
+          </span>
         </div>
 
-        <StatBars stats={career.stats} statMax={career.statMax} />
+        <StatBars stats={career.stats} statMax={career.statMax} changes={changes?.stats} />
 
         {releases.length > 0 && (
           <div className="career-history">

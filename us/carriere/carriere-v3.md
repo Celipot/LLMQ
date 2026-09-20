@@ -58,7 +58,7 @@ Un événement applique un ou plusieurs **effets** et s'affiche dans le hub (car
 | **Tour fixe** | À un tour précis | Non |
 | **Plage de tours** | Un tour tiré dans la plage à la création de la carrière (ex. entre les tours 32 et 34) | Non |
 | **Stat au maximum** | Quand une stat atteint son maximum actuel (le dernier palier de bonus : oreille 300, mémoire 300, culture 200). Elle peut continuer de monter ensuite ; sa barre s'affiche alors pleine | Non : se produit dès que le maximum est atteint |
-| **Seuil de fans** | Quand les FSI atteignent un seuil | Non |
+| **Seuil de fans** | Quand les fans atteignent un seuil | Non |
 | **Série de réponses** | 5 titres trouvés d'affilée en **étude ou single** (album, concert et SIF ne comptent pas et ne remettent pas la série à 0) ; un échec en étude ou single remet la série à 0 | Non |
 
 Aucun tirage de probabilité : tous les événements se produisent. Le seul tirage est celui du tour d'un événement de plage (à la création de la carrière) et du titre retiré du carnet. Un événement de tour, de stat ou de fans ne se produit qu'**une fois** par carrière (au premier franchissement) ; l'événement de série se répète à chaque nouvelle série de 5. Les seuils de stat se jugent sur la valeur de base, pas sur la valeur avec malus temporaire. Un événement n'arrive jamais en plein round : il s'applique à la fin de l'action en cours (fin du tour, ou fin de la sortie d'album ou de concert). Un événement du tour 1 n'est pas possible (début de tour, à partir du tour 2).
@@ -125,14 +125,14 @@ Somme, calculée côté serveur (`career.finalScore`) :
 | Sorties | total des albums et concerts de la phase 3 |
 | SIF | points du finale (max 5000, 0 si non joué) |
 | Stats | total des trois stats |
-| Fans | nombre de FSI |
+| Fans | nombre de fans |
 
 Le SIF pèse beaucoup dans le total ; les poids sont à ajuster après un premier essai.
 
 ## Objectifs (hub)
 Trois objectifs affichés l'un après l'autre, avec leur échéance en tours (v2) :
 1. Album B+ (tour 10) ;
-2. 750 FSI (tour 20) ;
+2. 450 fans (tour 20) ;
 3. Phase 3 : « Concert B+ x / 2 » puis, à la ligne, « Album B+ y / 2 » (tour 50).
 
 ## Approche technique
@@ -160,9 +160,10 @@ Trois objectifs affichés l'un après l'autre, avec leur échéance en tours (v2
 
 ## Ajustements de la v3 (après un premier essai)
 
-- **Fans du premier concert** : 750 FSI au tour 20 (un album parfait en donne 300, il faut environ une douzaine de singles trouvés au premier essai, 40 chacun, avant et après l'album).
+- **Fans du premier concert** : 450 fans au tour 20 (un album parfait en donne 300, il faut environ quatre singles trouvés au premier essai, 40 chacun, avant et après l'album).
 - **Événements de stat** : +50 au lieu de +100 (6 : culture, 7 : oreille, 8 : mémoire). Un deuxième malus de −400 sur 5 tours (événement 11) tombe entre les tours 30 et 50.
 - **Événements du SIF** : les événements 12 à 15 se déclenchent avant une piste tirée au hasard entre la 2e et la 25e, et durent 3 titres (la piste de départ comprise). Le tirage est fait au démarrage du SIF ; la stat d'un malus est tirée parmi celles dont la valeur effective n'est pas déjà négative. Ils sont annoncés comme les autres événements.
 - **Fenêtre d'événement** : elle liste aussi les titres gagnés par un gain de carnet (`career.newEvents[].gained`) et est plus grande.
 - **Historique des sorties** : la colonne de gauche liste chaque album, concert et le SIF avec le tour où il a été joué (les sorties imposées des phases 1 et 2 sont datées 10 et 20).
+- **Changements d'un round** : au retour au hub, pendant 5 s, une carte à flèche à droite de chaque champ qui a bougé (stat, énergie, fans) affiche la variation, `+N` en vert ou `−N` en rouge, malus compris. Elle est calculée côté client, par différence entre la carrière avant et après le round.
 - **Écran de devinage** : le carnet est affiché à gauche, avec au-dessus l'indicateur « Ce titre est dans ton carnet » quand le titre à deviner y figure (`round.inNotebook`) ; « Continuer » / « Titre suivant » passe sous « Valider » et la réponse s'affiche en plus petit, à droite.

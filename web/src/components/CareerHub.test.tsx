@@ -255,8 +255,8 @@ describe('CareerHub', () => {
   test('shows only the current number of fans, without the required total', () => {
     renderHub();
 
-    expect(screen.getByText('FSI 120')).toBeInTheDocument();
-    expect(screen.queryByText('FSI 120 / 300')).not.toBeInTheDocument();
+    expect(screen.getByText('Fans 120')).toBeInTheDocument();
+    expect(screen.queryByText('Fans 120 / 300')).not.toBeInTheDocument();
   });
 
   describe('the current objective', () => {
@@ -285,7 +285,7 @@ describe('CareerHub', () => {
     test('once the album is released: win the fans needed for the concert', () => {
       renderHub({ turn: 12, release: albumResult });
 
-      expect(objective()).toHaveTextContent('Atteindre 300 FSI pour participer au concert (120 / 300)');
+      expect(objective()).toHaveTextContent('Atteindre 300 fans pour participer au concert (120 / 300)');
       expect(objective()).toHaveTextContent('(dans 9 tours)');
     });
 
@@ -320,7 +320,7 @@ describe('CareerHub', () => {
     test('missing fans is reported as a missed objective', () => {
       renderHub({ turn: 21, release: albumResult, failure: 'FANS' });
 
-      expect(objective()).toHaveTextContent('Objectif raté : pas assez de FSI pour participer au concert (120 / 300)');
+      expect(objective()).toHaveTextContent('Objectif raté : pas assez de fans pour participer au concert (120 / 300)');
     });
   });
 
@@ -539,5 +539,28 @@ describe('CareerHub third phase', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Toutes les stats +60' }));
 
     expect(onChooseReward).toHaveBeenCalledWith('stats');
+  });
+});
+
+describe('CareerHub — changes of the last round', () => {
+  test('a badge sits on every field that moved', () => {
+    renderHub({}, { changes: { stats: { oreille: 50, culture: -100 }, energy: 2, fans: 40 } });
+
+    expect(screen.getByRole('status', { name: 'Oreille +50' })).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Culture −100' })).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Énergie +2' })).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Fans +40' })).toBeInTheDocument();
+  });
+
+  test('fields that did not move get no badge', () => {
+    renderHub({}, { changes: { stats: { oreille: 50 }, energy: 0, fans: 0 } });
+
+    expect(screen.getAllByRole('status')).toHaveLength(1);
+  });
+
+  test('without changes, no badge is shown', () => {
+    renderHub({}, { changes: null });
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 });

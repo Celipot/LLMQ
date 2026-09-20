@@ -288,7 +288,7 @@ describe('fans', () => {
     const state = career.createCareer();
     assert.equal(state.fans, 0);
     assert.equal(state.failure, null);
-    assert.equal(career.FANS_REQUIRED, 750);
+    assert.equal(career.FANS_REQUIRED, 450);
   });
 
   test('a single wins fans, a study and a rest do not', () => {
@@ -694,8 +694,8 @@ describe('the third phase', () => {
       sorties: 2400,
       finale: 5000,
       stats: 0,
-      fans: 750,
-      total: 10250,
+      fans: career.FANS_REQUIRED,
+      total: 9950,
     });
   });
 });

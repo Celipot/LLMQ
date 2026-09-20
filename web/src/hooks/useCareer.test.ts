@@ -355,3 +355,88 @@ describe('useCareer events', () => {
     expect(result.current.error).toBe('Choisir une récompense avant de continuer.');
   });
 });
+
+describe('useCareer — changes of the last round', () => {
+  const won: GameState = { ...playing, attemptsUsed: 1, status: 'won', correctTitle: 'Song' };
+  const after: Career = { ...career, energy: 4, stats: { ...career.stats, oreille: 80 }, fans: { ...career.fans, current: 40 } };
+
+  async function finishStudy() {
+    vi.mocked(api.studyCareer).mockResolvedValue(studyRound);
+    vi.mocked(api.submitGuess).mockResolvedValue({ correct: true, state: won, career: after });
+    const hook = renderHook(() => useCareer());
+    await act(async () => {
+      await hook.result.current.study('oreille');
+    });
+    await act(async () => {
+      await hook.result.current.guess('Song');
+    });
+    return hook;
+  }
+
+  test('nothing is highlighted while the round result is still on screen', async () => {
+    vi.useFakeTimers();
+    const { result } = await finishStudy();
+
+    expect(result.current.changes).toBeNull();
+    vi.useRealTimers();
+  });
+
+  test('back to the hub, the changes of the round are highlighted', async () => {
+    vi.useFakeTimers();
+    const { result } = await finishStudy();
+
+    act(() => result.current.closeRound());
+
+    expect(result.current.changes).toEqual({ stats: { oreille: 80 }, energy: 0, fans: 40 });
+    vi.useRealTimers();
+  });
+
+  test('the highlight goes away after 5 seconds', async () => {
+    vi.useFakeTimers();
+    const { result } = await finishStudy();
+    act(() => result.current.closeRound());
+
+    act(() => {
+      vi.advanceTimersByTime(4999);
+    });
+    expect(result.current.changes).not.toBeNull();
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+
+    expect(result.current.changes).toBeNull();
+    vi.useRealTimers();
+  });
+
+  test('a new action clears the highlight', async () => {
+    vi.useFakeTimers();
+    const { result } = await finishStudy();
+    act(() => result.current.closeRound());
+    vi.mocked(api.restCareer).mockResolvedValue({ career: after, round: null });
+
+    await act(async () => {
+      await result.current.rest();
+    });
+
+    expect(result.current.changes).toBeNull();
+    vi.useRealTimers();
+  });
+
+  test('a round that changes nothing highlights nothing', async () => {
+    vi.useFakeTimers();
+    vi.mocked(api.studyCareer).mockResolvedValue(studyRound);
+    vi.mocked(api.submitGuess).mockResolvedValue({ correct: true, state: won, career: { ...career } });
+    const { result } = renderHook(() => useCareer());
+    await act(async () => {
+      await result.current.study('oreille');
+    });
+    await act(async () => {
+      await result.current.guess('Song');
+    });
+
+    act(() => result.current.closeRound());
+
+    expect(result.current.changes).toBeNull();
+    vi.useRealTimers();
+  });
+});

@@ -1,16 +1,18 @@
 import { useState } from 'react';
 import { CAREER_STATS, STAT_STEP } from '../careerStats';
 import type { CareerStat } from '../types';
+import ChangeBadge from './ChangeBadge';
 
 interface StatBarsProps {
   stats: Record<CareerStat, number>;
   statMax: Record<CareerStat, number>;
+  changes?: Partial<Record<CareerStat, number>>;
 }
 
 // The bar fills toward the next step of 100, where a stat unlocks its bonus.
 // Past its maximum a stat keeps growing but its bar stays full; a negative one is empty.
 // Hovering or focusing a stat lists every step and marks the ones reached.
-export default function StatBars({ stats, statMax }: StatBarsProps) {
+export default function StatBars({ stats, statMax, changes = {} }: StatBarsProps) {
   const [openStat, setOpenStat] = useState<CareerStat | null>(null);
 
   return (
@@ -42,6 +44,7 @@ export default function StatBars({ stats, statMax }: StatBarsProps) {
               />
             </div>
             <span className="stat-bar-effect">{effect}</span>
+            {changes[stat] ? <ChangeBadge label={label} amount={changes[stat]} /> : null}
             {open && (
               <div id={tooltipId} role="tooltip" className="stat-tooltip">
                 <ul>

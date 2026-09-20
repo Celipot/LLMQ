@@ -28,11 +28,11 @@ Le Single ne laisse pas le choix de la stat : le serveur en tire une au hasard (
 
 **Concert** : 15 rounds enchaînés avec les paliers et suggestions du joueur. Mêmes points par essai que l'album (100/70/50/35/25/0), maximum **1500**, mêmes grades (S ≥ 90 %, A ≥ 70 %, B ≥ 50 %, C ≥ 30 %, D). Pool : la moitié des titres (arrondie au-dessus) vient du carnet, l'autre moitié de toute la discographie (repli sur la discographie si le carnet est trop petit) ; aucun doublon dans le concert (les titres de l'album sont autorisés en repli). La carrière se termine à la fin du concert.
 
-## Objectifs et fans (FSI)
+## Objectifs et fans
 
 Deux objectifs, affichés l'un après l'autre en haut du hub :
 1. **Sortir l'album avec un grade B ou mieux** (au moins la moitié des points). En dessous, la carrière est **échouée** (`failure: 'ALBUM_GRADE'`) : plus aucune action, seul « Nouvelle carrière » reste.
-2. **Atteindre 750 FSI** (fans de School Idols) **pour participer au concert**. Le compte est fait quand les 20 tours sont écoulés ; s'il manque des fans, la carrière est échouée (`failure: 'FANS'`).
+2. **Atteindre 450 fans pour participer au concert**. Le compte est fait quand les 20 tours sont écoulés ; s'il manque des fans, la carrière est échouée (`failure: 'FANS'`).
 
 Les fans ne se gagnent qu'en sortant de la musique :
 
@@ -43,7 +43,7 @@ Les fans ne se gagnent qu'en sortant de la musique :
 | Album sorti | la moitié du score (jusqu'à 300) |
 | Étude, repos, concert | 0 |
 
-Un album parfait ne suffit pas (300 FSI) : le seuil de 750 FSI (relevé en v3) oblige à sortir des singles trouvés au premier essai (40 FSI chacun) avant et après l'album.
+Un album parfait ne suffit pas (300 fans) : le seuil de 450 fans oblige à sortir quelques singles trouvés au premier essai (40 fans chacun) avant et après l'album.
 
 Le hub affiche l'objectif en cours en grand, au milieu, avec une image placeholder (`web/public/career-placeholder.svg`) entre l'objectif et les commandes. L'objectif indique entre parenthèses, en plus petit, dans combien de tours il doit être accompli (le tour en cours compte : « dans 10 tours » au tour 1) ; rien n'est affiché quand l'album ou le concert est à jouer.
 
@@ -56,13 +56,13 @@ Le hub affiche l'objectif en cours en grand, au milieu, avec une image placehold
 | Album | points de l'album (max 600) |
 | Concert | points du concert (max 1500, 0 si non joué) |
 | Stats | total des trois stats |
-| Fans | nombre de FSI |
+| Fans | nombre de fans |
 
 Un album et un concert parfaits sans stats font 600 + 1500 + 0 + 300 = 2400. Le concert pèse beaucoup dans le total ; les poids sont à ajuster après un premier essai.
 
 ## Interface
 
-- Hub sur trois colonnes, comme le multijoueur : stats (tour en cours, énergie, FSI actuels, une ligne chacun, puis carnet) à gauche, objectif, image et actions au milieu, récaps album/concert à droite. Chaque récap n'affiche que son grade, avec un dépliant pour le score et la liste des titres.
+- Hub sur trois colonnes, comme le multijoueur : stats (tour en cours, énergie, fans actuels, une ligne chacun, puis carnet) à gauche, objectif, image et actions au milieu, récaps album/concert à droite. Chaque récap n'affiche que son grade, avec un dépliant pour le score et la liste des titres.
 - Le bouton « Recommencer la carrière » est dans l'en-tête, à gauche d'« Accueil », uniquement sur le hub d'une carrière en cours (pas pendant un round, ni une fois la carrière terminée).
 
 ## Approche technique

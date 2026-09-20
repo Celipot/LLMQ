@@ -1,4 +1,5 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { computeChanges, type CareerChanges } from '../careerChanges';
 import {
   abandonCareer,
   ApiError,
@@ -24,19 +25,37 @@ import type {
   RewardOption,
 } from '../types';
 
+const CHANGES_HIGHLIGHT_MS = 5000;
+
 export function useCareer() {
   const [career, setCareer] = useState<Career | null>(null);
   const [round, setRound] = useState<CareerRound | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Events fired by the last action, acknowledged one at a time by the player.
   const [events, setEvents] = useState<CareerEvent[]>([]);
+  // The changes of a finished round are kept aside while its result is on screen, and
+  // highlighted for a few seconds once the hub, where the values are shown, is back.
+  const careerRef = useRef<Career | null>(null);
+  careerRef.current = career;
+  const [pendingChanges, setPendingChanges] = useState<CareerChanges | null>(null);
+  const [changes, setChanges] = useState<CareerChanges | null>(null);
+  const highlightTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const clearChanges = useCallback(() => {
+    clearTimeout(highlightTimer.current);
+    setPendingChanges(null);
+    setChanges(null);
+  }, []);
+
+  useEffect(() => () => clearTimeout(highlightTimer.current), []);
 
   const apply = useCallback((response: CareerResponse) => {
+    clearChanges();
     setCareer(response.career);
     setRound(response.round);
     setEvents(response.career.newEvents);
     setError(null);
-  }, []);
+  }, [clearChanges]);
 
   // A refused action leaves the career as it was and only reports why.
   const run = useCallback(
@@ -90,6 +109,7 @@ export function useCareer() {
   const applyRoundResult = useCallback((state: GameState, updatedCareer?: Career) => {
     setRound((previous) => (previous ? { ...previous, state } : previous));
     if (updatedCareer) {
+      if (careerRef.current) setPendingChanges(computeChanges(careerRef.current, updatedCareer));
       setCareer(updatedCareer);
       setEvents(updatedCareer.newEvents);
     }
@@ -121,13 +141,21 @@ export function useCareer() {
     }
   }, [applyRoundResult]);
 
-  const closeRound = useCallback(() => setRound(null), []);
+  const closeRound = useCallback(() => {
+    setRound(null);
+    if (!pendingChanges) return;
+    setChanges(pendingChanges);
+    setPendingChanges(null);
+    clearTimeout(highlightTimer.current);
+    highlightTimer.current = setTimeout(() => setChanges(null), CHANGES_HIGHLIGHT_MS);
+  }, [pendingChanges]);
   const clearError = useCallback(() => setError(null), []);
 
   return {
     career,
     round,
     events,
+    changes,
     error,
     enter,
     begin,

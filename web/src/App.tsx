@@ -323,6 +323,7 @@ export default function App() {
           events={careerState.events}
           onDismissEvent={careerState.dismissEvent}
           onChooseReward={careerState.chooseReward}
+          changes={careerState.changes}
         />
       )}
 

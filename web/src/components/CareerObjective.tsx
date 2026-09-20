@@ -32,7 +32,7 @@ function objectiveOf(career: Career): Objective {
   const fansProgress = `${fans.current} / ${fans.required}`;
   if (failure === 'ALBUM_GRADE') return { text: `Objectif raté : l'album n'a pas atteint le grade ${albumGoalGrade}` };
   if (failure === 'FANS') {
-    return { text: `Objectif raté : pas assez de FSI pour participer au concert (${fansProgress})` };
+    return { text: `Objectif raté : pas assez de fans pour participer au concert (${fansProgress})` };
   }
   if (failure === 'FINALE_GOALS') {
     return { text: "Objectif raté : pas assez de concerts et d'albums réussis pour le SIF" };
@@ -50,7 +50,7 @@ function objectiveOf(career: Career): Objective {
   if (concertDue) return { text: 'Donner le concert' };
   if (release) {
     return {
-      text: `Atteindre ${fans.required} FSI pour participer au concert (${fansProgress})`,
+      text: `Atteindre ${fans.required} fans pour participer au concert (${fansProgress})`,
       turnsLeft: concertAt - turn + 1,
     };
   }
