@@ -12,13 +12,13 @@ function statItem(label: string) {
 
 describe('StatBars', () => {
   test('shows no tooltip until a stat is hovered or focused', () => {
-    render(<StatBars stats={stats} statMax={statMax} statStep={100} />);
+    render(<StatBars stats={stats} statMax={statMax} statStep={100} baseTiers={[1, 2, 3]} baseSuggestions={1} />);
 
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
   test('hovering a stat lists what its steps unlock', async () => {
-    render(<StatBars stats={stats} statMax={statMax} statStep={100} />);
+    render(<StatBars stats={stats} statMax={statMax} statStep={100} baseTiers={[1, 2, 3]} baseSuggestions={1} />);
 
     await userEvent.hover(statItem('Chant'));
 
@@ -28,7 +28,7 @@ describe('StatBars', () => {
   });
 
   test('leaving the stat hides the tooltip', async () => {
-    render(<StatBars stats={stats} statMax={statMax} statStep={100} />);
+    render(<StatBars stats={stats} statMax={statMax} statStep={100} baseTiers={[1, 2, 3]} baseSuggestions={1} />);
     await userEvent.hover(statItem('Chant'));
 
     await userEvent.unhover(statItem('Chant'));
@@ -37,7 +37,7 @@ describe('StatBars', () => {
   });
 
   test('focusing a stat with the keyboard shows its tooltip too', async () => {
-    render(<StatBars stats={stats} statMax={statMax} statStep={100} />);
+    render(<StatBars stats={stats} statMax={statMax} statStep={100} baseTiers={[1, 2, 3]} baseSuggestions={1} />);
 
     await userEvent.tab();
 
@@ -45,7 +45,7 @@ describe('StatBars', () => {
   });
 
   test('only the hovered stat has a tooltip, described by aria-describedby', async () => {
-    render(<StatBars stats={stats} statMax={statMax} statStep={100} />);
+    render(<StatBars stats={stats} statMax={statMax} statStep={100} baseTiers={[1, 2, 3]} baseSuggestions={1} />);
 
     await userEvent.hover(statItem('Connaissances'));
 
@@ -55,7 +55,7 @@ describe('StatBars', () => {
   });
 
   test('marks the steps already reached and shows the value still to reach', async () => {
-    render(<StatBars stats={stats} statMax={statMax} statStep={100} />);
+    render(<StatBars stats={stats} statMax={statMax} statStep={100} baseTiers={[1, 2, 3]} baseSuggestions={1} />);
 
     await userEvent.hover(statItem('Chant'));
 
@@ -67,7 +67,7 @@ describe('StatBars', () => {
 
 describe('StatBars with the step of the server', () => {
   test('the steps of the tooltip and the fill follow the step sent by the server', async () => {
-    render(<StatBars stats={{ oreille: 25, memoire: 0, culture: 0 }} statMax={statMax} statStep={50} />);
+    render(<StatBars stats={{ oreille: 25, memoire: 0, culture: 0 }} statMax={statMax} statStep={50} baseTiers={[1, 2, 3]} baseSuggestions={1} />);
 
     await userEvent.hover(statItem('Chant'));
 
@@ -77,13 +77,49 @@ describe('StatBars with the step of the server', () => {
   });
 });
 
+describe('StatBars with the base of the difficulty', () => {
+  const normalBase = { baseTiers: [2, 3, 4, 5], baseSuggestions: 3 };
+
+  async function tooltipOf(label: string, base: { baseTiers: number[]; baseSuggestions: number }) {
+    render(<StatBars stats={stats} statMax={statMax} statStep={100} {...base} />);
+    await userEvent.hover(statItem(label));
+    return screen.getByRole('tooltip');
+  }
+
+  test('endurance adds tries after the ones of the difficulty, on hard', async () => {
+    const tooltip = await tooltipOf('Endurance', { baseTiers: [1, 2, 3], baseSuggestions: 1 });
+
+    expect(tooltip).toHaveTextContent('un 4e essai (intro de 4 s)');
+    expect(tooltip).toHaveTextContent('un 5e essai (intro de 5 s)');
+  });
+
+  test('endurance adds tries after the ones of the difficulty, on normal', async () => {
+    const tooltip = await tooltipOf('Endurance', normalBase);
+
+    expect(tooltip).toHaveTextContent('un 5e essai (intro de 6 s)');
+    expect(tooltip).toHaveTextContent('un 6e essai (intro de 7 s)');
+  });
+
+  test('knowledge adds suggestions to the ones of the difficulty', async () => {
+    const hard = await tooltipOf('Connaissances', { baseTiers: [1, 2, 3], baseSuggestions: 1 });
+    expect(hard).toHaveTextContent('2 suggestions de recherche');
+    expect(hard).toHaveTextContent('4 suggestions de recherche');
+  });
+
+  test('knowledge adds suggestions to the ones of normal', async () => {
+    const normal = await tooltipOf('Connaissances', normalBase);
+    expect(normal).toHaveTextContent('4 suggestions de recherche');
+    expect(normal).toHaveTextContent('6 suggestions de recherche');
+  });
+});
+
 describe('StatBars beyond the maximum', () => {
   function fillOf(label: string) {
     return statItem(label).querySelector('.stat-bar-fill') as HTMLElement;
   }
 
   test('a stat that reached its maximum is shown full, even when it keeps growing', () => {
-    render(<StatBars stats={{ oreille: 340, memoire: 0, culture: 200 }} statMax={statMax} statStep={100} />);
+    render(<StatBars stats={{ oreille: 340, memoire: 0, culture: 200 }} statMax={statMax} statStep={100} baseTiers={[1, 2, 3]} baseSuggestions={1} />);
 
     expect(fillOf('Chant')).toHaveStyle({ width: '100%' });
     expect(fillOf('Endurance')).toHaveStyle({ width: '100%' });
@@ -91,13 +127,13 @@ describe('StatBars beyond the maximum', () => {
   });
 
   test('a stat under its maximum still fills toward the next step', () => {
-    render(<StatBars stats={{ oreille: 250, memoire: 0, culture: 0 }} statMax={statMax} statStep={100} />);
+    render(<StatBars stats={{ oreille: 250, memoire: 0, culture: 0 }} statMax={statMax} statStep={100} baseTiers={[1, 2, 3]} baseSuggestions={1} />);
 
     expect(fillOf('Chant')).toHaveStyle({ width: '50%' });
   });
 
   test('a negative stat is shown empty with its value', () => {
-    render(<StatBars stats={{ oreille: -100, memoire: 0, culture: 0 }} statMax={statMax} statStep={100} />);
+    render(<StatBars stats={{ oreille: -100, memoire: 0, culture: 0 }} statMax={statMax} statStep={100} baseTiers={[1, 2, 3]} baseSuggestions={1} />);
 
     expect(fillOf('Chant')).toHaveStyle({ width: '0%' });
     expect(statItem('Chant')).toHaveTextContent('-100');

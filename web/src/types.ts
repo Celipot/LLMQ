@@ -58,6 +58,10 @@ export interface Career {
   statMax: Record<CareerStat, number>;
   modifiers: CareerModifier[];
   suggestionCount: number;
+  difficulty: Difficulty;
+  // The clip length in seconds of each try, and the search suggestions, before any stat bonus.
+  baseTiers: number[];
+  baseSuggestions: number;
   costs: { study: number; single: number };
   statStep: number;
   notebook: CareerSong[];
@@ -163,10 +167,20 @@ export interface CareerResult {
   tracks: CareerTrack[];
 }
 
+export type Difficulty = 'normal' | 'hard';
+
+// The kind of title to guess; a unit or a group has no singer.
+export interface TitleHint {
+  group: string;
+  singer?: string;
+}
+
 export interface CareerRound {
   kind: 'study' | 'single' | 'release' | 'concert' | 'finale';
   stat: CareerStat | null;
   inNotebook: boolean;
+  // Only on the normal difficulty.
+  hint?: TitleHint;
   state: GameState;
 }
 

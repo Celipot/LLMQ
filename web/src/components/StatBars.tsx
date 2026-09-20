@@ -7,13 +7,15 @@ interface StatBarsProps {
   stats: Record<CareerStat, number>;
   statMax: Record<CareerStat, number>;
   statStep: number;
+  baseTiers: number[];
+  baseSuggestions: number;
   changes?: Partial<Record<CareerStat, number>>;
 }
 
 // The bar fills toward the next step of 100, where a stat unlocks its bonus.
 // Past its maximum a stat keeps growing but its bar stays full; a negative one is empty.
 // Hovering or focusing a stat lists every step and marks the ones reached.
-export default function StatBars({ stats, statMax, statStep, changes = {} }: StatBarsProps) {
+export default function StatBars({ stats, statMax, statStep, baseTiers, baseSuggestions, changes = {} }: StatBarsProps) {
   const [openStat, setOpenStat] = useState<CareerStat | null>(null);
 
   return (
@@ -53,7 +55,7 @@ export default function StatBars({ stats, statMax, statStep, changes = {} }: Sta
                     const at = step * statStep;
                     return (
                       <li key={step} className={stats[stat] >= at ? 'reached' : undefined}>
-                        {`${stats[stat] >= at ? '✓' : '·'} ${at} : ${text}`}
+                        {`${stats[stat] >= at ? '✓' : '·'} ${at} : ${text({ baseTiers, baseSuggestions })}`}
                       </li>
                     );
                   })}

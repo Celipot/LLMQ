@@ -361,3 +361,68 @@ describe('the events of the finale', () => {
     assert.equal(state.events.at(-1).id, 15);
   });
 });
+
+describe('the events of the normal difficulty', () => {
+  function normalScheduled(turns) {
+    const state = career.createCareer('normal');
+    state.eventTurns = { 1: 99, 2: 99, 3: 99, 4: 99, 5: 99, 11: 99, ...turns };
+    return state;
+  }
+
+  test('the negative events of the turns never happen', () => {
+    const state = normalScheduled({ 3: 21, 4: 31, 5: 45, 11: 30 });
+    state.notebook = [1, 2, 3, 4, 5, 6];
+    state.turn = 50;
+
+    assert.deepEqual(apply(state), []);
+    assert.deepEqual(state.notebook, [1, 2, 3, 4, 5, 6]);
+    assert.deepEqual(state.modifiers, []);
+  });
+
+  test('the positive events still happen', () => {
+    const state = normalScheduled({ 1: 7, 2: 15 });
+    state.energy = 1;
+    state.turn = 15;
+
+    assert.deepEqual(apply(state).map((event) => event.id), [1, 2]);
+    assert.equal(state.energy, 3);
+  });
+
+  test('the same negative events do happen on hard', () => {
+    const state = scheduled({ 3: 21, 5: 45 });
+    state.notebook = [1, 2, 3, 4, 5, 6, 7];
+    state.turn = 50;
+
+    assert.deepEqual(apply(state).map((event) => event.id), [3, 5]);
+  });
+
+  function normalFinale(tracksPlayed) {
+    const state = career.createCareer('normal');
+    state.live = {
+      kind: 'finale',
+      tracks: Array.from({ length: tracksPlayed }, (_, i) => ({ songId: i })),
+      penalties: [],
+      bonus: null,
+    };
+    state.stats.oreille = 300;
+    return state;
+  }
+
+  test('the penalties of the finale never happen', () => {
+    const state = normalFinale(1);
+    state.live.schedule = { 12: 2, 13: 2, 14: 2 };
+
+    assert.deepEqual(events.applyFinaleEvents(state, { random: () => 0 }), []);
+    assert.deepEqual(state.live.penalties, []);
+  });
+
+  test('the time bonus of the finale still happens', () => {
+    const state = normalFinale(1);
+    state.live.schedule = { 15: 2 };
+
+    const [fired] = events.applyFinaleEvents(state, { random: () => 0 });
+
+    assert.equal(fired.id, 15);
+    assert.deepEqual(state.live.bonus, { seconds: 15, untilTrack: 4 });
+  });
+});

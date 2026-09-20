@@ -12,10 +12,9 @@ const DISCOGRAPHY_ARTISTS = new Set([
 
 const STATS = ['oreille', 'memoire', 'culture'];
 const STAT_STEP = 100;
-// Each tier is the total clip length at that attempt, so a wrong guess or a
-// skip always reveals more of the intro.
-const BASE_TIERS = [1, 2, 3];
 const HEARING_BONUS_SECONDS = 0.5;
+// Hearing lengthens this many tiers, whatever the difficulty starts with.
+const HEARING_STEPS = 3;
 const MAX_EXTRA_TIERS = 2;
 const MAX_EXTRA_SUGGESTIONS = 3;
 
@@ -32,19 +31,17 @@ const SINGLE_COST = 2;
 const STUDY_GAINS = { byStage: { 1: 40, 2: 30, 3: 25 }, late: 20, failed: 15 };
 const SINGLE_GAINS = { byStage: { 1: 90, 2: 65, 3: 50 }, late: 45, failed: 30 };
 
-// Fans are only won by releasing music: singles
-// and the album. A minimum is required to take part in the concert.
-const FANS_REQUIRED = 350;
+// Fans are only won by releasing music: singles and the album. A minimum (which
+// depends on the difficulty) is required to take part in the concert.
 const SINGLE_FANS = { byStage: { 1: 40, 2: 30, 3: 25 }, late: 20, failed: 10 };
 const ALBUM_FANS_DIVISOR = 2;
-// The album must be graded at least this well, otherwise the career is failed.
-const ALBUM_GOAL_GRADE = 'B';
 const GRADE_ORDER = ['S', 'A', 'B', 'C', 'D'];
 
 const ALBUM_SIZE = 6;
 const CONCERT_SIZE = 15;
 const FINALE_SIZE = 50;
-const TRACK_POINTS_BY_STAGE = { 1: 100, 2: 70, 3: 50, 4: 35, 5: 25 };
+// A 6th try only exists on normal, where a base of 4 tries plus endurance reaches it.
+const TRACK_POINTS_BY_STAGE = { 1: 100, 2: 70, 3: 50, 4: 35, 5: 25, 6: 15 };
 const MAX_ALBUM_SCORE = ALBUM_SIZE * TRACK_POINTS_BY_STAGE[1];
 const MAX_CONCERT_SCORE = CONCERT_SIZE * TRACK_POINTS_BY_STAGE[1];
 const MAX_FINALE_SCORE = FINALE_SIZE * TRACK_POINTS_BY_STAGE[1];
@@ -56,16 +53,49 @@ const LIVES = {
   concert: { size: CONCERT_SIZE, cost: 4, maxScore: MAX_CONCERT_SCORE },
   finale: { size: FINALE_SIZE, cost: 0, maxScore: MAX_FINALE_SCORE },
 };
-// To take part in the finale: this many sorties in the third phase, of which
-// this many graded at least ALBUM_GOAL_GRADE ("above the average").
-const FINALE_GOALS = {
-  concerts: { required: 2, requiredGood: 2 },
-  albums: { required: 3, requiredGood: 2 },
+// What changes with the difficulty; everything else is shared. Each tier is the total
+// clip length at that attempt, so a wrong guess or a skip always reveals more of the
+// intro. The album must be graded at least albumGoalGrade or the career is failed, and
+// so must requiredGood of the sorties of the third phase to take part in the finale.
+const DIFFICULTIES = {
+  hard: {
+    fansRequired: 350,
+    albumGoalGrade: 'B',
+    finaleGoals: {
+      concerts: { required: 2, requiredGood: 2 },
+      albums: { required: 3, requiredGood: 2 },
+    },
+    negativeEvents: true,
+    baseTiers: [1, 2, 3],
+    baseSuggestions: 1,
+    hint: false,
+  },
+  normal: {
+    fansRequired: 200,
+    albumGoalGrade: 'C',
+    finaleGoals: {
+      concerts: { required: 2, requiredGood: 1 },
+      albums: { required: 3, requiredGood: 1 },
+    },
+    negativeEvents: false,
+    baseTiers: [2, 3, 4, 5],
+    baseSuggestions: 3,
+    hint: true,
+  },
 };
+const DEFAULT_DIFFICULTY = 'hard';
+
+function isValidDifficulty(difficulty) {
+  return typeof difficulty === 'string' && Object.hasOwn(DIFFICULTIES, difficulty);
+}
+
+function settingsOf(state) {
+  return DIFFICULTIES[state.difficulty];
+}
 
 // The maximum of a stat is its last bonus step; it can keep growing past it.
 const STAT_MAX = {
-  oreille: BASE_TIERS.length * STAT_STEP,
+  oreille: HEARING_STEPS * STAT_STEP,
   memoire: MAX_EXTRA_SUGGESTIONS * STAT_STEP,
   culture: MAX_EXTRA_TIERS * STAT_STEP,
 };
@@ -89,19 +119,22 @@ function unlockedSteps(value) {
 
 // A negative stat removes a feature below the starting level: one tier only for
 // culture, a shorter first tier for hearing. bonusSeconds lengthens every tier.
-function roundTiers(stats, bonusSeconds = 0) {
-  const tiers = stats.culture < 0 ? [BASE_TIERS[0]] : [...BASE_TIERS];
+// The settings default to the hard ones, the rules the career always had.
+function roundTiers(stats, bonusSeconds = 0, settings = DIFFICULTIES.hard) {
+  const { baseTiers } = settings;
+  const tiers = stats.culture < 0 ? [baseTiers[0]] : [...baseTiers];
   if (stats.oreille < 0) tiers[0] -= HEARING_BONUS_SECONDS;
-  const hearingSteps = Math.min(unlockedSteps(stats.oreille), tiers.length);
+  const hearingSteps = Math.min(unlockedSteps(stats.oreille), HEARING_STEPS, tiers.length);
   for (let i = 0; i < hearingSteps; i += 1) tiers[i] += HEARING_BONUS_SECONDS;
   const extraTiers = Math.min(unlockedSteps(stats.culture), MAX_EXTRA_TIERS);
-  for (let i = 0; i < extraTiers; i += 1) tiers.push(tiers.length + 1);
+  const lastBaseTier = baseTiers[baseTiers.length - 1];
+  for (let i = 0; i < extraTiers; i += 1) tiers.push(lastBaseTier + i + 1);
   return tiers.map((seconds) => seconds + bonusSeconds);
 }
 
-function suggestionCount(stats) {
+function suggestionCount(stats, settings = DIFFICULTIES.hard) {
   if (stats.memoire < 0) return 0;
-  return 1 + Math.min(unlockedSteps(stats.memoire), MAX_EXTRA_SUGGESTIONS);
+  return settings.baseSuggestions + Math.min(unlockedSteps(stats.memoire), MAX_EXTRA_SUGGESTIONS);
 }
 
 function gainFor(gains, foundAtStage) {
@@ -121,12 +154,13 @@ function singleFans(foundAtStage) {
   return gainFor(SINGLE_FANS, foundAtStage);
 }
 
-function albumGoalReached(grade) {
-  return GRADE_ORDER.indexOf(grade) <= GRADE_ORDER.indexOf(ALBUM_GOAL_GRADE);
+function albumGoalReached(state, grade) {
+  return GRADE_ORDER.indexOf(grade) <= GRADE_ORDER.indexOf(settingsOf(state).albumGoalGrade);
 }
 
-function createCareer() {
+function createCareer(difficulty = DEFAULT_DIFFICULTY) {
   return {
+    difficulty,
     turn: 1,
     energy: MAX_ENERGY,
     stats: { oreille: 0, memoire: 0, culture: 0 },
@@ -194,17 +228,21 @@ function isFinaleDue(state) {
   return isPhase3(state) && !state.failure && !state.finale && state.turn > FINAL_TURN;
 }
 
+function finaleGoalsOf(state) {
+  return settingsOf(state).finaleGoals;
+}
+
 function finaleGoals(state) {
   const goals = {};
   Object.entries({ concerts: 'concert', albums: 'album' }).forEach(([name, kind]) => {
     const sorties = state.sorties.filter((sortie) => sortie.kind === kind);
     goals[name] = {
       done: sorties.length,
-      good: sorties.filter((sortie) => albumGoalReached(sortie.grade)).length,
-      ...FINALE_GOALS[name],
+      good: sorties.filter((sortie) => albumGoalReached(state, sortie.grade)).length,
+      ...finaleGoalsOf(state)[name],
     };
   });
-  goals.met = Object.keys(FINALE_GOALS).every(
+  goals.met = Object.keys(finaleGoalsOf(state)).every(
     (name) => goals[name].done >= goals[name].required && goals[name].good >= goals[name].requiredGood,
   );
   return goals;
@@ -215,7 +253,7 @@ function finaleGoals(state) {
 // finale were not reached.
 function advanceTurn(state) {
   state.turn += 1;
-  if (state.release && !state.concert && state.turn > CONCERT_AFTER_TURN && state.fans < FANS_REQUIRED) {
+  if (state.release && !state.concert && state.turn > CONCERT_AFTER_TURN && state.fans < settingsOf(state).fansRequired) {
     state.failure = 'FANS';
   }
   if (isPhase3(state) && state.turn > FINAL_TURN && !finaleGoals(state).met) state.failure = 'FINALE_GOALS';
@@ -335,7 +373,7 @@ function finishAlbumTrack(state, foundAtStage, songId) {
   if (state.album.length < ALBUM_SIZE) return;
   state.release = summarize(state.album, MAX_ALBUM_SCORE, RELEASE_AFTER_TURN);
   state.fans += Math.floor(state.release.score / ALBUM_FANS_DIVISOR);
-  if (!albumGoalReached(state.release.grade)) state.failure = 'ALBUM_GRADE';
+  if (!albumGoalReached(state, state.release.grade)) state.failure = 'ALBUM_GRADE';
 }
 
 // The concert of the second phase opens the third one once its last track is
@@ -389,6 +427,13 @@ function liveSongIds(state) {
   return state.live ? state.live.tracks.map((track) => track.songId) : [];
 }
 
+// The kind of title, from its artist: a solo gives its singer (without the voice actor),
+// a unit or a group only its name, since the data does not list who sings them.
+function artistHint(artist) {
+  const solo = artist.match(/^(.*) \(CV: .*\)$/);
+  return solo ? { group: 'Solo', singer: solo[1] } : { group: artist };
+}
+
 // A single trains a stat the player does not choose.
 function pickStat(random = Math.random) {
   return STATS[Math.floor(random() * STATS.length)];
@@ -418,8 +463,10 @@ function pickPreparedSongId(pool, studiedIds, usedIds, total, random = Math.rand
 }
 
 module.exports = {
-  FANS_REQUIRED,
-  ALBUM_GOAL_GRADE,
+  DIFFICULTIES,
+  isValidDifficulty,
+  settingsOf,
+  artistHint,
   RELEASE_AFTER_TURN,
   CONCERT_AFTER_TURN,
   FINAL_TURN,

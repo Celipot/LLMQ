@@ -1049,6 +1049,17 @@ button:disabled {
   font-weight: 600;
 }
 
+.career-title-hint {
+  margin: 0 0 0.5rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
 .career-notebook ul {
   margin: 0;
   padding-left: 1.25rem;

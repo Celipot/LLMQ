@@ -325,7 +325,8 @@ export default function App() {
         <CareerHub
           career={careerState.career}
           error={careerState.error}
-          onBegin={() => startCareerRound(careerState.begin)}
+          onBegin={(difficulty) => startCareerRound(() => careerState.begin(difficulty))}
+          onRestart={careerState.abandon}
           onRest={careerState.rest}
           onStudy={(stat) => startCareerRound(() => careerState.study(stat))}
           onSingle={() => startCareerRound(careerState.single)}
@@ -342,7 +343,9 @@ export default function App() {
       {careerRound && (
         <div className="career-round-layout">
           <aside className="career-column" aria-label="Carnet">
-            <CareerNotebook notebook={career?.notebook ?? []} songInNotebook={careerRound.inNotebook} />
+            <CareerNotebook notebook={career?.notebook ?? []} songInNotebook={careerRound.inNotebook}
+              hint={careerRound.hint}
+            />
           </aside>
 
           <div className="quiz-area">

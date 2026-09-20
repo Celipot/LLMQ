@@ -21,8 +21,8 @@ function roundKey(session, songId) {
   return `${session.id}:career:${songId}`;
 }
 
-function createCareer(session) {
-  session.career = career.createCareer();
+function createCareer(session, difficulty) {
+  session.career = career.createCareer(difficulty);
   careerEvents.scheduleEvents(session.career);
   session.careerRound = null;
   session.careerNewEvents = [];
@@ -66,7 +66,11 @@ function publicEvent(event) {
 function publicCareer(session) {
   const state = session.career;
   const stats = career.effectiveStats(state);
+  const settings = career.settingsOf(state);
   return {
+    difficulty: state.difficulty,
+    baseTiers: settings.baseTiers,
+    baseSuggestions: settings.baseSuggestions,
     turn: state.turn,
     concertAt: career.CONCERT_AFTER_TURN,
     finalTurn: career.FINAL_TURN,
@@ -76,7 +80,7 @@ function publicCareer(session) {
     stats,
     statMax: career.STAT_MAX,
     modifiers: state.modifiers.filter(({ expiresAtTurn }) => state.turn < expiresAtTurn),
-    suggestionCount: career.suggestionCount(stats),
+    suggestionCount: career.suggestionCount(stats, settings),
     costs: { study: career.STUDY_COST, single: career.SINGLE_COST },
     statStep: career.STAT_STEP,
     notebook: state.notebook.map(songSummary),
@@ -84,9 +88,9 @@ function publicCareer(session) {
     album: { done: state.album.length, total: career.ALBUM_SIZE },
     release: publicResult(state.release, career.MAX_ALBUM_SCORE),
     finalScore: career.isOver(state) ? career.careerScore(state) : null,
-    fans: { current: state.fans, required: career.FANS_REQUIRED },
+    fans: { current: state.fans, required: settings.fansRequired },
     failure: state.failure,
-    albumGoalGrade: career.ALBUM_GOAL_GRADE,
+    albumGoalGrade: settings.albumGoalGrade,
     concertDue: career.isConcertDue(state),
     concert: { done: state.concertTracks.length, total: career.CONCERT_SIZE },
     concertResult: publicResult(state.concert, career.MAX_CONCERT_SCORE),
@@ -108,12 +112,14 @@ function publicRound(session) {
   const round = session.careerRound;
   if (!round) return null;
   const { id, title, artist, coverUrl } = songs.getSongById(round.songId);
-  return {
+  const result = {
     kind: round.kind,
     stat: round.stat,
     inNotebook: session.career.notebook.includes(round.songId),
     state: gameState.getPublicState(round.key, { id, title, artist, coverUrl }),
   };
+  if (career.settingsOf(session.career).hint) result.hint = career.artistHint(artist);
+  return result;
 }
 
 // The player may have gone to another solo mode meanwhile, which moved the
@@ -128,7 +134,10 @@ function resumeRound(session) {
 function startRound(session, kind, stat, songId) {
   const key = roundKey(session, songId);
   const { career: state } = session;
-  gameState.resetState(key, career.roundTiers(career.effectiveStats(state), career.roundBonusSeconds(state)));
+  gameState.resetState(
+    key,
+    career.roundTiers(career.effectiveStats(state), career.roundBonusSeconds(state), career.settingsOf(state)),
+  );
   session.careerRound = { kind, stat, songId, key };
   resumeRound(session);
 }

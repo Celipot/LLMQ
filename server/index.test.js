@@ -988,6 +988,75 @@ test('POST /api/career starts a career with full energy, no stats and the base h
   assert.equal(body.round, null);
 });
 
+test('POST /api/career starts a hard career when no difficulty is given', async () => {
+  const body = await (await newCareerPlayer().post('/api/career')).json();
+  assert.equal(body.career.difficulty, 'hard');
+  assert.deepEqual(body.career.baseTiers, [1, 2, 3]);
+  assert.equal(body.career.baseSuggestions, 1);
+});
+
+test('POST /api/career starts a normal career with its easier rules', async () => {
+  const body = await (await newCareerPlayer().post('/api/career', { difficulty: 'normal' })).json();
+  assert.equal(body.career.difficulty, 'normal');
+  assert.deepEqual(body.career.fans, { current: 0, required: 200 });
+  assert.equal(body.career.albumGoalGrade, 'C');
+  assert.deepEqual(body.career.baseTiers, [2, 3, 4, 5]);
+  assert.equal(body.career.baseSuggestions, 3);
+  assert.equal(body.career.suggestionCount, 3);
+  assert.deepEqual(body.career.finaleGoals.concerts, { done: 0, good: 0, required: 2, requiredGood: 1 });
+});
+
+test('POST /api/career refuses an unknown difficulty and starts nothing', async () => {
+  const player = newCareerPlayer();
+
+  const res = await player.post('/api/career', { difficulty: 'easy' });
+
+  assert.equal(res.status, 400);
+  assert.equal((await res.json()).error, 'INVALID_DIFFICULTY');
+  assert.equal((await player.get('/api/career')).status, 404);
+});
+
+test('a normal study round has 4 tries and starts on a 2 second clip', async () => {
+  const player = newCareerPlayer();
+  await player.post('/api/career', { difficulty: 'normal' });
+
+  const { round } = await (await withFirstDraw(() => player.post('/api/career/study', { stat: 'oreille' }))).json();
+
+  assert.equal(round.state.maxAttempts, 4);
+  assert.equal(round.state.allowedSeconds, 2);
+});
+
+test('a hard study round keeps its 3 tries and its 1 second clip', async () => {
+  const player = newCareerPlayer();
+  await player.post('/api/career');
+
+  const { round } = await (await withFirstDraw(() => player.post('/api/career/study', { stat: 'oreille' }))).json();
+
+  assert.equal(round.state.maxAttempts, 3);
+  assert.equal(round.state.allowedSeconds, 1);
+});
+
+test('a normal round tells the kind of its title, never the title', async () => {
+  const player = newCareerPlayer();
+  await player.post('/api/career', { difficulty: 'normal' });
+
+  const res = await withFirstDraw(() => player.post('/api/career/study', { stat: 'oreille' }));
+  const raw = await res.text();
+  const { round } = JSON.parse(raw);
+
+  assert.deepEqual(round.hint, career.artistHint(firstDiscographySong.artist));
+  assert.ok(!raw.includes(firstDiscographySong.title));
+});
+
+test('a hard round gives no hint', async () => {
+  const player = newCareerPlayer();
+  await player.post('/api/career');
+
+  const { round } = await (await withFirstDraw(() => player.post('/api/career/study', { stat: 'oreille' }))).json();
+
+  assert.equal(round.hint, undefined);
+});
+
 test('each player has their own career', async () => {
   const first = newCareerPlayer();
   const second = newCareerPlayer();

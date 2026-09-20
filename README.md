@@ -72,7 +72,7 @@ Le frontend utilise [React Bits](https://reactbits.dev) pour l'habillage animé 
 | `/api/guess` | POST | `{ "title": "..." }` — soumet une tentative |
 | `/api/skip` | POST | Passe l'essai courant |
 | `/api/reset` | POST | Réinitialise la partie (dev uniquement, non authentifié) |
-| `/api/career` | POST / GET / DELETE | Démarre une carrière / la relit (`{ career, round }`) / l'abandonne (204, la suivante repart de l'écran de départ) |
+| `/api/career` | POST / GET / DELETE | Démarre une carrière (corps optionnel `{ "difficulty": "normal" \| "hard" }`, `hard` par défaut) / la relit (`{ career, round }`) / l'abandonne (204, la suivante repart de l'écran de départ) |
 | `/api/career/rest` | POST | Se reposer (énergie au maximum), consomme un tour |
 | `/api/career/study` | POST | `{ "stat": "oreille" \| "memoire" \| "culture" }` — démarre un round d'étude (coûte 1 énergie, le titre trouvé entre dans le carnet) |
 | `/api/career/single` | POST | Démarre un round de single sur une stat tirée au hasard par le serveur (coûte 2 énergies, plus de stats qu'une étude, le titre n'entre pas dans le carnet) |

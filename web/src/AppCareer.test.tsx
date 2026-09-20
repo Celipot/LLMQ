@@ -48,6 +48,9 @@ const career: Career = {
   maxEnergy: 4,
   stats: { oreille: 0, memoire: 0, culture: 0 },
   suggestionCount: 1,
+  difficulty: 'hard',
+  baseTiers: [1, 2, 3],
+  baseSuggestions: 1,
   costs: { study: 1, single: 2 },
   statStep: 100,
   notebook: [],
@@ -75,12 +78,13 @@ beforeEach(() => {
 });
 
 describe('App — Mode Carrière', () => {
-  test('choosing Mode Carrière without a career offers to start one', async () => {
+  test('choosing Mode Carrière without a career offers the two difficulties', async () => {
     render(<App />);
 
     await userEvent.click(screen.getByText('Mode Carrière'));
 
-    expect(await screen.findByRole('button', { name: 'Commencer une carrière' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Normal' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Difficile' })).toBeInTheDocument();
   });
 
   test('starting a career shows the hub, and a study opens a round of 3 attempts', async () => {
@@ -91,12 +95,13 @@ describe('App — Mode Carrière', () => {
     });
     render(<App />);
     await userEvent.click(screen.getByText('Mode Carrière'));
-    await userEvent.click(await screen.findByRole('button', { name: 'Commencer une carrière' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Normal' }));
 
     expect(await screen.findByText('Tour 1')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Chanter' }));
 
     expect(await screen.findByRole('button', { name: 'Valider' })).toBeInTheDocument();
+    expect(api.startCareer).toHaveBeenCalledWith('normal');
     expect(api.studyCareer).toHaveBeenCalledWith('oreille');
     expect(screen.queryByText(/deviner le titre/i)).not.toBeInTheDocument();
     expect(screen.queryByText('Tour 1')).not.toBeInTheDocument();
@@ -201,6 +206,25 @@ describe('App — Mode Carrière', () => {
     expect(screen.queryByRole('img', { name: 'Illustration de la carrière' })).not.toBeInTheDocument();
   });
 
+  test('the hint on the title sits on the guessing screen, above the notebook', async () => {
+    const notebook = [{ id: 1, title: 'Awakening Promise', coverUrl: '/covers/a.png' }];
+    vi.mocked(api.fetchCareer).mockResolvedValue({
+      career: { ...career, notebook },
+      round: {
+        kind: 'study',
+        stat: 'oreille',
+        inNotebook: false,
+        hint: { group: 'Solo', singer: 'Ayumu Uehara' },
+        state: roundState,
+      },
+    });
+    render(<App />);
+    await userEvent.click(screen.getByText('Mode Carrière'));
+
+    const notebookColumn = await screen.findByRole('complementary', { name: 'Carnet' });
+    expect(notebookColumn).toHaveTextContent('Solo : Ayumu Uehara');
+  });
+
   test('the notebook stays on the left of the guessing screen', async () => {
     const notebook = [{ id: 1, title: 'Awakening Promise', coverUrl: '/covers/a.png' }];
     vi.mocked(api.fetchCareer).mockResolvedValue({
@@ -284,7 +308,7 @@ describe('App — Mode Carrière', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'Recommencer la carrière' }));
 
-    expect(await screen.findByRole('button', { name: 'Commencer une carrière' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Normal' })).toBeInTheDocument();
     expect(api.abandonCareer).toHaveBeenCalledOnce();
   });
 

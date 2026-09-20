@@ -3,6 +3,7 @@ import type {
   AnswerWindowResponse,
   CareerResponse,
   CareerStat,
+  Difficulty,
   RewardOption,
   CreateGameResponse,
   GameState,
@@ -117,8 +118,16 @@ export function selectSong(id: number): Promise<GameState> {
   return soloFetch(`/api/songs/${id}/select`, { method: 'POST' }).then((res) => parseOrThrow<GameState>(res));
 }
 
-export function startCareer(): Promise<CareerResponse> {
-  return soloFetch('/api/career', { method: 'POST' }, 'career').then((res) => parseOrThrow<CareerResponse>(res));
+export function startCareer(difficulty: Difficulty): Promise<CareerResponse> {
+  return soloFetch(
+    '/api/career',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ difficulty }),
+    },
+    'career',
+  ).then((res) => parseOrThrow<CareerResponse>(res));
 }
 
 export function fetchCareer(): Promise<CareerResponse> {

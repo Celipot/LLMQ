@@ -294,7 +294,7 @@ describe('fans', () => {
     const state = career.createCareer();
     assert.equal(state.fans, 0);
     assert.equal(state.failure, null);
-    assert.equal(career.FANS_REQUIRED, 350);
+    assert.equal(career.DIFFICULTIES.hard.fansRequired, 350);
   });
 
   test('a single wins fans, a study and a rest do not', () => {
@@ -364,10 +364,10 @@ describe('fans', () => {
   test('the fans of the very last single count for the concert', () => {
     const state = careerAtRelease();
     playAlbum(state, [1, 1, 1, null, null, null]);
-    state.fans = career.FANS_REQUIRED - 30;
+    state.fans = career.DIFFICULTIES.hard.fansRequired - 30;
     for (let i = 0; i < 9; i += 1) career.rest(state);
     career.single(state, 'oreille', 1);
-    assert.equal(state.fans, career.FANS_REQUIRED + 10);
+    assert.equal(state.fans, career.DIFFICULTIES.hard.fansRequired + 10);
     assert.equal(state.turn, 21);
     assert.equal(state.failure, null);
     assert.equal(career.isConcertDue(state), true);
@@ -430,7 +430,7 @@ describe('the second phase and the concert', () => {
     const state = career.createCareer();
     for (let i = 0; i < 10; i += 1) career.rest(state);
     for (let i = 0; i < 6; i += 1) career.finishAlbumTrack(state, 1, 100 + i);
-    state.fans = career.FANS_REQUIRED;
+    state.fans = career.DIFFICULTIES.hard.fansRequired;
     return state;
   }
 
@@ -517,7 +517,7 @@ function careerInPhase3() {
   const state = career.createCareer();
   for (let i = 0; i < 10; i += 1) career.rest(state);
   for (let i = 0; i < 6; i += 1) career.finishAlbumTrack(state, 1, 100 + i);
-  state.fans = career.FANS_REQUIRED;
+  state.fans = career.DIFFICULTIES.hard.fansRequired;
   for (let i = 0; i < 10; i += 1) career.rest(state);
   for (let i = 0; i < 15; i += 1) career.finishConcertTrack(state, 1, 200 + i);
   return state;
@@ -700,7 +700,7 @@ describe('the third phase', () => {
       sorties: 2400,
       finale: 5000,
       stats: 0,
-      fans: career.FANS_REQUIRED,
+      fans: career.DIFFICULTIES.hard.fansRequired,
       total: 9850,
     });
   });
@@ -891,5 +891,158 @@ describe('the effects that last a few tracks of the finale', () => {
   test('the bonus lengthens every tier of the round', () => {
     assert.deepEqual(career.roundTiers(stats(), 15), [16, 17, 18]);
     assert.deepEqual(career.roundTiers(stats({ culture: 100 }), 15), [16, 17, 18, 19]);
+  });
+});
+
+describe('difficulties', () => {
+  const { hard, normal } = career.DIFFICULTIES;
+
+  test('hard is the rule set the career always had', () => {
+    assert.equal(hard.fansRequired, 350);
+    assert.equal(hard.albumGoalGrade, 'B');
+    assert.deepEqual(hard.finaleGoals, {
+      concerts: { required: 2, requiredGood: 2 },
+      albums: { required: 3, requiredGood: 2 },
+    });
+    assert.deepEqual(hard.baseTiers, [1, 2, 3]);
+    assert.equal(hard.baseSuggestions, 1);
+    assert.equal(hard.negativeEvents, true);
+    assert.equal(hard.hint, false);
+  });
+
+  test('normal asks for fewer fans, a lower grade and easier finale goals', () => {
+    assert.equal(normal.fansRequired, 200);
+    assert.equal(normal.albumGoalGrade, 'C');
+    assert.deepEqual(normal.finaleGoals, {
+      concerts: { required: 2, requiredGood: 1 },
+      albums: { required: 3, requiredGood: 1 },
+    });
+  });
+
+  test('normal starts with longer clips, one more try, more suggestions, no negative events and a hint', () => {
+    assert.deepEqual(normal.baseTiers, [2, 3, 4, 5]);
+    assert.equal(normal.baseSuggestions, 3);
+    assert.equal(normal.negativeEvents, false);
+    assert.equal(normal.hint, true);
+  });
+
+  test('isValidDifficulty only accepts a known difficulty', () => {
+    assert.equal(career.isValidDifficulty('normal'), true);
+    assert.equal(career.isValidDifficulty('hard'), true);
+    assert.equal(career.isValidDifficulty('easy'), false);
+    assert.equal(career.isValidDifficulty('toString'), false);
+    assert.equal(career.isValidDifficulty(undefined), false);
+  });
+
+  test('a career is hard unless told otherwise', () => {
+    assert.equal(career.createCareer().difficulty, 'hard');
+    assert.equal(career.createCareer('normal').difficulty, 'normal');
+  });
+
+  function albumThenRest(difficulty, stages, fans) {
+    const state = career.createCareer(difficulty);
+    for (let i = 0; i < 10; i += 1) career.rest(state);
+    stages.forEach((stage, i) => career.finishAlbumTrack(state, stage, 100 + i));
+    state.fans = fans;
+    return state;
+  }
+
+  test('a C album is a failure on hard and enough on normal', () => {
+    const stages = [1, 1, null, null, null, null];
+    assert.equal(albumThenRest('hard', stages, 0).failure, 'ALBUM_GRADE');
+    assert.equal(albumThenRest('normal', stages, 0).failure, null);
+  });
+
+  test('normal needs 200 fans at the end of the second phase', () => {
+    const stages = [1, 1, 1, 1, 1, 1];
+    const short = albumThenRest('normal', stages, 199);
+    for (let i = 0; i < 10; i += 1) career.rest(short);
+    assert.equal(short.failure, 'FANS');
+
+    const enough = albumThenRest('normal', stages, 200);
+    for (let i = 0; i < 10; i += 1) career.rest(enough);
+    assert.equal(enough.failure, null);
+  });
+
+  test('a C sortie counts for the finale goals on normal, not on hard', () => {
+    const sorties = [
+      { kind: 'concert', grade: 'C' },
+      { kind: 'concert', grade: 'D' },
+      { kind: 'album', grade: 'C' },
+      { kind: 'album', grade: 'D' },
+      { kind: 'album', grade: 'D' },
+    ];
+    const normalState = { ...career.createCareer('normal'), sorties };
+    const hardState = { ...career.createCareer('hard'), sorties };
+
+    assert.equal(career.finaleGoals(normalState).met, true);
+    assert.equal(career.finaleGoals(hardState).met, false);
+  });
+});
+
+describe('the base of the stats by difficulty', () => {
+  const { normal } = career.DIFFICULTIES;
+
+  test('normal starts with 4 tries of 2, 3, 4 and 5 seconds', () => {
+    assert.deepEqual(career.roundTiers(stats(), 0, normal), [2, 3, 4, 5]);
+  });
+
+  test('hearing lengthens the first three tiers of normal too', () => {
+    assert.deepEqual(career.roundTiers(stats({ oreille: 300 }), 0, normal), [2.5, 3.5, 4.5, 5]);
+    assert.deepEqual(career.roundTiers(stats({ oreille: 400 }), 0, normal), [2.5, 3.5, 4.5, 5]);
+  });
+
+  test('endurance adds tries that last longer than the last one of normal', () => {
+    assert.deepEqual(career.roundTiers(stats({ culture: 200 }), 0, normal), [2, 3, 4, 5, 6, 7]);
+  });
+
+  test('a negative endurance still leaves one try on normal', () => {
+    assert.deepEqual(career.roundTiers(stats({ culture: -100 }), 0, normal), [2]);
+  });
+
+  test('a negative hearing shortens the first tier of normal', () => {
+    assert.deepEqual(career.roundTiers(stats({ oreille: -100 }), 0, normal), [1.5, 3, 4, 5]);
+  });
+
+  test('the bonus seconds of an event lengthen every tier of normal', () => {
+    assert.deepEqual(career.roundTiers(stats(), 15, normal), [17, 18, 19, 20]);
+  });
+
+  test('normal starts with 3 suggestions and knowledge adds up to 3 more', () => {
+    assert.equal(career.suggestionCount(stats(), normal), 3);
+    assert.equal(career.suggestionCount(stats({ memoire: 100 }), normal), 4);
+    assert.equal(career.suggestionCount(stats({ memoire: 300 }), normal), 6);
+  });
+
+  test('a negative knowledge removes every suggestion on normal', () => {
+    assert.equal(career.suggestionCount(stats({ memoire: -100 }), normal), 0);
+  });
+
+  test('hard is unchanged: the default settings are the hard ones', () => {
+    assert.deepEqual(career.roundTiers(stats({ culture: 200 })), [1, 2, 3, 4, 5]);
+    assert.equal(career.suggestionCount(stats({ memoire: 300 })), 4);
+  });
+});
+
+describe('points by try', () => {
+  test('a title found at the 6th try, possible on normal, is worth 15 points', () => {
+    assert.equal(career.trackPoints(6), 15);
+  });
+
+  test('a title found at the 5th try still gives 25 points', () => {
+    assert.equal(career.trackPoints(5), 25);
+  });
+});
+
+describe('artistHint', () => {
+  test('a solo gives its singer without the voice actor', () => {
+    assert.deepEqual(career.artistHint('Ayumu Uehara (CV: Aguri Onishi)'), { group: 'Solo', singer: 'Ayumu Uehara' });
+  });
+
+  test('a unit or a group gives only its name', () => {
+    assert.deepEqual(career.artistHint('A・ZU・NA'), { group: 'A・ZU・NA' });
+    assert.deepEqual(career.artistHint('Nijigasaki High School Idol Club'), {
+      group: 'Nijigasaki High School Idol Club',
+    });
   });
 });

@@ -6,6 +6,7 @@ import {
   fetchState,
   resetGame,
   restCareer,
+  startCareer,
   selectSong,
   startRandomMode,
   submitGuess,
@@ -102,6 +103,15 @@ describe('career session id', () => {
 
     expect(localStorage.getItem('careerSessionId')).toBe(sentSessionId(0));
     expect(sessionStorage.getItem('careerSessionId')).toBeNull();
+  });
+
+  it('starting a career sends the chosen difficulty', async () => {
+    await startCareer('normal');
+
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/career');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({ difficulty: 'normal' });
   });
 
   it('reuses the id already stored by a previous visit', async () => {

@@ -29,6 +29,9 @@ const career: Career = {
   maxEnergy: 4,
   stats: { oreille: 80, memoire: 0, culture: 130 },
   suggestionCount: 1,
+  difficulty: 'hard',
+  baseTiers: [1, 2, 3],
+  baseSuggestions: 1,
   costs: { study: 1, single: 2 },
   statStep: 100,
   notebook: [],
@@ -66,6 +69,7 @@ const concertResult: CareerResult = {
 function renderHub(overrides: Partial<Career> | null = {}, props: Partial<Parameters<typeof CareerHub>[0]> = {}) {
   const handlers = {
     onBegin: vi.fn(),
+    onRestart: vi.fn(),
     onRest: vi.fn(),
     onStudy: vi.fn(),
     onSingle: vi.fn(),
@@ -88,18 +92,43 @@ function renderHub(overrides: Partial<Career> | null = {}, props: Partial<Parame
 }
 
 describe('CareerHub', () => {
-  test('without a career, offers to start one', async () => {
+  test('without a career, offers to start a normal or a hard one', async () => {
     const { onBegin } = renderHub(null);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Commencer une carrière' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Normal' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Difficile' }));
 
-    expect(onBegin).toHaveBeenCalledOnce();
+    expect(onBegin).toHaveBeenNthCalledWith(1, 'normal');
+    expect(onBegin).toHaveBeenNthCalledWith(2, 'hard');
+  });
+
+  test('the choice of difficulty explains each mode on hover', async () => {
+    renderHub(null);
+
+    await userEvent.hover(screen.getByRole('button', { name: 'Normal' }));
+    expect(screen.getByRole('tooltip')).toHaveTextContent('indice');
+    await userEvent.unhover(screen.getByRole('button', { name: 'Normal' }));
+
+    await userEvent.hover(screen.getByRole('button', { name: 'Difficile' }));
+    expect(screen.getByRole('tooltip')).toHaveTextContent('événements négatifs');
+  });
+
+  test('the difficulty of the career in progress is shown next to the turn', () => {
+    renderHub({ difficulty: 'normal' });
+
+    expect(screen.getByText('Mode Normal')).toBeInTheDocument();
+  });
+
+  test('a hard career says so', () => {
+    renderHub({ difficulty: 'hard' });
+
+    expect(screen.getByText('Mode Difficile')).toBeInTheDocument();
   });
 
   test('without a career, presents the career of A・ZU・NA', () => {
     renderHub(null);
 
-    expect(screen.getByText(/Suivre la carrière d'A・ZU・NA/)).toBeInTheDocument();
+    expect(screen.getByText("Suivre la carrière d'A・ZU・NA")).toBeInTheDocument();
   });
 
   test('shows only the current turn, without the total', () => {
@@ -129,12 +158,6 @@ describe('CareerHub', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Étudier' }));
 
     expect(onStudy).toHaveBeenCalledWith('memoire');
-  });
-
-  test('the intro of the career names the action to get known', () => {
-    renderHub(null);
-
-    expect(screen.getByText(/se faire connaître/)).toBeInTheDocument();
   });
 
   test('the single button releases a single without choosing a stat', async () => {
@@ -380,13 +403,13 @@ describe('CareerHub', () => {
   describe('a failed career', () => {
     const failed = { turn: 21, release: albumResult, failure: 'FANS' as const };
 
-    test('offers only a new career', async () => {
-      const { onBegin } = renderHub(failed);
+    test('offers only a new career, which goes back to the choice of the difficulty', async () => {
+      const { onRestart } = renderHub(failed);
 
       expect(screen.queryByRole('button', { name: 'Repos' })).not.toBeInTheDocument();
       await userEvent.click(screen.getByRole('button', { name: 'Nouvelle carrière' }));
 
-      expect(onBegin).toHaveBeenCalledOnce();
+      expect(onRestart).toHaveBeenCalledOnce();
     });
   });
 

@@ -49,6 +49,9 @@ const career: Career = {
   maxEnergy: 4,
   stats: { oreille: 0, memoire: 0, culture: 0 },
   suggestionCount: 1,
+  difficulty: 'hard',
+  baseTiers: [1, 2, 3],
+  baseSuggestions: 1,
   costs: { study: 1, single: 2 },
   statStep: 100,
   notebook: [],
@@ -97,14 +100,15 @@ describe('useCareer', () => {
     expect(result.current.error).toBeNull();
   });
 
-  test('begin() starts a new career', async () => {
+  test('begin() starts a new career of the chosen difficulty', async () => {
     vi.mocked(api.startCareer).mockResolvedValue({ career, round: null });
     const { result } = renderHook(() => useCareer());
 
     await act(async () => {
-      await result.current.begin();
+      await result.current.begin('normal');
     });
 
+    expect(api.startCareer).toHaveBeenCalledWith('normal');
     expect(result.current.career).toEqual(career);
     expect(result.current.round).toBeNull();
   });

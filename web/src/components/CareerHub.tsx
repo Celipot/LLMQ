@@ -1,6 +1,6 @@
 import type { CareerChanges } from '../careerChanges';
 import { CAREER_STATS } from '../careerStats';
-import type { Career, CareerEvent as CareerEventData, CareerStat, RewardOption } from '../types';
+import type { Career, CareerEvent as CareerEventData, CareerStat, Difficulty, RewardOption } from '../types';
 import ActionButton from './ActionButton';
 import CareerEvent from './CareerEvent';
 import CareerNotebook from './CareerNotebook';
@@ -13,7 +13,9 @@ import StatBars from './StatBars';
 interface CareerHubProps {
   career: Career | null;
   error: string | null;
-  onBegin: () => void;
+  onBegin: (difficulty: Difficulty) => void;
+  // Back to the choice of the difficulty, once the career is over.
+  onRestart: () => void;
   onRest: () => void;
   onStudy: (stat: CareerStat) => void;
   onSingle: () => void;
@@ -30,12 +32,30 @@ interface CareerHubProps {
 
 const energies = (amount: number) => `${amount} ${amount > 1 ? 'énergies' : 'énergie'}`;
 
+const DIFFICULTY_LABELS: Record<Difficulty, string> = { normal: 'Mode Normal', hard: 'Mode Difficile' };
+
+const DIFFICULTY_CHOICES: { difficulty: Difficulty; label: string; tooltip: string }[] = [
+  {
+    difficulty: 'normal',
+    label: 'Normal',
+    tooltip:
+      "Plus accessible : intros plus longues, plus d'essais et de suggestions, un indice sur le titre à deviner, des objectifs allégés et aucun événement négatif.",
+  },
+  {
+    difficulty: 'hard',
+    label: 'Difficile',
+    tooltip:
+      "Le mode d'origine : intros courtes, peu d'essais et de suggestions, aucun indice, des objectifs exigeants et des événements négatifs.",
+  },
+];
+
 const LIVE_LABELS = { album: "l'album", concert: 'le concert', finale: 'le SIF' };
 
 export default function CareerHub({
   career,
   error,
   onBegin,
+  onRestart,
   onRest,
   onStudy,
   onSingle,
@@ -50,13 +70,14 @@ export default function CareerHub({
   if (!career) {
     return (
       <section className="career-hub">
-        <p className="subtitle">
-          Suivre la carrière d'A・ZU・NA : étudier, se faire connaître, se reposer, sortir un album, puis donner un
-          concert.
-        </p>
-        <button type="button" onClick={onBegin}>
-          Commencer une carrière
-        </button>
+        <p className="subtitle">Suivre la carrière d'A・ZU・NA</p>
+        <div className="actions">
+          {DIFFICULTY_CHOICES.map(({ difficulty, label, tooltip }) => (
+            <ActionButton key={difficulty} tooltip={tooltip} onClick={() => onBegin(difficulty)}>
+              {label}
+            </ActionButton>
+          ))}
+        </div>
         {error && (
           <p className="error-msg" role="alert">
             {error}
@@ -90,6 +111,7 @@ export default function CareerHub({
       <aside className="career-column" aria-label="Statistiques">
         <div className="career-status">
           <span>{`Tour ${turn}`}</span>
+          <span>{DIFFICULTY_LABELS[career.difficulty]}</span>
           <span className="career-status-item">
             {`Énergie ${career.energy} / ${career.maxEnergy}`}
             {changes?.energy ? <ChangeBadge label="Énergie" amount={changes.energy} /> : null}
@@ -100,7 +122,13 @@ export default function CareerHub({
           </span>
         </div>
 
-        <StatBars stats={career.stats} statMax={career.statMax} statStep={career.statStep} changes={changes?.stats} />
+        <StatBars
+          stats={career.stats}
+          statMax={career.statMax}
+          statStep={career.statStep}
+          baseTiers={career.baseTiers}
+          baseSuggestions={career.baseSuggestions}
+          changes={changes?.stats} />
 
         {releases.length > 0 && (
           <div className="career-history">
@@ -126,7 +154,7 @@ export default function CareerHub({
             <>
               {career.finalScore && <CareerScore score={career.finalScore} />}
               <div className="actions">
-                <button type="button" onClick={onBegin}>
+                <button type="button" onClick={onRestart}>
                   Nouvelle carrière
                 </button>
               </div>

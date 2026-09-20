@@ -21,6 +21,7 @@ import type {
   CareerResponse,
   CareerRound,
   CareerStat,
+  Difficulty,
   GameState,
   RewardOption,
 } from '../types';
@@ -82,7 +83,7 @@ export function useCareer() {
     }
   }, [apply]);
 
-  const begin = useCallback(() => run(startCareer), [run]);
+  const begin = useCallback((difficulty: Difficulty) => run(() => startCareer(difficulty)), [run]);
 
   const abandon = useCallback(async () => {
     try {

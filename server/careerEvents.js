@@ -14,18 +14,19 @@ const SERIES_MAX_STAT_REWARD = 60;
 const SERIES_MAX_EFFICIENCY = 4;
 
 // window: the turn is drawn inside it at creation. statMax / fans: fire as soon
-// as the stat reaches its maximum, or the fans the threshold.
+// as the stat reaches its maximum, or the fans the threshold. negative: never
+// happens on a difficulty without negative events.
 const EVENTS = [
   { id: 1, window: [5, 10], effects: [{ type: 'energy', amount: 2 }], text: 'Énergie +2' },
   { id: 2, window: [15, 20], effects: [{ type: 'notebook', amount: 1 }], text: 'Carnet +1' },
-  { id: 3, window: [21, 30], effects: [{ type: 'notebook', amount: -2 }], text: 'Carnet −2' },
-  { id: 4, window: [31, 40], effects: [{ type: 'penalty', amount: 400, turns: 5 }] },
-  { id: 5, window: [45, 50], effects: [{ type: 'notebook', amount: -5 }], text: 'Carnet −5' },
+  { id: 3, window: [21, 30], negative: true, effects: [{ type: 'notebook', amount: -2 }], text: 'Carnet −2' },
+  { id: 4, window: [31, 40], negative: true, effects: [{ type: 'penalty', amount: 400, turns: 5 }] },
+  { id: 5, window: [45, 50], negative: true, effects: [{ type: 'notebook', amount: -5 }], text: 'Carnet −5' },
   { id: 6, statMax: 'oreille', effects: [{ type: 'stat', stat: 'culture', amount: 50 }], text: 'Endurance +50' },
   { id: 7, statMax: 'memoire', effects: [{ type: 'stat', stat: 'oreille', amount: 50 }], text: 'Chant +50' },
   { id: 8, statMax: 'culture', effects: [{ type: 'stat', stat: 'memoire', amount: 50 }], text: 'Connaissances +50' },
   { id: 9, fans: 500, effects: [{ type: 'notebook', amount: 3 }], text: 'Carnet +3' },
-  { id: 11, window: [30, 50], effects: [{ type: 'penalty', amount: 400, turns: 5 }] },
+  { id: 11, window: [30, 50], negative: true, effects: [{ type: 'penalty', amount: 400, turns: 5 }] },
 ];
 
 // During the finale, events fire on a track (not a turn): three penalties and a
@@ -97,8 +98,10 @@ function record(state, id, text, gained = []) {
 // events fired by this call, in order.
 function applyDueEvents(state, context) {
   if (career.isOver(state)) return [];
+  const { negativeEvents } = career.settingsOf(state);
   const fired = [];
   EVENTS.forEach((event) => {
+    if (event.negative && !negativeEvents) return;
     if (state.firedEvents.includes(event.id) || !isDue(state, event)) return;
     state.firedEvents.push(event.id);
     const results = event.effects.map((effect) => applyEffect(state, effect, context));
@@ -160,7 +163,9 @@ function applyFinaleEvents(state, { random }) {
   const fired = live.fired ?? (live.fired = []);
   const untilTrack = track + FINALE_EVENT_TRACKS - 1;
   const news = [];
+  const { negativeEvents } = career.settingsOf(state);
   FINALE_EVENTS.forEach(({ id, type }) => {
+    if (type === 'penalty' && !negativeEvents) return;
     if (live.schedule[id] !== track || fired.includes(id)) return;
     fired.push(id);
     if (type === 'bonus') {

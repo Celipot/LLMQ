@@ -9,6 +9,7 @@ const wsServer = require('./wsServer');
 const songs = require('./songs');
 const songPicker = require('./songPicker');
 const soloSessions = require('./soloSessions');
+const career = require('./career');
 const careerRounds = require('./careerRounds');
 const avatars = require('./avatars');
 const { truncateWavFile } = require('./wavTruncate');
@@ -268,7 +269,11 @@ function careerAction(action) {
 }
 
 app.post('/api/career', requireSession, (req, res) => {
-  careerRounds.createCareer(req.solo);
+  const { difficulty } = req.body || {};
+  if (difficulty !== undefined && !career.isValidDifficulty(difficulty)) {
+    return res.status(400).json({ error: 'INVALID_DIFFICULTY' });
+  }
+  careerRounds.createCareer(req.solo, difficulty);
   res.json(careerResponse(req.solo));
 });
 
