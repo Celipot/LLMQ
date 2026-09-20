@@ -17,8 +17,8 @@ const phase3 = {
   releaseDue: false,
   concertDue: false,
   phase3: true,
-  release: { score: 400, maxScore: 600, grade: 'B', tracks: [] },
-  concertResult: { score: 900, maxScore: 1500, grade: 'B', tracks: [] },
+  release: { score: 400, maxScore: 600, grade: 'B', turn: 10, tracks: [] },
+  concertResult: { score: 900, maxScore: 1500, grade: 'B', turn: 10, tracks: [] },
   fans: { current: 400, required: 300 },
   failure: null,
   albumGoalGrade: 'B',
@@ -28,11 +28,11 @@ const phase3 = {
 } as unknown as Career;
 
 describe('CareerObjective in the third phase', () => {
-  test('lists the concerts and albums still to release, with the turns left', () => {
+  test('shows the concerts then, on the next line, the albums rated B+ still to release, with the turns left', () => {
     render(<CareerObjective career={phase3} />);
 
-    expect(screen.getByText(/concerts 1 \/ 2 \(B\+ 1 \/ 2\)/)).toBeInTheDocument();
-    expect(screen.getByText(/albums 2 \/ 3 \(B\+ 1 \/ 2\)/)).toBeInTheDocument();
+    expect(screen.getByText('Concert B+ 1 / 2')).toBeInTheDocument();
+    expect(screen.getByText((text) => text.startsWith('Album B+ 1 / 2'))).toBeInTheDocument();
     expect(screen.getByText('(dans 21 tours)')).toBeInTheDocument();
   });
 
@@ -43,7 +43,7 @@ describe('CareerObjective in the third phase', () => {
   });
 
   test('a career whose finale is played is over', () => {
-    const finaleResult = { score: 4000, maxScore: 5000, grade: 'A', tracks: [] } as Career['finaleResult'];
+    const finaleResult = { score: 4000, maxScore: 5000, grade: 'A', turn: 10, tracks: [] } as Career['finaleResult'];
     render(<CareerObjective career={{ ...phase3, finaleResult }} />);
 
     expect(screen.getByText('Carrière terminée')).toBeInTheDocument();

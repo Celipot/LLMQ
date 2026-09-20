@@ -20,6 +20,16 @@ export default function CareerEvent({ event, choice, onContinue, onChoose }: Car
         {event ? (
           <>
             <p className="career-event-text">{event.text}</p>
+            {event.gained && (
+              <div className="career-event-gained">
+                <p>Titres ajoutés au carnet</p>
+                <ul>
+                  {event.gained.map((song) => (
+                    <li key={song.id}>{song.title}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <button type="button" onClick={onContinue}>
               Continuer
             </button>

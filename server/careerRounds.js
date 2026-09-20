@@ -44,6 +44,7 @@ function publicResult(result, maxScore) {
     score: result.score,
     maxScore,
     grade: result.grade,
+    turn: result.turn,
     tracks: publicTracks(result.tracks),
   };
 }
@@ -55,6 +56,11 @@ function publicSortie(sortie) {
 function publicLive(state) {
   if (!state.live) return null;
   return { kind: state.live.kind, done: state.live.tracks.length, total: career.LIVES[state.live.kind].size };
+}
+
+// The titles won by an event are told to the player, not only their number.
+function publicEvent(event) {
+  return event.gained ? { ...event, gained: event.gained.map(songSummary) } : event;
 }
 
 function publicCareer(session) {
@@ -90,7 +96,7 @@ function publicCareer(session) {
     finaleDue: career.isFinaleDue(state),
     finaleResult: publicResult(state.finale, career.MAX_FINALE_SCORE),
     events: state.events,
-    newEvents: session.careerNewEvents,
+    newEvents: session.careerNewEvents.map(publicEvent),
     pendingChoice: state.pendingChoice,
   };
 }
@@ -118,7 +124,8 @@ function resumeRound(session) {
 
 function startRound(session, kind, stat, songId) {
   const key = roundKey(session, songId);
-  gameState.resetState(key, career.roundTiers(career.effectiveStats(session.career)));
+  const { career: state } = session;
+  gameState.resetState(key, career.roundTiers(career.effectiveStats(state), career.roundBonusSeconds(state)));
   session.careerRound = { kind, stat, songId, key };
   resumeRound(session);
 }
@@ -154,11 +161,20 @@ function trackSongIds(tracks) {
   return tracks.map((track) => track.songId);
 }
 
+// The finale events are drawn with its first track and fire before the track they
+// are scheduled on starts, so that their effect applies to it.
+function startFinaleTrack(session) {
+  const { live } = session.career;
+  if (!live.schedule) careerEvents.scheduleFinaleEvents(live);
+  session.careerNewEvents.push(...careerEvents.applyFinaleEvents(session.career, { random: Math.random }));
+}
+
 // A sortie of the third phase or the finale: the tracks go on until the last.
 function startLive(session, kind, roundKind) {
   const { notebook } = session.career;
   career.startLive(session.career, kind);
   session.careerNewEvents = [];
+  if (kind === 'finale') startFinaleTrack(session);
   const songId = career.pickPreparedSongId(discography, notebook, career.liveSongIds(session.career));
   startRound(session, roundKind, null, songId);
 }

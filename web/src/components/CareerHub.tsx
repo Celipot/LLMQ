@@ -1,6 +1,7 @@
 import { CAREER_STATS } from '../careerStats';
 import type { Career, CareerEvent as CareerEventData, CareerStat, RewardOption } from '../types';
 import CareerEvent from './CareerEvent';
+import CareerNotebook from './CareerNotebook';
 import CareerObjective from './CareerObjective';
 import CareerResult from './CareerResult';
 import CareerScore from './CareerScore';
@@ -64,6 +65,13 @@ export default function CareerHub({
   const over = career.failure !== null || career.finaleResult !== null;
   const liveActions = { album: onRelease, concert: onConcert, finale: onFinale };
   const { live } = career;
+  // Every album, concert and the finale, dated with the turn it was played on.
+  const releases = [
+    career.release && { label: 'Album', turn: career.release.turn },
+    career.concertResult && { label: 'Concert', turn: career.concertResult.turn },
+    ...career.sorties.map(({ kind, turn: releasedAt }) => ({ label: kind === 'album' ? 'Album' : 'Concert', turn: releasedAt })),
+    career.finaleResult && { label: 'SIF', turn: career.finaleResult.turn },
+  ].filter((release) => release !== null);
 
   return (
     <section className="career-hub career-layout">
@@ -83,16 +91,19 @@ export default function CareerHub({
 
         <StatBars stats={career.stats} statMax={career.statMax} />
 
-        {career.notebook.length > 0 && (
-          <div className="career-notebook">
-            <h2>{`Carnet (${career.notebook.length})`}</h2>
+        {releases.length > 0 && (
+          <div className="career-history">
+            <h2>Sorties</h2>
             <ul>
-              {career.notebook.map((song) => (
-                <li key={song.id}>{song.title}</li>
+              {releases.map(({ label, turn: releasedAt }, index) => (
+                // Releases are only ever appended, in the order they were played.
+                <li key={index}>{`${label} : tour ${releasedAt}`}</li>
               ))}
             </ul>
           </div>
         )}
+
+        <CareerNotebook notebook={career.notebook} />
       </aside>
 
       <div className="career-column">

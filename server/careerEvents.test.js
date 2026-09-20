@@ -7,7 +7,7 @@ const POOL = Array.from({ length: 20 }, (_, i) => i + 1);
 
 function scheduled(turns) {
   const state = career.createCareer();
-  state.eventTurns = { 1: 99, 2: 99, 3: 99, 4: 99, 5: 99, ...turns };
+  state.eventTurns = { 1: 99, 2: 99, 3: 99, 4: 99, 5: 99, 11: 99, ...turns };
   return state;
 }
 
@@ -19,11 +19,11 @@ describe('scheduleEvents', () => {
   test('draws the turn of every timed event inside its window', () => {
     const first = career.createCareer();
     events.scheduleEvents(first, () => 0);
-    assert.deepEqual(first.eventTurns, { 1: 5, 2: 15, 3: 21, 4: 31, 5: 45 });
+    assert.deepEqual(first.eventTurns, { 1: 5, 2: 15, 3: 21, 4: 31, 5: 45, 11: 30 });
 
     const last = career.createCareer();
     events.scheduleEvents(last, () => 0.999);
-    assert.deepEqual(last.eventTurns, { 1: 10, 2: 20, 3: 30, 4: 40, 5: 50 });
+    assert.deepEqual(last.eventTurns, { 1: 10, 2: 20, 3: 30, 4: 40, 5: 50, 11: 50 });
   });
 });
 
@@ -121,7 +121,7 @@ describe('event 4, the temporary penalty', () => {
 });
 
 describe('the stat maximum events', () => {
-  test('hearing at its maximum gives 100 culture, culture gives memory, memory gives hearing', () => {
+  test('hearing at its maximum gives 50 culture, culture gives memory, memory gives hearing', () => {
     [
       ['oreille', 300, 'culture', 6],
       ['culture', 200, 'memoire', 8],
@@ -131,7 +131,7 @@ describe('the stat maximum events', () => {
       state.stats[stat] = max;
       const fired = apply(state);
       assert.deepEqual(fired.map((event) => event.id), [id]);
-      assert.equal(state.stats[rewarded], 100);
+      assert.equal(state.stats[rewarded], 50);
     });
   });
 
@@ -147,7 +147,7 @@ describe('the stat maximum events', () => {
     apply(state);
     state.stats.oreille = 340;
     assert.deepEqual(apply(state), []);
-    assert.equal(state.stats.culture, 100);
+    assert.equal(state.stats.culture, 50);
   });
 
   test('judges the base stat, not a temporary penalty', () => {
@@ -242,5 +242,122 @@ describe('the series event', () => {
 
   test('choosing without a pending choice is refused', () => {
     assert.throws(() => events.chooseReward(career.createCareer(), 'stats'), { message: 'NO_PENDING_CHOICE' });
+  });
+});
+
+describe('the second penalty', () => {
+  test('event 11 lowers a random stat by 400 for 5 turns, from turn 30 to 50', () => {
+    const state = scheduled({ 11: 44 });
+    state.turn = 44;
+    const [fired] = apply(state, () => 0.999);
+    assert.equal(fired.id, 11);
+    assert.deepEqual(state.modifiers, [{ stat: 'culture', delta: -400, expiresAtTurn: 49 }]);
+    assert.match(fired.text, /Culture −400 pendant 5 tours/);
+  });
+});
+
+describe('the titles won by an event', () => {
+  test('a notebook gain lists the titles that were added', () => {
+    const state = scheduled({ 2: 15 });
+    state.turn = 15;
+    state.notebook = POOL.slice(0, 19);
+    const [fired] = apply(state);
+    assert.deepEqual(fired.gained, [20]);
+  });
+
+  test('event 9 lists its three titles', () => {
+    const state = scheduled({});
+    state.fans = 500;
+    const [fired] = apply(state);
+    assert.equal(fired.gained.length, 3);
+    assert.deepEqual(fired.gained, state.notebook);
+  });
+
+  test('an event without a notebook gain lists nothing', () => {
+    const state = scheduled({ 1: 7 });
+    state.turn = 7;
+    assert.equal(apply(state)[0].gained, undefined);
+    const lost = scheduled({ 3: 21 });
+    lost.turn = 21;
+    lost.notebook = [1, 2, 3];
+    assert.equal(apply(lost)[0].gained, undefined);
+  });
+});
+
+describe('the events of the finale', () => {
+  function finale(tracksPlayed = 0) {
+    const state = career.createCareer();
+    state.live = {
+      kind: 'finale',
+      tracks: Array.from({ length: tracksPlayed }, (_, i) => ({ songId: i })),
+      penalties: [],
+      bonus: null,
+    };
+    return state;
+  }
+
+  test('schedules three penalties and one bonus between the 2nd and the 25th track', () => {
+    const state = finale();
+    events.scheduleFinaleEvents(state.live, () => 0);
+    assert.deepEqual(state.live.schedule, { 12: 2, 13: 2, 14: 2, 15: 2 });
+    events.scheduleFinaleEvents(state.live, () => 0.999);
+    assert.deepEqual(state.live.schedule, { 12: 25, 13: 25, 14: 25, 15: 25 });
+  });
+
+  test('nothing happens before the scheduled track', () => {
+    const state = finale(0);
+    state.live.schedule = { 12: 2, 13: 5, 14: 8, 15: 11 };
+    assert.deepEqual(events.applyFinaleEvents(state, { random: () => 0 }), []);
+  });
+
+  test('a penalty lowers a stat by 500 for 3 tracks, the one it fires on included', () => {
+    const state = finale(1);
+    state.stats.oreille = 300;
+    state.live.schedule = { 12: 2 };
+    const [fired] = events.applyFinaleEvents(state, { random: () => 0 });
+    assert.equal(fired.id, 12);
+    assert.deepEqual(state.live.penalties, [{ stat: 'oreille', delta: -500, untilTrack: 4 }]);
+    assert.equal(fired.text, 'Oreille −500 pendant 3 titres');
+    assert.equal(career.effectiveStats(state).oreille, -100);
+  });
+
+  test('a penalty never targets a stat that is already negative', () => {
+    const state = finale(1);
+    state.modifiers = [{ stat: 'oreille', delta: -400, expiresAtTurn: 99 }];
+    state.live.schedule = { 12: 2 };
+    events.applyFinaleEvents(state, { random: () => 0 });
+    assert.equal(state.live.penalties[0].stat, 'memoire');
+  });
+
+  test('a penalty is skipped when every stat is already negative', () => {
+    const state = finale(1);
+    state.live.penalties = ['oreille', 'memoire', 'culture'].map((stat) => ({ stat, delta: -500, untilTrack: 9 }));
+    state.live.schedule = { 12: 2 };
+    assert.deepEqual(events.applyFinaleEvents(state, { random: () => 0 }), []);
+    assert.equal(state.live.penalties.length, 3);
+  });
+
+  test('the bonus adds 15 seconds to every tier for 3 tracks', () => {
+    const state = finale(1);
+    state.live.schedule = { 15: 2 };
+    const [fired] = events.applyFinaleEvents(state, { random: () => 0 });
+    assert.equal(fired.id, 15);
+    assert.equal(fired.text, 'Intro +15 s à chaque essai pendant 3 titres');
+    assert.deepEqual(state.live.bonus, { seconds: 15, untilTrack: 4 });
+    assert.equal(career.roundBonusSeconds(state), 15);
+  });
+
+  test('an event fires only once', () => {
+    const state = finale(1);
+    state.live.schedule = { 15: 2 };
+    events.applyFinaleEvents(state, { random: () => 0 });
+    assert.deepEqual(events.applyFinaleEvents(state, { random: () => 0 }), []);
+  });
+
+  test('the events are recorded in the history', () => {
+    const state = finale(1);
+    state.live.schedule = { 15: 2 };
+    events.applyFinaleEvents(state, { random: () => 0 });
+    assert.equal(state.events.at(-1).id, 15);
   });
 });

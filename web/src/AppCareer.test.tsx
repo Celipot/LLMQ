@@ -115,6 +115,36 @@ describe('App — Mode Carrière', () => {
     expect(screen.getByText(/Single \(Culture\) : deviner le titre/)).toBeInTheDocument();
   });
 
+  test('the notebook stays on the left of the guessing screen', async () => {
+    const notebook = [{ id: 1, title: 'Awakening Promise', coverUrl: '/covers/a.png' }];
+    vi.mocked(api.fetchCareer).mockResolvedValue({
+      career: { ...career, notebook },
+      round: { kind: 'study', stat: 'oreille', state: roundState },
+    });
+    render(<App />);
+    await userEvent.click(screen.getByText('Mode Carrière'));
+
+    const notebookColumn = await screen.findByRole('complementary', { name: 'Carnet' });
+    expect(notebookColumn).toHaveTextContent('Awakening Promise');
+    const search = screen.getByRole('textbox', { name: 'Rechercher un titre' });
+    expect(notebookColumn.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  test('once a round is over, Continuer sits under Valider and the answer is smaller, on the right', async () => {
+    vi.mocked(api.fetchCareer).mockResolvedValue({
+      career,
+      round: { kind: 'study', stat: 'oreille', state: wonState },
+    });
+    render(<App />);
+    await userEvent.click(screen.getByText('Mode Carrière'));
+
+    const validate = await screen.findByRole('button', { name: 'Valider' });
+    const next = screen.getByRole('button', { name: 'Continuer' });
+    expect(validate.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByText(/La chanson était/).closest('.career-round-answer')).not.toBeNull();
+    expect(screen.getByText(/La chanson était/).closest('.career-round-controls')).toBeNull();
+  });
+
   test('the restart button sits in the header, to the left of Accueil', async () => {
     vi.mocked(api.fetchCareer).mockResolvedValue({ career, round: null });
     render(<App />);
@@ -162,7 +192,7 @@ describe('App — Mode Carrière', () => {
 
   describe('album tracks', () => {
     const midAlbum: Career = { ...career, turn: 11, releaseDue: true, album: { done: 2, total: 6 } };
-    const noTracks = { score: 600, maxScore: 600, grade: 'S' as const, tracks: [] };
+    const noTracks = { score: 600, maxScore: 600, grade: 'S' as const, turn: 10, tracks: [] };
 
     test('shows the position of the track being played', async () => {
       vi.mocked(api.fetchCareer).mockResolvedValue({
@@ -218,7 +248,7 @@ describe('App — Mode Carrière', () => {
     const midConcert: Career = {
       ...career,
       turn: 21,
-      release: { score: 600, maxScore: 600, grade: 'S', tracks: [] },
+      release: { score: 600, maxScore: 600, grade: 'S', turn: 10, tracks: [] },
       concertDue: true,
       concert: { done: 4, total: 15 },
     };
@@ -257,7 +287,7 @@ describe('App — Mode Carrière', () => {
       const over: Career = {
         ...midConcert,
         concert: { done: 15, total: 15 },
-        concertResult: { score: 1500, maxScore: 1500, grade: 'S', tracks: [] },
+        concertResult: { score: 1500, maxScore: 1500, grade: 'S', turn: 10, tracks: [] },
       };
       vi.mocked(api.fetchCareer).mockResolvedValue({
         career: over,

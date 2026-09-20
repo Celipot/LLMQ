@@ -920,12 +920,14 @@ function newCareerPlayer() {
       headers: { ...headers, 'Content-Type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
-  // The timed events are drawn when the career is created: pinning the draw to 0
-  // makes them fall on the first turn of their window.
+  // Events draw with Math.random (the turn of the timed ones at creation, the titles they
+  // add or remove later): pinning it to 0 makes them fall on the first turn of their
+  // window and pick the first titles, so every test sees the same career.
+  const EVENT_PATHS = ['/api/career', '/api/career/rest', '/api/guess', '/api/skip', '/api/career/event/choice'];
   return {
     get: (path) => call('GET', path),
     post: (path, body, draw = 0) =>
-      path === '/api/career' ? withFirstDraw(() => call('POST', path, body), draw) : call('POST', path, body),
+      EVENT_PATHS.includes(path) ? withFirstDraw(() => call('POST', path, body), draw) : call('POST', path, body),
     delete: (path) => call('DELETE', path),
   };
 }
@@ -975,7 +977,7 @@ test('POST /api/career starts a career with full energy, no stats and the base h
   assert.deepEqual(body.career.notebook, []);
   assert.equal(body.career.release, null);
   assert.equal(body.career.concertDue, false);
-  assert.deepEqual(body.career.fans, { current: 0, required: 300 });
+  assert.deepEqual(body.career.fans, { current: 0, required: 750 });
   assert.equal(body.career.failure, null);
   assert.equal(body.career.finalScore, null);
   assert.equal(body.career.albumGoalGrade, 'B');
@@ -1290,17 +1292,50 @@ test('a single is refused while a round is in progress', async () => {
   assert.equal((await res.json()).error, 'ROUND_IN_PROGRESS');
 });
 
-async function restUntilConcert(player) {
-  await restUntilRelease(player);
-  for (let i = 0; i < 6; i += 1) await playAlbumTrack(player, i);
-  for (let i = 0; i < 10; i += 1) await player.post('/api/career/rest');
+// The concert asks for 750 fans, which only singles and the album win: every turn is
+// a single found at the first tier while the energy allows it, a rest otherwise.
+// A single draws the first title not found yet, whatever Math.random says.
+async function spendTurnsOnSingles(player, turns) {
+  let { career: state } = await (await player.get('/api/career')).json();
+  for (let i = 0; i < turns; i += 1) {
+    if (state.energy < 2) {
+      state = (await (await player.post('/api/career/rest')).json()).career;
+      continue;
+    }
+    await withFirstDraw(() => player.post('/api/career/single'));
+    const foundIds = state.notebook.map((song) => song.id);
+    const title = songs.getSongById(discographyIds.find((id) => !foundIds.includes(id))).title;
+    state = (await (await player.post('/api/guess', { title })).json()).career;
+    if (state.pendingChoice) {
+      state = (await (await player.post('/api/career/event/choice', { option: 'energy' })).json()).career;
+    }
+  }
 }
 
-// Nothing studied and Math.random at 0: the concert tracks are the first
-// titles of the discography, in order (the album titles are allowed again).
+async function restUntilConcert(player) {
+  await player.post('/api/career');
+  await spendTurnsOnSingles(player, 10);
+  for (let i = 0; i < 6; i += 1) await playAlbumTrack(player, i);
+  await spendTurnsOnSingles(player, 10);
+}
+
+// The concert is drawn from the notebook first, and events add or remove titles from it
+// (the third one takes two away when the concert becomes due): the expected title is
+// the one the server draws with Math.random at 0, from the notebook of the moment.
+const concertPlayed = new WeakMap();
+
 async function playConcertTrack(player, index) {
   await withFirstDraw(() => player.post('/api/career/concert'));
-  return (await player.post('/api/guess', { title: albumSong(index).title })).json();
+  const { career: state } = await (await player.get('/api/career')).json();
+  const played = index === 0 ? [] : concertPlayed.get(player);
+  const id = career.pickPreparedSongId(
+    discographyIds,
+    state.notebook.map((song) => song.id),
+    played,
+    () => 0,
+  );
+  concertPlayed.set(player, [...played, id]);
+  return (await player.post('/api/guess', { title: songs.getSongById(id).title })).json();
 }
 
 test('POST /api/career/concert is refused before the second phase is over', async () => {
@@ -1495,18 +1530,20 @@ async function restUntilPhase3(player) {
 test('a career that misses the goals of the finale gets a final score at turn 51', async () => {
   const player = newCareerPlayer();
   await restUntilPhase3(player);
+  const { career: before } = await (await player.get('/api/career')).json();
   let last;
   for (let i = 0; i < 30; i += 1) last = await (await player.post('/api/career/rest')).json();
 
+  const stats = Object.values(before.stats).reduce((total, value) => total + value, 0);
   assert.equal(last.career.failure, 'FINALE_GOALS');
   assert.deepEqual(last.career.finalScore, {
     album: 600,
     concert: 1500,
     sorties: 0,
     finale: 0,
-    stats: 0,
-    fans: 300,
-    total: 2400,
+    stats,
+    fans: before.fans.current,
+    total: 600 + 1500 + stats + before.fans.current,
   });
 });
 

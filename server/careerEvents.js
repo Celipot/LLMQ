@@ -21,10 +21,24 @@ const EVENTS = [
   { id: 3, window: [21, 30], effects: [{ type: 'notebook', amount: -2 }], text: 'Carnet −2' },
   { id: 4, window: [31, 40], effects: [{ type: 'penalty', amount: 400, turns: 5 }] },
   { id: 5, window: [45, 50], effects: [{ type: 'notebook', amount: -5 }], text: 'Carnet −5' },
-  { id: 6, statMax: 'oreille', effects: [{ type: 'stat', stat: 'culture', amount: 100 }], text: 'Culture +100' },
-  { id: 7, statMax: 'memoire', effects: [{ type: 'stat', stat: 'oreille', amount: 100 }], text: 'Oreille +100' },
-  { id: 8, statMax: 'culture', effects: [{ type: 'stat', stat: 'memoire', amount: 100 }], text: 'Mémoire +100' },
+  { id: 6, statMax: 'oreille', effects: [{ type: 'stat', stat: 'culture', amount: 50 }], text: 'Culture +50' },
+  { id: 7, statMax: 'memoire', effects: [{ type: 'stat', stat: 'oreille', amount: 50 }], text: 'Oreille +50' },
+  { id: 8, statMax: 'culture', effects: [{ type: 'stat', stat: 'memoire', amount: 50 }], text: 'Mémoire +50' },
   { id: 9, fans: 500, effects: [{ type: 'notebook', amount: 3 }], text: 'Carnet +3' },
+  { id: 11, window: [30, 50], effects: [{ type: 'penalty', amount: 400, turns: 5 }] },
+];
+
+// During the finale, events fire on a track (not a turn): three penalties and a
+// bonus, each lasting a few tracks, the one they fire on included.
+const FINALE_TRACKS = [2, 25];
+const FINALE_EVENT_TRACKS = 3;
+const FINALE_PENALTY = 500;
+const FINALE_BONUS_SECONDS = 15;
+const FINALE_EVENTS = [
+  { id: 12, type: 'penalty' },
+  { id: 13, type: 'penalty' },
+  { id: 14, type: 'penalty' },
+  { id: 15, type: 'bonus' },
 ];
 
 function scheduleEvents(state, random = Math.random) {
@@ -43,34 +57,40 @@ function takeRandom(list, random) {
   return list.splice(Math.floor(random() * list.length), 1)[0];
 }
 
+// Returns the titles added to the notebook.
 function changeNotebook(state, amount, { pool, random }) {
+  const gained = [];
   if (amount > 0) {
     const candidates = pool.filter((id) => !state.notebook.includes(id));
-    for (let i = 0; i < amount && candidates.length > 0; i += 1) state.notebook.push(takeRandom(candidates, random));
-    return;
+    for (let i = 0; i < amount && candidates.length > 0; i += 1) gained.push(takeRandom(candidates, random));
+    state.notebook.push(...gained);
+    return gained;
   }
   for (let i = 0; i < -amount && state.notebook.length > 0; i += 1) takeRandom(state.notebook, random);
+  return gained;
 }
 
-// Returns the text of the effect when it depends on a draw.
+// Returns what the player must be told when it depends on a draw: the text of a
+// penalty, the titles won by a notebook gain.
 function applyEffect(state, effect, context) {
   if (effect.type === 'energy') {
     state.energy = Math.min(career.MAX_ENERGY, Math.max(0, state.energy + effect.amount));
   } else if (effect.type === 'stat') {
     state.stats[effect.stat] = Math.max(0, state.stats[effect.stat] + effect.amount);
   } else if (effect.type === 'notebook') {
-    changeNotebook(state, effect.amount, context);
+    return { gained: changeNotebook(state, effect.amount, context) };
   } else if (effect.type === 'penalty') {
     const stat = career.pickStat(context.random);
     state.modifiers.push({ stat, delta: -effect.amount, expiresAtTurn: state.turn + effect.turns });
-    return `${STAT_LABELS[stat]} −${effect.amount} pendant ${effect.turns} tours`;
+    return { text: `${STAT_LABELS[stat]} −${effect.amount} pendant ${effect.turns} tours` };
   }
-  return undefined;
+  return {};
 }
 
-function record(state, id, text) {
+// The history keeps the text; the titles won are only reported to the player once.
+function record(state, id, text, gained = []) {
   state.events.push({ id, turn: state.turn, text });
-  return { id, text };
+  return gained.length > 0 ? { id, text, gained } : { id, text };
 }
 
 // Applied at the end of an action, never in the middle of a round. Returns the
@@ -81,8 +101,9 @@ function applyDueEvents(state, context) {
   EVENTS.forEach((event) => {
     if (state.firedEvents.includes(event.id) || !isDue(state, event)) return;
     state.firedEvents.push(event.id);
-    const texts = event.effects.map((effect) => applyEffect(state, effect, context));
-    fired.push(record(state, event.id, texts.find(Boolean) ?? event.text));
+    const results = event.effects.map((effect) => applyEffect(state, effect, context));
+    const text = results.find((result) => result.text)?.text ?? event.text;
+    fired.push(record(state, event.id, text, results.flatMap((result) => result.gained ?? [])));
   });
   return fired;
 }
@@ -122,8 +143,45 @@ function chooseReward(state, option) {
   return record(state, eventId, option === 'stats' ? `Série ! Toutes les stats +${amount}` : `Série ! Énergie +${amount}`);
 }
 
+// Drawn when the finale starts: each event fires on its own track.
+function scheduleFinaleEvents(live, random = Math.random) {
+  const [first, last] = FINALE_TRACKS;
+  live.schedule = {};
+  FINALE_EVENTS.forEach(({ id }) => {
+    live.schedule[id] = first + Math.floor(random() * (last - first + 1));
+  });
+}
+
+// Called before each track of the finale starts. A penalty never targets a stat
+// that is already negative, and is skipped when there is none left.
+function applyFinaleEvents(state, { random }) {
+  const { live } = state;
+  const track = career.liveTrackNumber(state);
+  const fired = live.fired ?? (live.fired = []);
+  const untilTrack = track + FINALE_EVENT_TRACKS - 1;
+  const news = [];
+  FINALE_EVENTS.forEach(({ id, type }) => {
+    if (live.schedule[id] !== track || fired.includes(id)) return;
+    fired.push(id);
+    if (type === 'bonus') {
+      live.bonus = { seconds: FINALE_BONUS_SECONDS, untilTrack };
+      news.push(record(state, id, `Intro +${FINALE_BONUS_SECONDS} s à chaque essai pendant ${FINALE_EVENT_TRACKS} titres`));
+      return;
+    }
+    const effective = career.effectiveStats(state);
+    const candidates = Object.keys(effective).filter((stat) => effective[stat] >= 0);
+    if (candidates.length === 0) return;
+    const stat = candidates[Math.floor(random() * candidates.length)];
+    live.penalties.push({ stat, delta: -FINALE_PENALTY, untilTrack });
+    news.push(record(state, id, `${STAT_LABELS[stat]} −${FINALE_PENALTY} pendant ${FINALE_EVENT_TRACKS} titres`));
+  });
+  return news;
+}
+
 module.exports = {
   scheduleEvents,
+  scheduleFinaleEvents,
+  applyFinaleEvents,
   applyDueEvents,
   recordAnswer,
   chooseReward,

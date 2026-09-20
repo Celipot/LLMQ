@@ -288,7 +288,7 @@ describe('fans', () => {
     const state = career.createCareer();
     assert.equal(state.fans, 0);
     assert.equal(state.failure, null);
-    assert.equal(career.FANS_REQUIRED, 300);
+    assert.equal(career.FANS_REQUIRED, 750);
   });
 
   test('a single wins fans, a study and a rest do not', () => {
@@ -358,10 +358,10 @@ describe('fans', () => {
   test('the fans of the very last single count for the concert', () => {
     const state = careerAtRelease();
     playAlbum(state, [1, 1, 1, null, null, null]);
-    state.fans = 270;
+    state.fans = career.FANS_REQUIRED - 30;
     for (let i = 0; i < 9; i += 1) career.rest(state);
     career.single(state, 'oreille', 1);
-    assert.equal(state.fans, 310);
+    assert.equal(state.fans, career.FANS_REQUIRED + 10);
     assert.equal(state.turn, 21);
     assert.equal(state.failure, null);
     assert.equal(career.isConcertDue(state), true);
@@ -424,6 +424,7 @@ describe('the second phase and the concert', () => {
     const state = career.createCareer();
     for (let i = 0; i < 10; i += 1) career.rest(state);
     for (let i = 0; i < 6; i += 1) career.finishAlbumTrack(state, 1, 100 + i);
+    state.fans = career.FANS_REQUIRED;
     return state;
   }
 
@@ -510,6 +511,7 @@ function careerInPhase3() {
   const state = career.createCareer();
   for (let i = 0; i < 10; i += 1) career.rest(state);
   for (let i = 0; i < 6; i += 1) career.finishAlbumTrack(state, 1, 100 + i);
+  state.fans = career.FANS_REQUIRED;
   for (let i = 0; i < 10; i += 1) career.rest(state);
   for (let i = 0; i < 15; i += 1) career.finishConcertTrack(state, 1, 200 + i);
   return state;
@@ -580,6 +582,7 @@ describe('the third phase', () => {
     assert.equal(state.live, null);
     assert.equal(state.turn, 22);
     assert.equal(state.fans, fansBefore + 300);
+    assert.equal(state.sorties[0].turn, 21);
     assert.equal(state.sorties.length, 1);
     assert.equal(state.sorties[0].kind, 'album');
     assert.equal(state.sorties[0].score, 600);
@@ -691,8 +694,8 @@ describe('the third phase', () => {
       sorties: 2400,
       finale: 5000,
       stats: 0,
-      fans: 300,
-      total: 9800,
+      fans: 750,
+      total: 10250,
     });
   });
 });
@@ -781,5 +784,87 @@ describe('pickSongId', () => {
 
   test('falls back to the whole pool once every title is found', () => {
     assert.equal(career.pickSongId([7], [7]), 7);
+  });
+});
+
+describe('the turn of a release', () => {
+  test('the album and the concert of the first two phases are dated 10 and 20', () => {
+    const state = careerInPhase3();
+    assert.equal(state.release.turn, 10);
+    assert.equal(state.concert.turn, 20);
+  });
+
+  test('a sortie of the third phase is dated with the turn it was played on', () => {
+    const state = careerInPhase3();
+    state.turn = 33;
+    state.energy = 4;
+    playLive(state, 'album', Array(6).fill(1));
+    assert.equal(state.sorties[0].turn, 33);
+    assert.equal(state.turn, 34);
+  });
+
+  test('the finale is dated 50', () => {
+    const state = careerInPhase3();
+    state.sorties = [
+      { kind: 'concert', score: 800, grade: 'B' },
+      { kind: 'concert', score: 800, grade: 'B' },
+      { kind: 'album', score: 400, grade: 'B' },
+      { kind: 'album', score: 400, grade: 'B' },
+      { kind: 'album', score: 0, grade: 'D' },
+    ];
+    state.turn = 50;
+    career.rest(state);
+    playLive(state, 'finale', Array(50).fill(1));
+    assert.equal(state.finale.turn, 50);
+  });
+});
+
+describe('the effects that last a few tracks of the finale', () => {
+  function inFinale(tracksPlayed) {
+    const state = career.createCareer();
+    state.live = {
+      kind: 'finale',
+      tracks: Array.from({ length: tracksPlayed }, (_, i) => ({ songId: i })),
+      penalties: [],
+      bonus: null,
+    };
+    state.stats.oreille = 300;
+    return state;
+  }
+
+  test('a starting sortie has no effect', () => {
+    const state = careerInPhase3();
+    career.startLive(state, 'album');
+    assert.deepEqual(state.live.penalties, []);
+    assert.equal(state.live.bonus, null);
+  });
+
+  test('a penalty lowers the stat until its last track, then stops', () => {
+    const state = inFinale(2);
+    state.live.penalties = [{ stat: 'oreille', delta: -500, untilTrack: 4 }];
+    assert.equal(career.effectiveStats(state).oreille, -100);
+    state.live.tracks.push({ songId: 9 });
+    assert.equal(career.effectiveStats(state).oreille, -100);
+    state.live.tracks.push({ songId: 10 });
+    assert.equal(career.effectiveStats(state).oreille, 300);
+  });
+
+  test('a bonus adds seconds to every tier until its last track', () => {
+    const state = inFinale(2);
+    state.live.bonus = { seconds: 15, untilTrack: 4 };
+    assert.equal(career.roundBonusSeconds(state), 15);
+    state.live.tracks.push({ songId: 9 });
+    assert.equal(career.roundBonusSeconds(state), 15);
+    state.live.tracks.push({ songId: 10 });
+    assert.equal(career.roundBonusSeconds(state), 0);
+  });
+
+  test('outside a sortie there is no bonus', () => {
+    assert.equal(career.roundBonusSeconds(career.createCareer()), 0);
+  });
+
+  test('the bonus lengthens every tier of the round', () => {
+    assert.deepEqual(career.roundTiers(stats(), 15), [16, 17, 18]);
+    assert.deepEqual(career.roundTiers(stats({ culture: 100 }), 15), [16, 17, 18, 19]);
   });
 });

@@ -96,6 +96,8 @@ export interface CareerModifier {
 export interface CareerEvent {
   id: number;
   text: string;
+  // The titles a notebook gain added, so the player knows which ones.
+  gained?: CareerSong[];
 }
 
 export interface CareerEventRecord extends CareerEvent {
@@ -154,6 +156,8 @@ export interface CareerResult {
   score: number;
   maxScore: number;
   grade: CareerGrade;
+  // The turn the release is dated with, shown in the career history.
+  turn: number;
   tracks: CareerTrack[];
 }
 

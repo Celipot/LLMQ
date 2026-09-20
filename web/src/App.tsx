@@ -8,6 +8,7 @@ import Result from './components/Result';
 import Home from './components/Home';
 import { CAREER_STATS } from './careerStats';
 import CareerHub from './components/CareerHub';
+import CareerNotebook from './components/CareerNotebook';
 import SongList from './components/SongList';
 import JoinGame from './components/JoinGame';
 import Lobby from './components/Lobby';
@@ -324,63 +325,74 @@ export default function App() {
       )}
 
       {careerRound && (
-        <div className="quiz-area">
-          <p className="subtitle">{roundSubtitle}</p>
+        <div className="career-round-layout">
+          <aside className="career-column" aria-label="Carnet">
+            <CareerNotebook notebook={career?.notebook ?? []} />
+          </aside>
 
-          <Player
-            audioRef={audioRef}
-            allowedSeconds={allowedSeconds}
-            progress={progress}
-            disabled={false}
-            volume={volume}
-            isPlaying={isPlaying}
-            onPlay={play}
-            onPause={pause}
-            onAudioPlay={handleAudioPlay}
-            onAudioPause={handleAudioPause}
-            onEnded={handleEnded}
-            onVolumeChange={setVolume}
-          />
+          <div className="quiz-area">
+            <p className="subtitle">{roundSubtitle}</p>
 
-          <Pips maxAttempts={careerRound.state.maxAttempts} guesses={careerRound.state.guesses} />
-
-          <section className="search-section">
-            <SearchAutocomplete
-              titles={titles}
-              value={inputValue}
-              disabled={careerFinished}
-              maxSuggestions={careerState.career?.suggestionCount}
-              onChange={(v) => {
-                setInputValue(v);
-                careerState.clearError();
-              }}
-              onSubmit={handleCareerSubmit}
+            <Player
+              audioRef={audioRef}
+              allowedSeconds={allowedSeconds}
+              progress={progress}
+              disabled={false}
+              volume={volume}
+              isPlaying={isPlaying}
+              onPlay={play}
+              onPause={pause}
+              onAudioPlay={handleAudioPlay}
+              onAudioPause={handleAudioPause}
+              onEnded={handleEnded}
+              onVolumeChange={setVolume}
             />
-            <div className="actions">
-              <button type="button" id="guess-btn" disabled={careerFinished} onClick={handleCareerSubmit}>
-                Valider
-              </button>
-              <button type="button" className="secondary" disabled={careerFinished} onClick={careerState.skip}>
-                {careerLastAttempt ? 'Abandonner' : 'Passer'}
-              </button>
-            </div>
-            <p className="error-msg" role="alert">
-              {careerState.error || playError}
-            </p>
-          </section>
 
-          <History guesses={careerRound.state.guesses} />
+            <Pips maxAttempts={careerRound.state.maxAttempts} guesses={careerRound.state.guesses} />
 
-          {careerFinished && (
-            <>
-              <Result state={careerRound.state} />
-              <div className="result-actions">
-                <button type="button" onClick={handleCareerContinue}>
-                  {continueLabel}
-                </button>
+            <section className="search-section">
+              <SearchAutocomplete
+                titles={titles}
+                value={inputValue}
+                disabled={careerFinished}
+                maxSuggestions={careerState.career?.suggestionCount}
+                onChange={(v) => {
+                  setInputValue(v);
+                  careerState.clearError();
+                }}
+                onSubmit={handleCareerSubmit}
+              />
+              <div className="career-round-row">
+                <div className="career-round-controls">
+                  <div className="actions">
+                    <button type="button" id="guess-btn" disabled={careerFinished} onClick={handleCareerSubmit}>
+                      Valider
+                    </button>
+                    <button type="button" className="secondary" disabled={careerFinished} onClick={careerState.skip}>
+                      {careerLastAttempt ? 'Abandonner' : 'Passer'}
+                    </button>
+                  </div>
+                  {careerFinished && (
+                    <div className="actions">
+                      <button type="button" onClick={handleCareerContinue}>
+                        {continueLabel}
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {careerFinished && (
+                  <div className="career-round-answer">
+                    <Result state={careerRound.state} />
+                  </div>
+                )}
               </div>
-            </>
-          )}
+              <p className="error-msg" role="alert">
+                {careerState.error || playError}
+              </p>
+            </section>
+
+            <History guesses={careerRound.state.guesses} />
+          </div>
         </div>
       )}
 

@@ -6,6 +6,8 @@ interface CareerObjectiveProps {
 
 interface Objective {
   text: string;
+  // Shown one per line instead of the text.
+  lines?: string[];
   turnsLeft?: number;
 }
 
@@ -40,9 +42,8 @@ function objectiveOf(career: Career): Objective {
   if (concertResult) {
     const { concerts, albums } = finaleGoals;
     return {
-      text:
-        `Préparer le SIF : concerts ${concerts.done} / ${concerts.required} (B+ ${concerts.good} / ${concerts.requiredGood}), ` +
-        `albums ${albums.done} / ${albums.required} (B+ ${albums.good} / ${albums.requiredGood})`,
+      text: '',
+      lines: [`Concert B+ ${concerts.good} / ${concerts.requiredGood}`, `Album B+ ${albums.good} / ${albums.requiredGood}`],
       turnsLeft: finalTurn - turn + 1,
     };
   }
@@ -58,14 +59,27 @@ function objectiveOf(career: Career): Objective {
 }
 
 export default function CareerObjective({ career }: CareerObjectiveProps) {
-  const { text, turnsLeft } = objectiveOf(career);
+  const { text, lines, turnsLeft } = objectiveOf(career);
+  const deadline =
+    turnsLeft !== undefined ? (
+      <span className="career-objective-deadline">{` (dans ${turnsLeft} ${turnsLeft > 1 ? 'tours' : 'tour'})`}</span>
+    ) : null;
   return (
     <section className="career-objective" aria-label="Objectif en cours">
       <p className="career-objective-title">Objectif en cours</p>
       <p className="career-objective-text">
-        {text}
-        {turnsLeft !== undefined && (
-          <span className="career-objective-deadline">{` (dans ${turnsLeft} ${turnsLeft > 1 ? 'tours' : 'tour'})`}</span>
+        {lines ? (
+          lines.map((line, index) => (
+            <span key={line} className="career-objective-line">
+              {line}
+              {index === lines.length - 1 && deadline}
+            </span>
+          ))
+        ) : (
+          <>
+            {text}
+            {deadline}
+          </>
         )}
       </p>
     </section>

@@ -719,7 +719,7 @@ button:disabled {
   gap: 1.5rem;
 }
 
-.career-layout > .career-column:nth-child(2) {
+.career-layout > div.career-column {
   width: 100%;
   max-width: 560px;
   margin-inline: auto;
@@ -811,7 +811,7 @@ button:disabled {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .career-layout > .career-column:nth-child(2) {
+  .career-layout > div.career-column {
     max-width: none;
   }
 }
@@ -1109,17 +1109,19 @@ button:disabled {
   align-items: center;
   justify-content: center;
   padding: 16px;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 0.6);
 }
 
 .career-event-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  max-width: 360px;
-  padding: 16px;
-  border-radius: 12px;
+  gap: 1rem;
+  width: min(100%, 720px);
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 2rem;
+  border-radius: 16px;
   background: var(--card-bg, #fff);
   color: var(--text, #222);
   text-align: center;
@@ -1127,11 +1129,90 @@ button:disabled {
 
 .career-event-image {
   width: 100%;
-  border-radius: 8px;
+  max-height: 55vh;
+  border-radius: 12px;
+  object-fit: contain;
 }
 
 .career-event-text {
   margin: 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.career-event-gained {
+  width: 100%;
   font-size: 1.1rem;
+}
+
+.career-event-gained p {
+  margin: 0 0 0.25rem;
   font-weight: 600;
+}
+
+.career-event-gained ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.career-event-card button {
+  min-width: 12rem;
+  padding: 0.75rem 2rem;
+  font-size: 1.1rem;
+}
+
+.career-objective-line {
+  display: block;
+}
+
+.career-history ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.career-round-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  align-items: start;
+  gap: 1.5rem;
+}
+
+.career-round-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.career-round-controls {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.career-round-controls .actions button {
+  flex: 1;
+}
+
+.career-round-answer {
+  flex: 0 0 9rem;
+  font-size: 0.8rem;
+  text-align: right;
+}
+
+.career-round-answer .result h2 {
+  font-size: 1rem;
+}
+
+.career-round-answer .result-cover {
+  max-width: 5rem;
+  margin: 0.5rem 0 0.5rem auto;
+}
+
+@media (max-width: 900px) {
+  .career-round-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

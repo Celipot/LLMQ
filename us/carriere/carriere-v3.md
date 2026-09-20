@@ -96,11 +96,14 @@ Chaque événement a un id technique (1, 2, 3…) et un texte bref provisoire. L
 | 3 | Plage tours 21-30 | Carnet −2 titres | « Carnet −2 » |
 | 4 | Plage tours 31-40 | Une stat au hasard −400 pendant 5 tours (plancher effectif −100) | « <Stat> −400 pendant 5 tours » |
 | 5 | Plage tours 45-50 | Carnet −5 titres | « Carnet −5 » |
-| 6 | Oreille au maximum (300) | Culture +100 | « Culture +100 » |
-| 7 | Mémoire au maximum (300) | Oreille +100 | « Oreille +100 » |
-| 8 | Culture au maximum (200) | Mémoire +100 | « Mémoire +100 » |
+| 6 | Oreille au maximum (300) | Culture +50 | « Culture +50 » |
+| 7 | Mémoire au maximum (300) | Oreille +50 | « Oreille +50 » |
+| 8 | Culture au maximum (200) | Mémoire +50 | « Mémoire +50 » |
 | 9 | Fans ≥ 500 | Carnet +3 titres | « Carnet +3 » |
 | 10 | Série de 5 titres trouvés (étude ou single) | Au choix : toutes les stats +15 × efficacité (max 60 chacune) ou énergie +1 × efficacité (max 4) | « Série ! » |
+| 11 | Plage tours 30-50 | Une stat au hasard −400 pendant 5 tours (plancher effectif −100), comme l'événement 4 | « <Stat> −400 pendant 5 tours » |
+| 12, 13, 14 | SIF : une piste tirée entre la 2e et la 25e | Une stat au hasard parmi celles qui ne sont pas déjà négatives −500 pendant 3 titres (plancher −100) ; sans effet s'il n'en reste aucune | « <Stat> −500 pendant 3 titres » |
+| 15 | SIF : une piste tirée entre la 2e et la 25e | +15 s sur chaque essai (tous les paliers) pendant 3 titres | « Intro +15 s à chaque essai pendant 3 titres » |
 
 Les stats forment un cycle : oreille → culture → mémoire → oreille (+100, soit un palier de bonus). Les plages des événements de tour sont tirées à la création de la carrière ; plusieurs événements peuvent tomber le même tour (par exemple les tours 45-50 avec un autre), ils s'affichent alors l'un après l'autre. Aucun événement de tour entre les tours 41 et 44 pour l'instant.
 
@@ -129,8 +132,8 @@ Le SIF pèse beaucoup dans le total ; les poids sont à ajuster après un premie
 ## Objectifs (hub)
 Trois objectifs affichés l'un après l'autre, avec leur échéance en tours (v2) :
 1. Album B+ (tour 10) ;
-2. 300 FSI (tour 20) ;
-3. Phase 3 : compteurs « concerts x/2 (B+ y/2) » et « albums x/3 (B+ y/2) » (tour 50).
+2. 750 FSI (tour 20) ;
+3. Phase 3 : « Concert B+ x / 2 » puis, à la ligne, « Album B+ y / 2 » (tour 50).
 
 ## Approche technique
 
@@ -154,3 +157,12 @@ Trois objectifs affichés l'un après l'autre, avec leur échéance en tours (v2
 ## Vérification
 - `pnpm test` vert ; chaque nouveau test vu échouer avant l'implémentation.
 - Carrière complète en jeu : album et concert débloqués au tour 21, un concert coûte 4 énergies, le SIF n'est proposé qu'après le tour 50 avec les conditions remplies, un événement de tour se produit toujours, une série de titres trouvés déclenche un événement positif.
+
+## Ajustements de la v3 (après un premier essai)
+
+- **Fans du premier concert** : 750 FSI au tour 20 (un album parfait en donne 300, il faut environ une douzaine de singles trouvés au premier essai, 40 chacun, avant et après l'album).
+- **Événements de stat** : +50 au lieu de +100 (6 : culture, 7 : oreille, 8 : mémoire). Un deuxième malus de −400 sur 5 tours (événement 11) tombe entre les tours 30 et 50.
+- **Événements du SIF** : les événements 12 à 15 se déclenchent avant une piste tirée au hasard entre la 2e et la 25e, et durent 3 titres (la piste de départ comprise). Le tirage est fait au démarrage du SIF ; la stat d'un malus est tirée parmi celles dont la valeur effective n'est pas déjà négative. Ils sont annoncés comme les autres événements.
+- **Fenêtre d'événement** : elle liste aussi les titres gagnés par un gain de carnet (`career.newEvents[].gained`) et est plus grande.
+- **Historique des sorties** : la colonne de gauche liste chaque album, concert et le SIF avec le tour où il a été joué (les sorties imposées des phases 1 et 2 sont datées 10 et 20).
+- **Écran de devinage** : le carnet est affiché à gauche ; « Continuer » / « Titre suivant » passe sous « Valider » et la réponse s'affiche en plus petit, à droite.

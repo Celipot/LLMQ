@@ -23,6 +23,34 @@ describe('CareerEvent', () => {
     expect(onContinue).toHaveBeenCalledOnce();
   });
 
+  test('a notebook gain tells which titles were won', () => {
+    render(
+      <CareerEvent
+        event={{
+          id: 9,
+          text: 'Carnet +2',
+          gained: [
+            { id: 1, title: 'Dream with You', coverUrl: '/covers/d.png' },
+            { id: 2, title: 'Kaika Sengen', coverUrl: '/covers/k.png' },
+          ],
+        }}
+        choice={null}
+        onContinue={vi.fn()}
+        onChoose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Titres ajoutés au carnet')).toBeInTheDocument();
+    expect(screen.getByText('Dream with You')).toBeInTheDocument();
+    expect(screen.getByText('Kaika Sengen')).toBeInTheDocument();
+  });
+
+  test('an event that won no title lists none', () => {
+    render(<CareerEvent event={{ id: 1, text: 'Énergie +2' }} choice={null} onContinue={vi.fn()} onChoose={vi.fn()} />);
+
+    expect(screen.queryByText('Titres ajoutés au carnet')).not.toBeInTheDocument();
+  });
+
   test('a pending choice offers the two rewards instead of Continuer', async () => {
     const onChoose = vi.fn();
     render(<CareerEvent event={null} choice={choice} onContinue={vi.fn()} onChoose={onChoose} />);

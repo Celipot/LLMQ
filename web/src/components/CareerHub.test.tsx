@@ -46,6 +46,7 @@ const albumResult: CareerResult = {
   score: 420,
   maxScore: 600,
   grade: 'A',
+  turn: 10,
   tracks: [
     { song: { id: 1, title: 'Dream with You', coverUrl: '/covers/d.png' }, rank: 'S', points: 100 },
     { song: { id: 2, title: 'Kaika Sengen', coverUrl: '/covers/k.png' }, rank: 'FAIL', points: 0 },
@@ -56,6 +57,7 @@ const concertResult: CareerResult = {
   score: 1350,
   maxScore: 1500,
   grade: 'S',
+  turn: 20,
   tracks: [{ song: { id: 3, title: 'Yume no Tobira', coverUrl: '/covers/y.png' }, rank: 'S', points: 100 }],
 };
 
@@ -297,7 +299,8 @@ describe('CareerHub', () => {
     test('once the concert is over the goals of the finale are shown', () => {
       renderHub({ turn: 21, release: albumResult, phase3: true, concertResult });
 
-      expect(objective()).toHaveTextContent('Préparer le SIF : concerts 0 / 2 (B+ 0 / 2), albums 0 / 3 (B+ 0 / 2)');
+      expect(within(objective()).getByText('Concert B+ 0 / 2')).toBeInTheDocument();
+      expect(within(objective()).getByText((text) => text.startsWith('Album B+ 0 / 2'))).toBeInTheDocument();
       expect(objective()).toHaveTextContent('(dans 30 tours)');
     });
 
@@ -500,6 +503,22 @@ describe('CareerHub third phase', () => {
 
     expect(screen.getByRole('button', { name: 'Nouvelle carrière' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Sortir un album/ })).not.toBeInTheDocument();
+  });
+
+  test('the left column dates every release with the turn it was played on', () => {
+    renderHub({
+      ...phase3,
+      sorties: [
+        { kind: 'album', ...albumResult, turn: 24 },
+        { kind: 'concert', ...concertResult, turn: 27 },
+      ],
+      finaleResult: { ...concertResult, turn: 50 },
+    });
+
+    const left = screen.getByRole('complementary', { name: 'Statistiques' });
+    expect(within(left).getAllByRole('listitem').map((item) => item.textContent)).toEqual(
+      expect.arrayContaining(['Album : tour 10', 'Concert : tour 20', 'Album : tour 24', 'Concert : tour 27', 'SIF : tour 50']),
+    );
   });
 
   test('shows the event to acknowledge, one at a time', async () => {
