@@ -1,6 +1,9 @@
 import type { CareerChanges } from '../careerChanges';
 import { CAREER_STATS } from '../careerStats';
-import type { Career, CareerEvent as CareerEventData, CareerStat, Difficulty, RewardOption } from '../types';
+import { useState } from 'react';
+import { illustrationFor } from '../careerIllustrations';
+import { CAREER_UNITS } from '../careerUnits';
+import type { Career, CareerEvent as CareerEventData, CareerStat, Difficulty, RewardOption, Unit } from '../types';
 import ActionButton from './ActionButton';
 import CareerEvent from './CareerEvent';
 import CareerNotebook from './CareerNotebook';
@@ -13,7 +16,7 @@ import StatBars from './StatBars';
 interface CareerHubProps {
   career: Career | null;
   error: string | null;
-  onBegin: (difficulty: Difficulty) => void;
+  onBegin: (choice: { unit: Unit; difficulty: Difficulty }) => void;
   // Back to the choice of the difficulty, once the career is over.
   onRestart: () => void;
   onRest: () => void;
@@ -67,13 +70,29 @@ export default function CareerHub({
   onChooseReward,
   changes,
 }: CareerHubProps) {
+  const [unit, setUnit] = useState<Unit>(CAREER_UNITS[0].unit);
+
   if (!career) {
+    const { label: unitLabel } = CAREER_UNITS.find((choice) => choice.unit === unit) ?? CAREER_UNITS[0];
     return (
       <section className="career-hub">
-        <p className="subtitle">Suivre la carrière d'A・ZU・NA</p>
+        <div className="actions" role="group" aria-label="Unité">
+          {CAREER_UNITS.map((choice) => (
+            <button
+              key={choice.unit}
+              type="button"
+              className={choice.unit === unit ? undefined : 'secondary'}
+              aria-pressed={choice.unit === unit}
+              onClick={() => setUnit(choice.unit)}
+            >
+              {choice.label}
+            </button>
+          ))}
+        </div>
+        <p className="subtitle">{`Suivre la carrière de ${unitLabel}`}</p>
         <div className="actions">
           {DIFFICULTY_CHOICES.map(({ difficulty, label, tooltip }) => (
-            <ActionButton key={difficulty} tooltip={tooltip} onClick={() => onBegin(difficulty)}>
+            <ActionButton key={difficulty} tooltip={tooltip} onClick={() => onBegin({ unit, difficulty })}>
               {label}
             </ActionButton>
           ))}
@@ -111,6 +130,7 @@ export default function CareerHub({
       <aside className="career-column" aria-label="Statistiques">
         <div className="career-status">
           <span>{`Tour ${turn}`}</span>
+          <span>{CAREER_UNITS.find((choice) => choice.unit === career.unit)?.label}</span>
           <span>{DIFFICULTY_LABELS[career.difficulty]}</span>
           <span className="career-status-item">
             {`Énergie ${career.energy} / ${career.maxEnergy}`}
@@ -147,7 +167,7 @@ export default function CareerHub({
 
       <div className="career-column">
         <CareerObjective career={career} />
-        <img className="career-illustration" src="/career-illustration.png" alt="Illustration de la carrière" />
+        <img className="career-illustration" {...illustrationFor(career.unit, 'career')} />
 
         <div className="career-column" role="group" aria-label="Actions">
           {over ? (

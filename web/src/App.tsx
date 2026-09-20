@@ -23,19 +23,11 @@ import { useSongHistory } from './hooks/useSongHistory';
 import { useProfile } from './hooks/useProfile';
 import { useToast } from './hooks/useToast';
 import { audioTrackUrl, careerAudioTrackUrl } from './api';
+import { illustrationFor } from './careerIllustrations';
 import { useAudioPlayer } from './hooks/useAudioPlayer';
 import './App.css';
 
 const CAREER_ROUND_TITLES = { study: 'Étude', single: 'Se faire connaître', release: 'Album', concert: 'Concert', finale: 'SIF' };
-
-const CAREER_ILLUSTRATION = { src: '/career-illustration.png', alt: 'Illustration de la carrière' };
-// Each kind of round has its own image, except the study, which uses the career one.
-const CAREER_ROUND_ILLUSTRATIONS: Partial<Record<keyof typeof CAREER_ROUND_TITLES, { src: string; alt: string }>> = {
-  single: { src: '/single-illustration.png', alt: 'Illustration de Se faire connaître' },
-  release: { src: '/album-cover.png', alt: "Cover de l'album" },
-  concert: { src: '/concert-illustration.png', alt: 'Illustration du concert' },
-  finale: { src: '/sif-illustration.png', alt: 'Illustration du SIF' },
-};
 
 type Screen = 'home' | 'profile' | 'random-setup' | 'random' | 'career' | 'list' | 'join' | 'lobby';
 
@@ -325,7 +317,7 @@ export default function App() {
         <CareerHub
           career={careerState.career}
           error={careerState.error}
-          onBegin={(difficulty) => startCareerRound(() => careerState.begin(difficulty))}
+          onBegin={(choice) => startCareerRound(() => careerState.begin(choice))}
           onRestart={careerState.abandon}
           onRest={careerState.rest}
           onStudy={(stat) => startCareerRound(() => careerState.study(stat))}
@@ -340,10 +332,12 @@ export default function App() {
         />
       )}
 
-      {careerRound && (
+      {careerRound && career && (
         <div className="career-round-layout">
           <aside className="career-column" aria-label="Carnet">
-            <CareerNotebook notebook={career?.notebook ?? []} songInNotebook={careerRound.inNotebook}
+            <CareerNotebook
+              notebook={career.notebook}
+              songInNotebook={careerRound.inNotebook}
               hint={careerRound.hint}
             />
           </aside>
@@ -352,10 +346,7 @@ export default function App() {
             <h2 className="career-round-title">{CAREER_ROUND_TITLES[careerRound.kind]}</h2>
             {roundSubtitle && <p className="subtitle">{roundSubtitle}</p>}
 
-            <img
-              className="career-illustration"
-              {...(CAREER_ROUND_ILLUSTRATIONS[careerRound.kind] ?? CAREER_ILLUSTRATION)}
-            />
+            <img className="career-illustration" {...illustrationFor(career.unit, careerRound.kind)} />
 
             <Player
               audioRef={audioRef}

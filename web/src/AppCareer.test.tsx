@@ -48,6 +48,7 @@ const career: Career = {
   maxEnergy: 4,
   stats: { oreille: 0, memoire: 0, culture: 0 },
   suggestionCount: 1,
+  unit: 'azuna',
   difficulty: 'hard',
   baseTiers: [1, 2, 3],
   baseSuggestions: 1,
@@ -101,7 +102,7 @@ describe('App — Mode Carrière', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Chanter' }));
 
     expect(await screen.findByRole('button', { name: 'Valider' })).toBeInTheDocument();
-    expect(api.startCareer).toHaveBeenCalledWith('normal');
+    expect(api.startCareer).toHaveBeenCalledWith({ unit: 'azuna', difficulty: 'normal' });
     expect(api.studyCareer).toHaveBeenCalledWith('oreille');
     expect(screen.queryByText(/deviner le titre/i)).not.toBeInTheDocument();
     expect(screen.queryByText('Tour 1')).not.toBeInTheDocument();
@@ -151,7 +152,7 @@ describe('App — Mode Carrière', () => {
     await userEvent.click(screen.getByText('Mode Carrière'));
 
     const image = await screen.findByRole('img', { name: 'Illustration de la carrière' });
-    expect(image).toHaveAttribute('src', '/career-illustration.png');
+    expect(image).toHaveAttribute('src', '/units/azuna/career.png');
   });
 
   test('an album round shows the album cover instead of the career illustration', async () => {
@@ -163,7 +164,7 @@ describe('App — Mode Carrière', () => {
     await userEvent.click(screen.getByText('Mode Carrière'));
 
     const image = await screen.findByRole('img', { name: "Cover de l'album" });
-    expect(image).toHaveAttribute('src', '/album-cover.png');
+    expect(image).toHaveAttribute('src', '/units/azuna/album.png');
     expect(screen.queryByRole('img', { name: 'Illustration de la carrière' })).not.toBeInTheDocument();
   });
 
@@ -176,7 +177,7 @@ describe('App — Mode Carrière', () => {
     await userEvent.click(screen.getByText('Mode Carrière'));
 
     const image = await screen.findByRole('img', { name: 'Illustration du concert' });
-    expect(image).toHaveAttribute('src', '/concert-illustration.png');
+    expect(image).toHaveAttribute('src', '/units/azuna/concert.png');
     expect(screen.queryByRole('img', { name: 'Illustration de la carrière' })).not.toBeInTheDocument();
   });
 
@@ -189,7 +190,7 @@ describe('App — Mode Carrière', () => {
     await userEvent.click(screen.getByText('Mode Carrière'));
 
     const image = await screen.findByRole('img', { name: 'Illustration de Se faire connaître' });
-    expect(image).toHaveAttribute('src', '/single-illustration.png');
+    expect(image).toHaveAttribute('src', '/units/azuna/single.png');
     expect(screen.queryByRole('img', { name: 'Illustration de la carrière' })).not.toBeInTheDocument();
   });
 
@@ -223,6 +224,30 @@ describe('App — Mode Carrière', () => {
 
     const notebookColumn = await screen.findByRole('complementary', { name: 'Carnet' });
     expect(notebookColumn).toHaveTextContent('Solo : Ayumu Uehara');
+  });
+
+  test('a unit without its own images shows the placeholder on its rounds', async () => {
+    vi.mocked(api.fetchCareer).mockResolvedValue({
+      career: { ...career, unit: 'qu4rtz' },
+      round: { kind: 'concert', stat: null, inNotebook: false, state: roundState },
+    });
+    render(<App />);
+    await userEvent.click(screen.getByText('Mode Carrière'));
+
+    const concert = await screen.findByRole('img', { name: 'Illustration du concert' });
+    expect(concert).toHaveAttribute('src', '/unit-placeholder.svg');
+  });
+
+  test('the finale image is the shared one for any unit', async () => {
+    vi.mocked(api.fetchCareer).mockResolvedValue({
+      career: { ...career, unit: 'r3birth' },
+      round: { kind: 'finale', stat: null, inNotebook: false, state: roundState },
+    });
+    render(<App />);
+    await userEvent.click(screen.getByText('Mode Carrière'));
+
+    const image = await screen.findByRole('img', { name: 'Illustration du SIF' });
+    expect(image).toHaveAttribute('src', '/sif-illustration.png');
   });
 
   test('the notebook stays on the left of the guessing screen', async () => {

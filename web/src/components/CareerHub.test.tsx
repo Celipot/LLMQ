@@ -29,6 +29,7 @@ const career: Career = {
   maxEnergy: 4,
   stats: { oreille: 80, memoire: 0, culture: 130 },
   suggestionCount: 1,
+  unit: 'azuna',
   difficulty: 'hard',
   baseTiers: [1, 2, 3],
   baseSuggestions: 1,
@@ -92,14 +93,50 @@ function renderHub(overrides: Partial<Career> | null = {}, props: Partial<Parame
 }
 
 describe('CareerHub', () => {
-  test('without a career, offers to start a normal or a hard one', async () => {
+  test('without a career, offers to start a normal or a hard one, on A・ZU・NA by default', async () => {
     const { onBegin } = renderHub(null);
 
     await userEvent.click(screen.getByRole('button', { name: 'Normal' }));
     await userEvent.click(screen.getByRole('button', { name: 'Difficile' }));
 
-    expect(onBegin).toHaveBeenNthCalledWith(1, 'normal');
-    expect(onBegin).toHaveBeenNthCalledWith(2, 'hard');
+    expect(onBegin).toHaveBeenNthCalledWith(1, { unit: 'azuna', difficulty: 'normal' });
+    expect(onBegin).toHaveBeenNthCalledWith(2, { unit: 'azuna', difficulty: 'hard' });
+  });
+
+  test('the four units can be chosen, A・ZU・NA being selected first', () => {
+    renderHub(null);
+
+    expect(screen.getByRole('button', { name: 'A・ZU・NA' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'DiverDiva' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'QU4RTZ' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'R3BIRTH' })).toBeInTheDocument();
+  });
+
+  test('the chosen unit is the one the career starts on, and the intro follows it', async () => {
+    const { onBegin } = renderHub(null);
+
+    await userEvent.click(screen.getByRole('button', { name: 'QU4RTZ' }));
+    expect(screen.getByText('Suivre la carrière de QU4RTZ')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'QU4RTZ' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'A・ZU・NA' })).toHaveAttribute('aria-pressed', 'false');
+    await userEvent.click(screen.getByRole('button', { name: 'Difficile' }));
+
+    expect(onBegin).toHaveBeenCalledWith({ unit: 'qu4rtz', difficulty: 'hard' });
+  });
+
+  test('the unit of the career in progress is shown at the hub', () => {
+    renderHub({ unit: 'r3birth' });
+
+    expect(screen.getByText('R3BIRTH')).toBeInTheDocument();
+  });
+
+  test('a unit without images gets the neutral placeholder at the hub', () => {
+    renderHub({ unit: 'diverdiva' });
+
+    expect(screen.getByRole('img', { name: 'Illustration de la carrière' })).toHaveAttribute(
+      'src',
+      '/unit-placeholder.svg',
+    );
   });
 
   test('the choice of difficulty explains each mode on hover', async () => {
@@ -128,7 +165,7 @@ describe('CareerHub', () => {
   test('without a career, presents the career of A・ZU・NA', () => {
     renderHub(null);
 
-    expect(screen.getByText("Suivre la carrière d'A・ZU・NA")).toBeInTheDocument();
+    expect(screen.getByText('Suivre la carrière de A・ZU・NA')).toBeInTheDocument();
   });
 
   test('shows only the current turn, without the total', () => {
@@ -419,7 +456,7 @@ describe('CareerHub', () => {
     const objective = screen.getByRole('region', { name: 'Objectif en cours' });
     const image = screen.getByRole('img', { name: 'Illustration de la carrière' });
     const actions = screen.getByRole('group', { name: 'Actions' });
-    expect(image).toHaveAttribute('src', '/career-illustration.png');
+    expect(image).toHaveAttribute('src', '/units/azuna/career.png');
     expect(objective.compareDocumentPosition(image) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(image.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });

@@ -49,6 +49,7 @@ const career: Career = {
   maxEnergy: 4,
   stats: { oreille: 0, memoire: 0, culture: 0 },
   suggestionCount: 1,
+  unit: 'azuna',
   difficulty: 'hard',
   baseTiers: [1, 2, 3],
   baseSuggestions: 1,
@@ -105,10 +106,10 @@ describe('useCareer', () => {
     const { result } = renderHook(() => useCareer());
 
     await act(async () => {
-      await result.current.begin('normal');
+      await result.current.begin({ unit: 'diverdiva', difficulty: 'normal' });
     });
 
-    expect(api.startCareer).toHaveBeenCalledWith('normal');
+    expect(api.startCareer).toHaveBeenCalledWith({ unit: 'diverdiva', difficulty: 'normal' });
     expect(result.current.career).toEqual(career);
     expect(result.current.round).toBeNull();
   });

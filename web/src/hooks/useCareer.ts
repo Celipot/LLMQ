@@ -24,6 +24,7 @@ import type {
   Difficulty,
   GameState,
   RewardOption,
+  Unit,
 } from '../types';
 
 const CHANGES_HIGHLIGHT_MS = 5000;
@@ -83,7 +84,10 @@ export function useCareer() {
     }
   }, [apply]);
 
-  const begin = useCallback((difficulty: Difficulty) => run(() => startCareer(difficulty)), [run]);
+  const begin = useCallback(
+    (choice: { unit: Unit; difficulty: Difficulty }) => run(() => startCareer(choice)),
+    [run],
+  );
 
   const abandon = useCallback(async () => {
     try {

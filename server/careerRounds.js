@@ -8,7 +8,14 @@ const songs = require('./songs');
 const career = require('./career');
 const careerEvents = require('./careerEvents');
 
-const discography = career.discographyIds(songs.getPlayableTitles());
+const discographies = Object.fromEntries(
+  Object.keys(career.UNITS).map((unit) => [unit, career.discographyIds(songs.getPlayableTitles(), unit)]),
+);
+
+// The titles a career draws from: those of the unit it follows.
+function poolOf(state) {
+  return discographies[state.unit];
+}
 
 function songSummary(id) {
   const { title, coverUrl } = songs.getSongById(id);
@@ -21,8 +28,8 @@ function roundKey(session, songId) {
   return `${session.id}:career:${songId}`;
 }
 
-function createCareer(session, difficulty) {
-  session.career = career.createCareer(difficulty);
+function createCareer(session, difficulty, unit) {
+  session.career = career.createCareer(difficulty, unit);
   careerEvents.scheduleEvents(session.career);
   session.careerRound = null;
   session.careerNewEvents = [];
@@ -69,6 +76,7 @@ function publicCareer(session) {
   const settings = career.settingsOf(state);
   return {
     difficulty: state.difficulty,
+    unit: state.unit,
     baseTiers: settings.baseTiers,
     baseSuggestions: settings.baseSuggestions,
     turn: state.turn,
@@ -144,7 +152,7 @@ function startRound(session, kind, stat, songId) {
 
 // Events are applied once an action is over and returned with its response.
 function applyEvents(session) {
-  const fired = careerEvents.applyDueEvents(session.career, { pool: discography, random: Math.random });
+  const fired = careerEvents.applyDueEvents(session.career, { pool: poolOf(session.career), random: Math.random });
   session.careerNewEvents.push(...fired);
 }
 
@@ -157,7 +165,7 @@ function rest(session) {
 function startStudy(session, stat) {
   career.assertCanStudy(session.career, stat);
   session.careerNewEvents = [];
-  startRound(session, 'study', stat, career.pickSongId(discography, session.career.notebook));
+  startRound(session, 'study', stat, career.pickSongId(poolOf(session.career), session.career.notebook));
 }
 
 // A single trains harder than a study, on a random stat, and its title is not
@@ -166,7 +174,7 @@ function startSingle(session) {
   const stat = career.pickStat();
   career.assertCanSingle(session.career, stat);
   session.careerNewEvents = [];
-  startRound(session, 'single', stat, career.pickSongId(discography, session.career.notebook));
+  startRound(session, 'single', stat, career.pickSongId(poolOf(session.career), session.career.notebook));
 }
 
 function trackSongIds(tracks) {
@@ -187,7 +195,7 @@ function startLive(session, kind, roundKind) {
   career.startLive(session.career, kind);
   session.careerNewEvents = [];
   if (kind === 'finale') startFinaleTrack(session);
-  const songId = career.pickPreparedSongId(discography, notebook, career.liveSongIds(session.career), career.LIVES[kind].size);
+  const songId = career.pickPreparedSongId(poolOf(session.career), notebook, career.liveSongIds(session.career), career.LIVES[kind].size);
   startRound(session, roundKind, null, songId);
 }
 
@@ -197,7 +205,7 @@ function startRelease(session) {
   const { notebook, album } = session.career;
   career.assertCanRelease(session.career);
   session.careerNewEvents = [];
-  const songId = career.pickPreparedSongId(discography, notebook, trackSongIds(album), career.ALBUM_SIZE);
+  const songId = career.pickPreparedSongId(poolOf(session.career), notebook, trackSongIds(album), career.ALBUM_SIZE);
   return startRound(session, 'release', null, songId);
 }
 
@@ -207,7 +215,7 @@ function startConcert(session) {
   const { notebook, concertTracks } = session.career;
   career.assertCanConcert(session.career);
   session.careerNewEvents = [];
-  const songId = career.pickPreparedSongId(discography, notebook, trackSongIds(concertTracks), career.CONCERT_SIZE);
+  const songId = career.pickPreparedSongId(poolOf(session.career), notebook, trackSongIds(concertTracks), career.CONCERT_SIZE);
   return startRound(session, 'concert', null, songId);
 }
 

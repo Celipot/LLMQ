@@ -269,11 +269,14 @@ function careerAction(action) {
 }
 
 app.post('/api/career', requireSession, (req, res) => {
-  const { difficulty } = req.body || {};
+  const { difficulty, unit } = req.body || {};
   if (difficulty !== undefined && !career.isValidDifficulty(difficulty)) {
     return res.status(400).json({ error: 'INVALID_DIFFICULTY' });
   }
-  careerRounds.createCareer(req.solo, difficulty);
+  if (unit !== undefined && !career.isValidUnit(unit)) {
+    return res.status(400).json({ error: 'INVALID_UNIT' });
+  }
+  careerRounds.createCareer(req.solo, difficulty, unit);
   res.json(careerResponse(req.solo));
 });
 

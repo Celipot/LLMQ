@@ -944,7 +944,7 @@ async function withFirstDraw(fn, draw = 0) {
   }
 }
 
-const firstDiscographySong = songs.getSongById(career.discographyIds(songs.getPlayableTitles())[0]);
+const firstDiscographySong = songs.getSongById(career.discographyIds(songs.getPlayableTitles(), 'azuna')[0]);
 
 async function skipRound(player, times = 3) {
   let last;
@@ -1004,6 +1004,41 @@ test('POST /api/career starts a normal career with its easier rules', async () =
   assert.equal(body.career.baseSuggestions, 3);
   assert.equal(body.career.suggestionCount, 3);
   assert.deepEqual(body.career.finaleGoals.concerts, { done: 0, good: 0, required: 2, requiredGood: 1 });
+});
+
+test('POST /api/career follows A・ZU・NA when no unit is given', async () => {
+  const body = await (await newCareerPlayer().post('/api/career')).json();
+  assert.equal(body.career.unit, 'azuna');
+});
+
+for (const unit of Object.keys(career.UNITS)) {
+  test(`a ${unit} career starts on its unit and draws its first study title in its own pool`, async () => {
+    const player = newCareerPlayer();
+    const created = await (await player.post('/api/career', { unit })).json();
+    assert.equal(created.career.unit, unit);
+
+    await withFirstDraw(() => player.post('/api/career/study', { stat: 'oreille' }));
+    const expected = songs.getSongById(career.discographyIds(songs.getPlayableTitles(), unit)[0]);
+    const { correct } = await (await player.post('/api/guess', { title: expected.title })).json();
+
+    assert.equal(correct, true);
+  });
+}
+
+test('POST /api/career refuses an unknown unit and starts nothing', async () => {
+  const player = newCareerPlayer();
+
+  const res = await player.post('/api/career', { unit: 'aqours' });
+
+  assert.equal(res.status, 400);
+  assert.equal((await res.json()).error, 'INVALID_UNIT');
+  assert.equal((await player.get('/api/career')).status, 404);
+});
+
+test('the unit and the difficulty are chosen independently', async () => {
+  const body = await (await newCareerPlayer().post('/api/career', { unit: 'r3birth', difficulty: 'normal' })).json();
+  assert.equal(body.career.unit, 'r3birth');
+  assert.equal(body.career.difficulty, 'normal');
 });
 
 test('POST /api/career refuses an unknown difficulty and starts nothing', async () => {
@@ -1191,7 +1226,7 @@ test('after 10 turns rest and study are refused with RELEASE_DUE', async () => {
   assert.equal((await res.json()).error, 'RELEASE_DUE');
 });
 
-const discographyIds = career.discographyIds(songs.getPlayableTitles());
+const discographyIds = career.discographyIds(songs.getPlayableTitles(), 'azuna');
 const albumSong = (index) => songs.getSongById(discographyIds[index]);
 
 // With Math.random at 0 and nothing studied, the album tracks are the first

@@ -31,7 +31,6 @@ export default function Home({ onSelectRandom, onSelectCareer, onSelectList, onG
         </button>
         <button type="button" className="mode-card" onClick={onSelectCareer}>
           <span className="mode-card-title">Mode Carrière</span>
-          <span className="mode-card-desc">Étudier, se reposer, puis sortir un album</span>
         </button>
         <button type="button" className="mode-card" onClick={handleCreateMultiplayer}>
           <span className="mode-card-title">Créer une partie multijoueur</span>

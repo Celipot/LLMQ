@@ -4,6 +4,7 @@ import type {
   CareerResponse,
   CareerStat,
   Difficulty,
+  Unit,
   RewardOption,
   CreateGameResponse,
   GameState,
@@ -118,13 +119,13 @@ export function selectSong(id: number): Promise<GameState> {
   return soloFetch(`/api/songs/${id}/select`, { method: 'POST' }).then((res) => parseOrThrow<GameState>(res));
 }
 
-export function startCareer(difficulty: Difficulty): Promise<CareerResponse> {
+export function startCareer({ unit, difficulty }: { unit: Unit; difficulty: Difficulty }): Promise<CareerResponse> {
   return soloFetch(
     '/api/career',
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ difficulty }),
+      body: JSON.stringify({ unit, difficulty }),
     },
     'career',
   ).then((res) => parseOrThrow<CareerResponse>(res));

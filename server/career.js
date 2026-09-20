@@ -1,14 +1,37 @@
 // Pure rules of the Mode Carrière (see us/carriere-v1.md and us/carriere-v2.md):
 // stats, energy, turns and ranks. Isolated from Express and from song data, like gameState.js.
 
-const DISCOGRAPHY_ARTISTS = new Set([
-  'Ayumu Uehara (CV: Aguri Onishi)',
-  'Shizuku Osaka (CV: Kaori Maeda)',
-  'Setsuna Yuki (CV: Tomori Kusunoki)',
-  'Setsuna Yuki (CV: Coco Hayashi)',
-  'A・ZU・NA',
-  'Nijigasaki High School Idol Club',
-]);
+// The data lists no members per unit: the pool of a unit is the solos of its members, its
+// own titles and those of the group, all found by the exact artist string of songs.json.
+const GROUP_ARTIST = 'Nijigasaki High School Idol Club';
+const UNITS = {
+  azuna: [
+    'A・ZU・NA',
+    'Ayumu Uehara (CV: Aguri Onishi)',
+    'Shizuku Osaka (CV: Kaori Maeda)',
+    'Setsuna Yuki (CV: Tomori Kusunoki)',
+    'Setsuna Yuki (CV: Coco Hayashi)',
+  ],
+  diverdiva: ['DiverDiva', 'Karin Asaka (CV: Miyu Kubota)', 'Ai Miyashita (CV: Natsumi Murakami)'],
+  qu4rtz: [
+    'QU4RTZ',
+    'Kasumi Nakasu (CV: Mayu Sagara)',
+    'Kanata Konoe (CV: Akari Kito)',
+    'Emma Verde (CV: Maria Sashide)',
+    'Rina Tennoji (CV: Chiemi Tanaka)',
+  ],
+  r3birth: [
+    'R3BIRTH',
+    'Shioriko Mifune (CV: Moeka Koizumi)',
+    'Mia Taylor (CV: Shu Uchida)',
+    'Lanzhu Zhong (CV: Akina Homoto)',
+  ],
+};
+const DEFAULT_UNIT = 'azuna';
+
+function isValidUnit(unit) {
+  return typeof unit === 'string' && Object.hasOwn(UNITS, unit);
+}
 
 const STATS = ['oreille', 'memoire', 'culture'];
 const STAT_STEP = 100;
@@ -109,8 +132,9 @@ const GRADES = [
   ['C', 30],
 ];
 
-function discographyIds(songs) {
-  return songs.filter((song) => DISCOGRAPHY_ARTISTS.has(song.artist)).map((song) => song.id);
+function discographyIds(songs, unit) {
+  const artists = new Set([...UNITS[unit], GROUP_ARTIST]);
+  return songs.filter((song) => artists.has(song.artist)).map((song) => song.id);
 }
 
 function unlockedSteps(value) {
@@ -158,9 +182,10 @@ function albumGoalReached(state, grade) {
   return GRADE_ORDER.indexOf(grade) <= GRADE_ORDER.indexOf(settingsOf(state).albumGoalGrade);
 }
 
-function createCareer(difficulty = DEFAULT_DIFFICULTY) {
+function createCareer(difficulty = DEFAULT_DIFFICULTY, unit = DEFAULT_UNIT) {
   return {
     difficulty,
+    unit,
     turn: 1,
     energy: MAX_ENERGY,
     stats: { oreille: 0, memoire: 0, culture: 0 },
@@ -463,6 +488,8 @@ function pickPreparedSongId(pool, studiedIds, usedIds, total, random = Math.rand
 }
 
 module.exports = {
+  UNITS,
+  isValidUnit,
   DIFFICULTIES,
   isValidDifficulty,
   settingsOf,

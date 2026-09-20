@@ -25,12 +25,69 @@ describe('discographyIds', () => {
       { id: 7, artist: 'Karin Asaka (CV: Miyu Kubota)' },
       { id: 8, artist: 'DiverDiva' },
     ];
-    assert.deepEqual(career.discographyIds(songs), [1, 2, 3, 4, 5, 6]);
+    assert.deepEqual(career.discographyIds(songs, 'azuna'), [1, 2, 3, 4, 5, 6]);
   });
 
   test('matches the 82 titles of the real library', () => {
     const songs = require('../data/songs.json');
-    assert.equal(career.discographyIds(songs).length, 82);
+    assert.equal(career.discographyIds(songs, 'azuna').length, 82);
+  });
+});
+
+describe('the pool of each unit', () => {
+  const KARIN = 'Karin Asaka (CV: Miyu Kubota)';
+  const AI = 'Ai Miyashita (CV: Natsumi Murakami)';
+  const KANATA = 'Kanata Konoe (CV: Akari Kito)';
+  const SHIORIKO = 'Shioriko Mifune (CV: Moeka Koizumi)';
+  const songs = [
+    { id: 1, artist: AYUMU },
+    { id: 2, artist: AZUNA },
+    { id: 3, artist: GROUP },
+    { id: 4, artist: KARIN },
+    { id: 5, artist: AI },
+    { id: 6, artist: 'DiverDiva' },
+    { id: 7, artist: KANATA },
+    { id: 8, artist: 'QU4RTZ' },
+    { id: 9, artist: SHIORIKO },
+    { id: 10, artist: 'R3BIRTH' },
+    { id: 11, artist: 'Mai Azabu (CV: Rina Endo)' },
+    { id: 12, artist: 'Aqours / Nijigasaki High School Idol Club / Liella!' },
+  ];
+
+  test('DiverDiva: the solos of Karin and Ai, the unit and the group', () => {
+    assert.deepEqual(career.discographyIds(songs, 'diverdiva'), [3, 4, 5, 6]);
+  });
+
+  test('QU4RTZ: the solos of its members, the unit and the group', () => {
+    assert.deepEqual(career.discographyIds(songs, 'qu4rtz'), [3, 7, 8]);
+  });
+
+  test('R3BIRTH: the solos of its members, the unit and the group', () => {
+    assert.deepEqual(career.discographyIds(songs, 'r3birth'), [3, 9, 10]);
+  });
+
+  test('A・ZU・NA does not include the solos of the other units', () => {
+    assert.deepEqual(career.discographyIds(songs, 'azuna'), [1, 2, 3]);
+  });
+
+  test('the pools of the real library are 82, 71, 89 and 68 titles, all enough for the finale', () => {
+    const library = require('../data/songs.json');
+    const sizes = Object.fromEntries(Object.keys(career.UNITS).map((unit) => [unit, career.discographyIds(library, unit).length]));
+    assert.deepEqual(sizes, { azuna: 82, diverdiva: 71, qu4rtz: 89, r3birth: 68 });
+    Object.values(sizes).forEach((size) => assert.ok(size >= career.FINALE_SIZE));
+  });
+
+  test('isValidUnit only accepts a known unit', () => {
+    assert.equal(career.isValidUnit('qu4rtz'), true);
+    assert.equal(career.isValidUnit('aqours'), false);
+    assert.equal(career.isValidUnit('toString'), false);
+    assert.equal(career.isValidUnit(undefined), false);
+  });
+
+  test('a career follows A・ZU・NA unless told otherwise', () => {
+    assert.equal(career.createCareer().unit, 'azuna');
+    assert.equal(career.createCareer('normal', 'r3birth').unit, 'r3birth');
+    assert.equal(career.createCareer('normal', 'r3birth').difficulty, 'normal');
   });
 });
 

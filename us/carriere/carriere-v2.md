@@ -45,7 +45,7 @@ Les fans ne se gagnent qu'en sortant de la musique :
 
 Un album parfait ne suffit pas (300 fans) : le seuil de 350 fans oblige à sortir au moins deux singles trouvés au premier essai (40 fans chacun) avant et après l'album.
 
-Le hub affiche l'objectif en cours en grand, au milieu, avec l'illustration de la carrière (`web/public/career-illustration.png`) entre l'objectif et les commandes. L'objectif indique entre parenthèses, en plus petit, dans combien de tours il doit être accompli (le tour en cours compte : « dans 10 tours » au tour 1) ; rien n'est affiché quand l'album ou le concert est à jouer.
+Le hub affiche l'objectif en cours en grand, au milieu, avec l'illustration de la carrière (`web/public/units/azuna/career.png`) entre l'objectif et les commandes. L'objectif indique entre parenthèses, en plus petit, dans combien de tours il doit être accompli (le tour en cours compte : « dans 10 tours » au tour 1) ; rien n'est affiché quand l'album ou le concert est à jouer.
 
 ## Score de carrière
 

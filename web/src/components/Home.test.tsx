@@ -77,4 +77,14 @@ describe('Home', () => {
 
     expect(titles).toEqual(['Mode Solo', 'Mode Carrière', 'Créer une partie multijoueur', 'Bibliothèque']);
   });
+
+  test('the Mode Carrière card has no description, unlike the other modes', () => {
+    render(<Home onSelectRandom={vi.fn()} onSelectCareer={vi.fn()} onSelectList={vi.fn()} onGameCreated={vi.fn()} />);
+
+    const card = (title: string) => screen.getByText(title).closest('button') as HTMLElement;
+
+    expect(card('Mode Carrière').querySelector('.mode-card-desc')).toBeNull();
+    expect(card('Mode Solo').querySelector('.mode-card-desc')).not.toBeNull();
+    expect(card('Bibliothèque').querySelector('.mode-card-desc')).not.toBeNull();
+  });
 });

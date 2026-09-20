@@ -105,13 +105,13 @@ describe('career session id', () => {
     expect(sessionStorage.getItem('careerSessionId')).toBeNull();
   });
 
-  it('starting a career sends the chosen difficulty', async () => {
-    await startCareer('normal');
+  it('starting a career sends the chosen unit and difficulty', async () => {
+    await startCareer({ unit: 'qu4rtz', difficulty: 'normal' });
 
     const init = fetchMock.mock.calls[0][1] as RequestInit;
     expect(fetchMock.mock.calls[0][0]).toBe('/api/career');
     expect(init.method).toBe('POST');
-    expect(JSON.parse(init.body as string)).toEqual({ difficulty: 'normal' });
+    expect(JSON.parse(init.body as string)).toEqual({ unit: 'qu4rtz', difficulty: 'normal' });
   });
 
   it('reuses the id already stored by a previous visit', async () => {

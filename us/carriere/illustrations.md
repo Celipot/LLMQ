@@ -1,28 +1,24 @@
 # Illustrations du Mode Carrière
 
-Liste des illustrations nécessaires à ce jour. Les covers de chansons sont complètes (827 titres, 408 covers distinctes, aucun fichier manquant) : seules les deux images provisoires du Mode Carrière restent à produire.
+Les images sont propres à chaque unité, sauf celle du SIF et celle des événements, partagées. Une image absente est remplacée par un placeholder neutre (`web/public/unit-placeholder.svg`) ; la table des images est `web/src/careerIllustrations.ts`. Les covers de chansons sont complètes (827 titres, 408 covers distinctes, aucun fichier manquant).
 
-## 1. Illustration du hub et de l'écran de round
+## Images par unité (`web/public/units/<unité>/`)
 
-- **Fichier actuel** : `web/public/career-illustration.png` (fournie : les trois membres d'A・ZU・NA, 16/9). Elle sert de version minimale ; les variantes ci-dessous restent optionnelles.
-- **Où** : entre l'objectif et les actions dans le hub (`CareerHub.tsx`), et sous le titre du round (`App.tsx`).
-- **Format** : 16/9, largeur maximale 560 px sur l'écran de round (`.career-illustration` dans `App.css`).
-- **Minimum** : 1 image pour tout le Mode Carrière (fait).
-- **Album** : la cover `web/public/album-cover.png` (« AZUNALAND », fournie) remplace l'illustration de la carrière sur l'écran d'un round d'album, phases 1 et 3 comprises.
-- **Concert** : l'illustration `web/public/concert-illustration.png` (fournie) remplace l'illustration de la carrière sur l'écran d'un round de concert, phases 2 et 3 comprises.
-- **Se faire connaître** : l'illustration `web/public/single-illustration.png` (fournie, un carrefour couvert d'affiches AZUNA) remplace l'illustration de la carrière sur l'écran de ce round.
-- **SIF** : l'illustration `web/public/sif-illustration.png` (fournie, un pont et des feux d'artifice autour du logo SIF) remplace l'illustration de la carrière sur l'écran du round de la finale.
-- **Version plus riche** : 1 image par type d'action (5 en tout, dont l'album, le concert, « Se faire connaître » et le SIF, déjà fournis). Reste à produire :
-  - Étude
+Format 16/9, largeur maximale 560 px sur l'écran de round (`.career-illustration` dans `App.css`).
 
-  Le hub pourrait aussi avoir 1 image par phase (3 de plus).
+| Image | Fichier | Où | A・ZU・NA | DiverDiva | QU4RTZ | R3BIRTH |
+|---|---|---|---|---|---|---|
+| Illustration de la carrière | `career.png` | Hub, et rounds d'étude | fournie | à produire | à produire | à produire |
+| Se faire connaître | `single.png` | Écran du round | fournie | à produire | à produire | à produire |
+| Cover d'album (« AZUNALAND » pour A・ZU・NA) | `album.png` | Écran d'un round d'album, phases 1 et 3 | fournie | à produire | à produire | à produire |
+| Concert | `concert.png` | Écran d'un round de concert, phases 2 et 3 | fournie | à produire | à produire | à produire |
 
-## 2. Illustration des événements
+**12 images à produire**, 4 par nouvelle unité. Ajouter une image se fait en déposant le fichier et en l'ajoutant à la table de `careerIllustrations.ts`.
 
-- **Fichier actuel** : `web/public/career-event-placeholder.svg`.
-- **Où** : la fenêtre d'événement (`CareerEvent.tsx`).
-- **Minimum** : 1 image pour tous les événements.
-- **Version riche** : 1 image par événement (15), regroupables en 9 selon le catalogue de `carriere-v3.md` :
+## Images partagées
+
+- **SIF** : `web/public/sif-illustration.png` (fournie, un pont et des feux d'artifice autour du logo SIF), pour toutes les unités.
+- **Événements** : `web/public/career-event-placeholder.svg`, une image unique aujourd'hui. Version plus riche possible : 1 image par événement (15), regroupables en 9 selon le catalogue de `carriere-v3.md`.
 
 | Illustration | Événements |
 |---|---|
@@ -37,9 +33,8 @@ Liste des illustrations nécessaires à ce jour. Les covers de chansons sont com
 
 ## Sans illustration
 
-- **Portrait de la carrière** : `solo.md` prévoit d'utiliser une cover (d'un solo, ou d'A・ZU・NA), pas un dessin. Le choix de cette cover reste une question ouverte.
 - **Avatars des joueurs** : fournis par les joueurs, avec une pastille à initiale par défaut.
-- **Covers** : rien à produire.
+- **Covers de chansons** : rien à produire.
 
 ## Hors périmètre actuel
 
@@ -47,5 +42,5 @@ Il n'existe pas d'écran de fin (réussite ou échec de carrière), ni de page d
 
 ## Total
 
-- **1 image** pour être complet dans l'état actuel : celle des événements (SVG ou PNG), l'illustration du hub et du round étant fournie.
-- **Jusqu'à 10 images de plus** pour un rendu plus riche : 1 pour les rounds (étude), jusqu'à 9 pour les événements.
+- **12 images** pour compléter les trois nouvelles unités (4 chacune).
+- **Jusqu'à 10 images de plus** pour des événements illustrés un par un.

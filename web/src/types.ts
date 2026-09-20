@@ -58,6 +58,7 @@ export interface Career {
   statMax: Record<CareerStat, number>;
   modifiers: CareerModifier[];
   suggestionCount: number;
+  unit: Unit;
   difficulty: Difficulty;
   // The clip length in seconds of each try, and the search suggestions, before any stat bonus.
   baseTiers: number[];
@@ -168,6 +169,8 @@ export interface CareerResult {
 }
 
 export type Difficulty = 'normal' | 'hard';
+
+export type Unit = 'azuna' | 'diverdiva' | 'qu4rtz' | 'r3birth';
 
 // The kind of title to guess; a unit or a group has no singer.
 export interface TitleHint {

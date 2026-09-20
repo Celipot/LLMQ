@@ -4,7 +4,7 @@ const career = require('./career');
 const careerRounds = require('./careerRounds');
 const songs = require('./songs');
 
-const discographyIds = career.discographyIds(songs.getPlayableTitles());
+const discographyIds = career.discographyIds(songs.getPlayableTitles(), 'azuna');
 
 // A career one turn away from its end with every goal of the finale reached, without
 // playing the 36 sorties it takes: only the finale is exercised here.
