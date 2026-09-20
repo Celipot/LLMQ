@@ -9,9 +9,6 @@ import CareerScore from './CareerScore';
 import ChangeBadge from './ChangeBadge';
 import StatBars from './StatBars';
 
-// Only used to disable the button: the server refuses a single without enough energy.
-const SINGLE_COST = 2;
-
 interface CareerHubProps {
   career: Career | null;
   error: string | null;
@@ -100,7 +97,7 @@ export default function CareerHub({
           </span>
         </div>
 
-        <StatBars stats={career.stats} statMax={career.statMax} changes={changes?.stats} />
+        <StatBars stats={career.stats} statMax={career.statMax} statStep={career.statStep} changes={changes?.stats} />
 
         {releases.length > 0 && (
           <div className="career-history">
@@ -163,7 +160,7 @@ export default function CareerHub({
             <>
               <div className="actions">
                 {CAREER_STATS.map(({ stat, label }) => (
-                  <button key={stat} type="button" disabled={career.energy === 0} onClick={() => onStudy(stat)}>
+                  <button key={stat} type="button" disabled={career.energy < career.costs.study} onClick={() => onStudy(stat)}>
                     {`Étudier : ${label}`}
                   </button>
                 ))}
@@ -172,7 +169,7 @@ export default function CareerHub({
                 <button
                   type="button"
                   title="Coûte 2 énergies : plus de stats sur une stat tirée au hasard, mais le titre n'entre pas dans le carnet"
-                  disabled={career.energy < SINGLE_COST}
+                  disabled={career.energy < career.costs.single}
                   onClick={onSingle}
                 >
                   Sortir un single

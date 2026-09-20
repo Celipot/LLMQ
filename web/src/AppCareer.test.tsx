@@ -48,6 +48,8 @@ const career: Career = {
   maxEnergy: 4,
   stats: { oreille: 0, memoire: 0, culture: 0 },
   suggestionCount: 1,
+  costs: { study: 1, single: 2 },
+  statStep: 100,
   notebook: [],
   releaseDue: false,
   album: { done: 0, total: 6 },

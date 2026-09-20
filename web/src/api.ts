@@ -33,34 +33,40 @@ async function parseOrThrow<T>(res: Response): Promise<T> {
   return data as T;
 }
 
-const SOLO_SESSION_KEY = 'soloSessionId';
-let memorySoloSessionId: string | null = null;
+type SessionScope = 'solo' | 'career';
 
-function newSoloSessionId(): string {
+const SESSION_KEYS: Record<SessionScope, string> = { solo: 'soloSessionId', career: 'careerSessionId' };
+const memorySessionIds: Partial<Record<SessionScope, string>> = {};
+
+function newSessionId(): string {
   // getRandomValues works on plain-http pages (LAN dev), randomUUID does not.
   return Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-// The server keeps each player's solo round under this id. It lives in
+// The server keeps each player's rounds under these ids. The solo one lives in
 // sessionStorage, not localStorage: tabs of one browser share localStorage and
-// would then play (and disturb) the same round. Storage can be blocked
-// (private mode): the id then lives for the page's lifetime only.
-function soloSessionId(): string {
+// would then play (and disturb) the same round. The career one lives in
+// localStorage: a career is one long game that must survive closing the tab, and
+// two tabs on it are the same career. Storage can be blocked (private mode): the
+// id then lives for the page's lifetime only.
+function sessionId(scope: SessionScope): string {
+  const key = SESSION_KEYS[scope];
+  const storage = () => (scope === 'career' ? localStorage : sessionStorage);
   try {
-    let id = sessionStorage.getItem(SOLO_SESSION_KEY);
+    let id = storage().getItem(key);
     if (!id) {
-      id = newSoloSessionId();
-      sessionStorage.setItem(SOLO_SESSION_KEY, id);
+      id = newSessionId();
+      storage().setItem(key, id);
     }
     return id;
   } catch {
-    memorySoloSessionId ??= newSoloSessionId();
-    return memorySoloSessionId;
+    memorySessionIds[scope] ??= newSessionId();
+    return memorySessionIds[scope];
   }
 }
 
-function soloFetch(url: string, init: RequestInit = {}): Promise<Response> {
-  return fetch(url, { ...init, headers: { ...init.headers, 'X-Solo-Session': soloSessionId() } });
+function soloFetch(url: string, init: RequestInit = {}, scope: SessionScope = 'solo'): Promise<Response> {
+  return fetch(url, { ...init, headers: { ...init.headers, 'X-Solo-Session': sessionId(scope) } });
 }
 
 export function fetchState(): Promise<GameState> {
@@ -71,16 +77,20 @@ export function fetchTitles(): Promise<PlayableSong[]> {
   return soloFetch('/api/titles').then((res) => parseOrThrow<PlayableSong[]>(res));
 }
 
-export function submitGuess(title: string): Promise<GuessResponse> {
-  return soloFetch('/api/guess', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title }),
-  }).then((res) => parseOrThrow<GuessResponse>(res));
+export function submitGuess(title: string, scope: SessionScope = 'solo'): Promise<GuessResponse> {
+  return soloFetch(
+    '/api/guess',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title }),
+    },
+    scope,
+  ).then((res) => parseOrThrow<GuessResponse>(res));
 }
 
-export function submitSkip(): Promise<SkipResponse> {
-  return soloFetch('/api/skip', { method: 'POST' }).then((res) => parseOrThrow<SkipResponse>(res));
+export function submitSkip(scope: SessionScope = 'solo'): Promise<SkipResponse> {
+  return soloFetch('/api/skip', { method: 'POST' }, scope).then((res) => parseOrThrow<SkipResponse>(res));
 }
 
 export function resetGame(history?: SongHistory): Promise<GameState> {
@@ -108,52 +118,60 @@ export function selectSong(id: number): Promise<GameState> {
 }
 
 export function startCareer(): Promise<CareerResponse> {
-  return soloFetch('/api/career', { method: 'POST' }).then((res) => parseOrThrow<CareerResponse>(res));
+  return soloFetch('/api/career', { method: 'POST' }, 'career').then((res) => parseOrThrow<CareerResponse>(res));
 }
 
 export function fetchCareer(): Promise<CareerResponse> {
-  return soloFetch('/api/career').then((res) => parseOrThrow<CareerResponse>(res));
+  return soloFetch('/api/career', {}, 'career').then((res) => parseOrThrow<CareerResponse>(res));
 }
 
 export async function abandonCareer(): Promise<void> {
-  const res = await soloFetch('/api/career', { method: 'DELETE' });
+  const res = await soloFetch('/api/career', { method: 'DELETE' }, 'career');
   if (!res.ok) throw new ApiError('UNKNOWN_ERROR');
 }
 
 export function restCareer(): Promise<CareerResponse> {
-  return soloFetch('/api/career/rest', { method: 'POST' }).then((res) => parseOrThrow<CareerResponse>(res));
+  return soloFetch('/api/career/rest', { method: 'POST' }, 'career').then((res) => parseOrThrow<CareerResponse>(res));
 }
 
 export function studyCareer(stat: CareerStat): Promise<CareerResponse> {
-  return soloFetch('/api/career/study', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ stat }),
-  }).then((res) => parseOrThrow<CareerResponse>(res));
+  return soloFetch(
+    '/api/career/study',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stat }),
+    },
+    'career',
+  ).then((res) => parseOrThrow<CareerResponse>(res));
 }
 
 export function singleCareer(): Promise<CareerResponse> {
-  return soloFetch('/api/career/single', { method: 'POST' }).then((res) => parseOrThrow<CareerResponse>(res));
+  return soloFetch('/api/career/single', { method: 'POST' }, 'career').then((res) => parseOrThrow<CareerResponse>(res));
 }
 
 export function concertCareer(): Promise<CareerResponse> {
-  return soloFetch('/api/career/concert', { method: 'POST' }).then((res) => parseOrThrow<CareerResponse>(res));
+  return soloFetch('/api/career/concert', { method: 'POST' }, 'career').then((res) => parseOrThrow<CareerResponse>(res));
 }
 
 export function releaseCareer(): Promise<CareerResponse> {
-  return soloFetch('/api/career/release', { method: 'POST' }).then((res) => parseOrThrow<CareerResponse>(res));
+  return soloFetch('/api/career/release', { method: 'POST' }, 'career').then((res) => parseOrThrow<CareerResponse>(res));
 }
 
 export function finaleCareer(): Promise<CareerResponse> {
-  return soloFetch('/api/career/finale', { method: 'POST' }).then((res) => parseOrThrow<CareerResponse>(res));
+  return soloFetch('/api/career/finale', { method: 'POST' }, 'career').then((res) => parseOrThrow<CareerResponse>(res));
 }
 
 export function chooseCareerReward(option: RewardOption): Promise<CareerResponse> {
-  return soloFetch('/api/career/event/choice', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ option }),
-  }).then((res) => parseOrThrow<CareerResponse>(res));
+  return soloFetch(
+    '/api/career/event/choice',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ option }),
+    },
+    'career',
+  ).then((res) => parseOrThrow<CareerResponse>(res));
 }
 
 export function createMultiplayerGame(): Promise<CreateGameResponse> {
@@ -217,10 +235,14 @@ export function startMultiplayerGame(gameId: string, hostToken: string): Promise
   }).then((res) => parseOrThrow<{ status: string }>(res));
 }
 
-export function audioTrackUrl(): string {
+export function audioTrackUrl(scope: SessionScope = 'solo'): string {
   // Cache-busted: the allowed duration may have changed since the last fetch,
   // and the server is the only source of truth for how much audio is served.
-  return `/audio/track?sid=${soloSessionId()}&ts=${Date.now()}`;
+  return `/audio/track?sid=${sessionId(scope)}&ts=${Date.now()}`;
+}
+
+export function careerAudioTrackUrl(): string {
+  return audioTrackUrl('career');
 }
 
 export function multiplayerAudioTrackUrl(gameId: string): string {

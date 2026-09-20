@@ -22,6 +22,7 @@ import { useGenerationOptions } from './hooks/useGenerationOptions';
 import { useSongHistory } from './hooks/useSongHistory';
 import { useProfile } from './hooks/useProfile';
 import { useToast } from './hooks/useToast';
+import { audioTrackUrl, careerAudioTrackUrl } from './api';
 import { useAudioPlayer } from './hooks/useAudioPlayer';
 import './App.css';
 
@@ -124,11 +125,12 @@ export default function App() {
     handleEnded,
     resetProgress,
     setVolume,
-  } = useAudioPlayer(allowedSeconds);
+  } = useAudioPlayer(allowedSeconds, screen === 'career' ? careerAudioTrackUrl : audioTrackUrl);
 
   const showQuiz = screen === 'random' || (screen === 'list' && activeSongId !== null);
   const finished = !!state && state.status !== 'playing';
   const showAnswer = screen === 'random' && finished;
+  const showHomeButton = screen !== 'home' && !showAnswer;
   const isLastAttempt = !!state && !finished && state.attemptsUsed === state.maxAttempts - 1;
 
   // Leaving Mode Solo abandons its round, so an in-progress one needs a confirmation.
@@ -239,14 +241,14 @@ export default function App() {
             Profil
           </button>
         )}
-        {(canRestartCareer || (screen !== 'home' && !showAnswer)) && (
+        {(canRestartCareer || showHomeButton) && (
           <div className="app-header-actions">
             {canRestartCareer && (
               <button type="button" className="secondary" onClick={careerState.abandon}>
                 Recommencer la carrière
               </button>
             )}
-            {screen !== 'home' && !showAnswer && (
+            {showHomeButton && (
               <button type="button" className="secondary" onClick={handleHomeClick}>
                 Accueil
               </button>

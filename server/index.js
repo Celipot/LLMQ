@@ -32,6 +32,8 @@ function keyFor(session, mode, songId) {
   return `${session.id}:${mode}:${songId}`;
 }
 
+const CAREER_TTL_MS = 24 * 60 * 60 * 1000;
+
 const soloStore = soloSessions.createStore({
   createSession: () => ({
     activeSongId: null,
@@ -40,6 +42,7 @@ const soloStore = soloSessions.createStore({
     career: null,
     careerRound: null,
   }),
+  ttlFor: (session) => (session.career ? CAREER_TTL_MS : soloSessions.DEFAULT_TTL_MS),
   onExpire: (id) => gameState.deleteByPrefix(`${id}:`),
 });
 

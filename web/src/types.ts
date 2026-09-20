@@ -58,6 +58,8 @@ export interface Career {
   statMax: Record<CareerStat, number>;
   modifiers: CareerModifier[];
   suggestionCount: number;
+  costs: { study: number; single: number };
+  statStep: number;
   notebook: CareerSong[];
   releaseDue: boolean;
   album: { done: number; total: number };

@@ -123,7 +123,7 @@ export function useCareer() {
         return;
       }
       try {
-        const res = await submitGuess(title);
+        const res = await submitGuess(title, 'career');
         applyRoundResult(res.state, res.career);
       } catch (err) {
         setError(errorText(err));
@@ -134,7 +134,7 @@ export function useCareer() {
 
   const skip = useCallback(async () => {
     try {
-      const res = await submitSkip();
+      const res = await submitSkip('career');
       applyRoundResult(res.state, res.career);
     } catch (err) {
       setError(errorText(err));

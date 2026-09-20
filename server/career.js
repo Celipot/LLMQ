@@ -34,7 +34,7 @@ const SINGLE_GAINS = { byStage: { 1: 90, 2: 65, 3: 50 }, late: 45, failed: 30 };
 
 // Fans are only won by releasing music: singles
 // and the album. A minimum is required to take part in the concert.
-const FANS_REQUIRED = 450;
+const FANS_REQUIRED = 350;
 const SINGLE_FANS = { byStage: { 1: 40, 2: 30, 3: 25 }, late: 20, failed: 10 };
 const ALBUM_FANS_DIVISOR = 2;
 // The album must be graded at least this well, otherwise the career is failed.
@@ -425,6 +425,9 @@ module.exports = {
   FINAL_TURN,
   MAX_ENERGY,
   STAT_MAX,
+  STAT_STEP,
+  STUDY_COST,
+  SINGLE_COST,
   ALBUM_SIZE,
   CONCERT_SIZE,
   FINALE_SIZE,

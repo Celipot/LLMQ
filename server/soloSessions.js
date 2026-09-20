@@ -9,13 +9,13 @@ function isValidSessionId(id) {
   return typeof id === 'string' && SESSION_ID_PATTERN.test(id);
 }
 
-function createStore({ ttlMs = DEFAULT_TTL_MS, now = Date.now, createSession, onExpire = () => {} }) {
+// ttlFor lets a session outlive the default idle time (a career is a long game).
+function createStore({ ttlMs = DEFAULT_TTL_MS, ttlFor = () => ttlMs, now = Date.now, createSession, onExpire = () => {} }) {
   const sessions = new Map();
 
   function purgeExpired() {
-    const cutoff = now() - ttlMs;
     for (const [id, session] of sessions) {
-      if (session.lastSeenAt < cutoff) {
+      if (session.lastSeenAt < now() - ttlFor(session)) {
         sessions.delete(id);
         onExpire(id);
       }
@@ -36,4 +36,4 @@ function createStore({ ttlMs = DEFAULT_TTL_MS, now = Date.now, createSession, on
   return { get };
 }
 
-module.exports = { createStore, isValidSessionId };
+module.exports = { createStore, isValidSessionId, DEFAULT_TTL_MS };

@@ -974,10 +974,12 @@ test('POST /api/career starts a career with full energy, no stats and the base h
   assert.equal(body.career.maxEnergy, 4);
   assert.deepEqual(body.career.stats, { oreille: 0, memoire: 0, culture: 0 });
   assert.equal(body.career.suggestionCount, 1);
+  assert.deepEqual(body.career.costs, { study: 1, single: 2 });
+  assert.equal(body.career.statStep, 100);
   assert.deepEqual(body.career.notebook, []);
   assert.equal(body.career.release, null);
   assert.equal(body.career.concertDue, false);
-  assert.deepEqual(body.career.fans, { current: 0, required: 450 });
+  assert.deepEqual(body.career.fans, { current: 0, required: 350 });
   assert.equal(body.career.failure, null);
   assert.equal(body.career.finalScore, null);
   assert.equal(body.career.albumGoalGrade, 'B');
@@ -1320,7 +1322,7 @@ test('a single is refused while a round is in progress', async () => {
   assert.equal((await res.json()).error, 'ROUND_IN_PROGRESS');
 });
 
-// The concert asks for 450 fans, which only singles and the album win: every turn is
+// The concert asks for 350 fans, which only singles and the album win: every turn is
 // a single found at the first tier while the energy allows it, a rest otherwise.
 // A single draws the first title not found yet, whatever Math.random says.
 async function spendTurnsOnSingles(player, turns) {

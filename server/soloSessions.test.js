@@ -45,3 +45,31 @@ test('isValidSessionId accepts uuid-like ids and rejects anything else', () => {
   assert.equal(isValidSessionId('x'.repeat(65)), false);
   assert.equal(isValidSessionId('bad id with spaces and symbols !!!!!!!!'), false);
 });
+
+test('a session can outlive the default TTL when ttlFor grants it more', () => {
+  let clock = 0;
+  const store = createStore({
+    ttlMs: 1000,
+    ttlFor: (session) => (session.kept ? 5000 : 1000),
+    now: () => clock,
+    createSession: () => ({ kept: false }),
+  });
+  store.get(ID_A).kept = true;
+  store.get(ID_B);
+  clock = 3000;
+  store.get(ID_B);
+  assert.equal(store.get(ID_A).kept, true);
+});
+
+test('a session is still dropped once idle past the TTL ttlFor grants it', () => {
+  let clock = 0;
+  const store = createStore({
+    ttlMs: 1000,
+    ttlFor: () => 5000,
+    now: () => clock,
+    createSession: () => ({ kept: false }),
+  });
+  store.get(ID_A).kept = true;
+  clock = 5001;
+  assert.equal(store.get(ID_A).kept, false);
+});

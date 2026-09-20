@@ -1,18 +1,19 @@
 import { useState } from 'react';
-import { CAREER_STATS, STAT_STEP } from '../careerStats';
+import { CAREER_STATS } from '../careerStats';
 import type { CareerStat } from '../types';
 import ChangeBadge from './ChangeBadge';
 
 interface StatBarsProps {
   stats: Record<CareerStat, number>;
   statMax: Record<CareerStat, number>;
+  statStep: number;
   changes?: Partial<Record<CareerStat, number>>;
 }
 
 // The bar fills toward the next step of 100, where a stat unlocks its bonus.
 // Past its maximum a stat keeps growing but its bar stays full; a negative one is empty.
 // Hovering or focusing a stat lists every step and marks the ones reached.
-export default function StatBars({ stats, statMax, changes = {} }: StatBarsProps) {
+export default function StatBars({ stats, statMax, statStep, changes = {} }: StatBarsProps) {
   const [openStat, setOpenStat] = useState<CareerStat | null>(null);
 
   return (
@@ -39,7 +40,7 @@ export default function StatBars({ stats, statMax, changes = {} }: StatBarsProps
               <div
                 className="stat-bar-fill"
                 style={{
-                  width: `${stats[stat] >= statMax[stat] ? 100 : Math.max(0, (stats[stat] % STAT_STEP) / STAT_STEP) * 100}%`,
+                  width: `${stats[stat] >= statMax[stat] ? 100 : Math.max(0, (stats[stat] % statStep) / statStep) * 100}%`,
                 }}
               />
             </div>
@@ -48,11 +49,14 @@ export default function StatBars({ stats, statMax, changes = {} }: StatBarsProps
             {open && (
               <div id={tooltipId} role="tooltip" className="stat-tooltip">
                 <ul>
-                  {steps.map(({ at, text }) => (
-                    <li key={at} className={stats[stat] >= at ? 'reached' : undefined}>
-                      {`${stats[stat] >= at ? '✓' : '·'} ${at} : ${text}`}
-                    </li>
-                  ))}
+                  {steps.map(({ step, text }) => {
+                    const at = step * statStep;
+                    return (
+                      <li key={step} className={stats[stat] >= at ? 'reached' : undefined}>
+                        {`${stats[stat] >= at ? '✓' : '·'} ${at} : ${text}`}
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             )}

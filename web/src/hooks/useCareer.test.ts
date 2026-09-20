@@ -49,6 +49,8 @@ const career: Career = {
   maxEnergy: 4,
   stats: { oreille: 0, memoire: 0, culture: 0 },
   suggestionCount: 1,
+  costs: { study: 1, single: 2 },
+  statStep: 100,
   notebook: [],
   releaseDue: false,
   album: { done: 0, total: 6 },
@@ -438,5 +440,27 @@ describe('useCareer — changes of the last round', () => {
 
     expect(result.current.changes).toBeNull();
     vi.useRealTimers();
+  });
+});
+
+describe('useCareer — session of the career', () => {
+  test('guesses and skips are sent with the career session, not the tab one', async () => {
+    vi.mocked(api.studyCareer).mockResolvedValue(studyRound);
+    vi.mocked(api.submitGuess).mockResolvedValue({ correct: false, state: playing });
+    vi.mocked(api.submitSkip).mockResolvedValue({ state: playing });
+    const { result } = renderHook(() => useCareer());
+    await act(async () => {
+      await result.current.study('oreille');
+    });
+
+    await act(async () => {
+      await result.current.guess('Wrong');
+    });
+    await act(async () => {
+      await result.current.skip();
+    });
+
+    expect(api.submitGuess).toHaveBeenCalledWith('Wrong', 'career');
+    expect(api.submitSkip).toHaveBeenCalledWith('career');
   });
 });

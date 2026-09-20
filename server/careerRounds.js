@@ -77,6 +77,8 @@ function publicCareer(session) {
     statMax: career.STAT_MAX,
     modifiers: state.modifiers.filter(({ expiresAtTurn }) => state.turn < expiresAtTurn),
     suggestionCount: career.suggestionCount(stats),
+    costs: { study: career.STUDY_COST, single: career.SINGLE_COST },
+    statStep: career.STAT_STEP,
     notebook: state.notebook.map(songSummary),
     releaseDue: career.isReleaseDue(state),
     album: { done: state.album.length, total: career.ALBUM_SIZE },

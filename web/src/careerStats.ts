@@ -1,7 +1,8 @@
 import type { CareerStat } from './types';
 
+// A stat unlocks the step n once it reaches n times the step size sent by the server.
 export interface StatStep {
-  at: number;
+  step: number;
   text: string;
 }
 
@@ -14,9 +15,9 @@ export const CAREER_STATS: { stat: CareerStat; label: string; effect: string; st
     label: 'Oreille',
     effect: 'Allonge les extraits',
     steps: [
-      { at: 100, text: "+0,5 s à l'intro du 1er essai" },
-      { at: 200, text: "+0,5 s à l'intro du 2e essai" },
-      { at: 300, text: "+0,5 s à l'intro du 3e essai" },
+      { step: 1, text: "+0,5 s à l'intro du 1er essai" },
+      { step: 2, text: "+0,5 s à l'intro du 2e essai" },
+      { step: 3, text: "+0,5 s à l'intro du 3e essai" },
     ],
   },
   {
@@ -24,9 +25,9 @@ export const CAREER_STATS: { stat: CareerStat; label: string; effect: string; st
     label: 'Mémoire',
     effect: 'Plus de suggestions',
     steps: [
-      { at: 100, text: '2 suggestions de recherche' },
-      { at: 200, text: '3 suggestions de recherche' },
-      { at: 300, text: '4 suggestions de recherche' },
+      { step: 1, text: '2 suggestions de recherche' },
+      { step: 2, text: '3 suggestions de recherche' },
+      { step: 3, text: '4 suggestions de recherche' },
     ],
   },
   {
@@ -34,10 +35,8 @@ export const CAREER_STATS: { stat: CareerStat; label: string; effect: string; st
     label: 'Culture',
     effect: 'Plus d’essais',
     steps: [
-      { at: 100, text: 'un 4e essai (intro de 4 s)' },
-      { at: 200, text: 'un 5e essai (intro de 5 s)' },
+      { step: 1, text: 'un 4e essai (intro de 4 s)' },
+      { step: 2, text: 'un 5e essai (intro de 5 s)' },
     ],
   },
 ];
-
-export const STAT_STEP = 100;

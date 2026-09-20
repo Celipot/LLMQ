@@ -45,7 +45,7 @@ server/
   index.js             # routes Express, sert public/ en statique
   gameState.js         # état de partie en mémoire (paliers, essais, victoire/défaite)
   songs.js             # chargement/recherche des titres jouables
-  soloSessions.js      # session solo par joueur (en-tête X-Solo-Session, expiration après 2 h)
+  soloSessions.js      # session solo par joueur (en-tête X-Solo-Session, expiration après 2 h, 24 h avec une carrière)
   career.js            # règles pures du Mode Carrière (stats, énergie, tours, single, album de 6 titres, concert de 15, SIF de 50, score)
   careerEvents.js      # événements de carrière (catalogue, seuils, série de réponses)
   careerRounds.js      # lien session ↔ gameState ↔ career (rounds d'étude, de single, d'album, de concert et de SIF, événements)

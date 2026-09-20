@@ -32,7 +32,7 @@ Le Single ne laisse pas le choix de la stat : le serveur en tire une au hasard (
 
 Deux objectifs, affichés l'un après l'autre en haut du hub :
 1. **Sortir l'album avec un grade B ou mieux** (au moins la moitié des points). En dessous, la carrière est **échouée** (`failure: 'ALBUM_GRADE'`) : plus aucune action, seul « Nouvelle carrière » reste.
-2. **Atteindre 450 fans pour participer au concert**. Le compte est fait quand les 20 tours sont écoulés ; s'il manque des fans, la carrière est échouée (`failure: 'FANS'`).
+2. **Atteindre 350 fans pour participer au concert**. Le compte est fait quand les 20 tours sont écoulés ; s'il manque des fans, la carrière est échouée (`failure: 'FANS'`).
 
 Les fans ne se gagnent qu'en sortant de la musique :
 
@@ -43,7 +43,7 @@ Les fans ne se gagnent qu'en sortant de la musique :
 | Album sorti | la moitié du score (jusqu'à 300) |
 | Étude, repos, concert | 0 |
 
-Un album parfait ne suffit pas (300 fans) : le seuil de 450 fans oblige à sortir quelques singles trouvés au premier essai (40 fans chacun) avant et après l'album.
+Un album parfait ne suffit pas (300 fans) : le seuil de 350 fans oblige à sortir au moins deux singles trouvés au premier essai (40 fans chacun) avant et après l'album.
 
 Le hub affiche l'objectif en cours en grand, au milieu, avec une image placeholder (`web/public/career-placeholder.svg`) entre l'objectif et les commandes. L'objectif indique entre parenthèses, en plus petit, dans combien de tours il doit être accompli (le tour en cours compte : « dans 10 tours » au tour 1) ; rien n'est affiché quand l'album ou le concert est à jouer.
 

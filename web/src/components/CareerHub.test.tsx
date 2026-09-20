@@ -29,6 +29,8 @@ const career: Career = {
   maxEnergy: 4,
   stats: { oreille: 80, memoire: 0, culture: 130 },
   suggestionCount: 1,
+  costs: { study: 1, single: 2 },
+  statStep: 100,
   notebook: [],
   releaseDue: false,
   album: { done: 0, total: 6 },
@@ -135,6 +137,13 @@ describe('CareerHub', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Sortir un single' }));
 
     expect(onSingle).toHaveBeenCalledOnce();
+  });
+
+  test('the energy a single or a study needs is the one sent by the server', () => {
+    renderHub({ energy: 2, costs: { study: 3, single: 3 } });
+
+    expect(screen.getByRole('button', { name: 'Sortir un single' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Étudier : Oreille' })).toBeDisabled();
   });
 
   test('with only 1 energy a single is disabled but a study is not', () => {
