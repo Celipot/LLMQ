@@ -252,7 +252,7 @@ describe('the second penalty', () => {
     const [fired] = apply(state, () => 0.999);
     assert.equal(fired.id, 11);
     assert.deepEqual(state.modifiers, [{ stat: 'culture', delta: -400, expiresAtTurn: 49 }]);
-    assert.match(fired.text, /Culture −400 pendant 5 tours/);
+    assert.match(fired.text, /Endurance −400 pendant 5 tours/);
   });
 });
 
@@ -317,7 +317,7 @@ describe('the events of the finale', () => {
     const [fired] = events.applyFinaleEvents(state, { random: () => 0 });
     assert.equal(fired.id, 12);
     assert.deepEqual(state.live.penalties, [{ stat: 'oreille', delta: -500, untilTrack: 4 }]);
-    assert.equal(fired.text, 'Oreille −500 pendant 3 titres');
+    assert.equal(fired.text, 'Chant −500 pendant 3 titres');
     assert.equal(career.effectiveStats(state).oreille, -100);
   });
 

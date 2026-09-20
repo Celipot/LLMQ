@@ -1,6 +1,7 @@
 import type { CareerChanges } from '../careerChanges';
 import { CAREER_STATS } from '../careerStats';
 import type { Career, CareerEvent as CareerEventData, CareerStat, RewardOption } from '../types';
+import ActionButton from './ActionButton';
 import CareerEvent from './CareerEvent';
 import CareerNotebook from './CareerNotebook';
 import CareerObjective from './CareerObjective';
@@ -27,6 +28,8 @@ interface CareerHubProps {
   changes?: CareerChanges | null;
 }
 
+const energies = (amount: number) => `${amount} ${amount > 1 ? 'énergies' : 'énergie'}`;
+
 const LIVE_LABELS = { album: "l'album", concert: 'le concert', finale: 'le SIF' };
 
 export default function CareerHub({
@@ -48,7 +51,7 @@ export default function CareerHub({
     return (
       <section className="career-hub">
         <p className="subtitle">
-          Suivre la carrière d'A・ZU・NA : étudier, sortir des singles, se reposer, sortir un album, puis donner un
+          Suivre la carrière d'A・ZU・NA : étudier, se faire connaître, se reposer, sortir un album, puis donner un
           concert.
         </p>
         <button type="button" onClick={onBegin}>
@@ -116,7 +119,7 @@ export default function CareerHub({
 
       <div className="career-column">
         <CareerObjective career={career} />
-        <img className="career-illustration" src="/career-placeholder.svg" alt="Illustration de la carrière" />
+        <img className="career-illustration" src="/career-illustration.png" alt="Illustration de la carrière" />
 
         <div className="career-column" role="group" aria-label="Actions">
           {over ? (
@@ -130,69 +133,86 @@ export default function CareerHub({
             </>
           ) : live ? (
             <div className="actions">
-              <button type="button" onClick={liveActions[live.kind]}>
+              <ActionButton tooltip="Reprend la sortie là où elle s'est arrêtée." onClick={liveActions[live.kind]}>
                 {`Poursuivre ${LIVE_LABELS[live.kind]} (${live.done} / ${live.total})`}
-              </button>
+              </ActionButton>
             </div>
           ) : career.finaleDue ? (
             <div className="actions">
-              <button type="button" onClick={onFinale}>
+              <ActionButton
+                tooltip="Dernière épreuve de la carrière : une longue suite de titres, sans coût d'énergie."
+                onClick={onFinale}
+              >
                 Lancer le SIF
-              </button>
+              </ActionButton>
             </div>
           ) : career.concertDue ? (
             <div className="actions">
-              <button type="button" onClick={onConcert}>
+              <ActionButton
+                tooltip={`Rendez-vous imposé, sans coût d'énergie : ${career.concert.total} titres, dont une partie tirée du carnet. Ouvre la dernière phase.`}
+                onClick={onConcert}
+              >
                 {career.concert.done > 0
                   ? `Poursuivre le concert (${career.concert.done} / ${career.concert.total})`
                   : 'Lancer le concert'}
-              </button>
+              </ActionButton>
             </div>
           ) : career.releaseDue ? (
             <div className="actions">
-              <button type="button" onClick={onRelease}>
+              <ActionButton
+                tooltip={`Rendez-vous imposé, sans coût d'énergie : ${career.album.total} titres, dont une partie tirée du carnet. Rapporte des fans.`}
+                onClick={onRelease}
+              >
                 {career.album.done > 0
                   ? `Poursuivre l'album (${career.album.done} / ${career.album.total})`
                   : "Lancer la sortie de l'album"}
-              </button>
+              </ActionButton>
             </div>
           ) : (
             <>
               <div className="actions">
-                {CAREER_STATS.map(({ stat, label }) => (
-                  <button key={stat} type="button" disabled={career.energy < career.costs.study} onClick={() => onStudy(stat)}>
-                    {`Étudier : ${label}`}
-                  </button>
+                {CAREER_STATS.map(({ stat, label, studyLabel }) => (
+                  <ActionButton
+                    key={stat}
+                    tooltip={`Coûte ${energies(career.costs.study)}. Fait progresser la stat « ${label} » selon la rapidité à trouver le titre, qui rejoint ensuite le carnet. Consomme un tour.`}
+                    disabled={career.energy < career.costs.study}
+                    onClick={() => onStudy(stat)}
+                  >
+                    {studyLabel}
+                  </ActionButton>
                 ))}
               </div>
               <div className="actions">
-                <button
-                  type="button"
-                  title="Coûte 2 énergies : plus de stats sur une stat tirée au hasard, mais le titre n'entre pas dans le carnet"
+                <ActionButton
+                  tooltip={`Coûte ${energies(career.costs.single)}. Fait progresser une stat tirée au hasard, plus qu'une étude, et gagne des fans. Le titre n'entre pas dans le carnet. Consomme un tour.`}
                   disabled={career.energy < career.costs.single}
                   onClick={onSingle}
                 >
-                  Sortir un single
-                </button>
+                  Se faire connaître
+                </ActionButton>
               </div>
               {career.phase3 && (
                 <div className="actions">
-                  <button
-                    type="button"
+                  <ActionButton
+                    tooltip={`Coûte ${energies(career.liveCosts.album)}. ${career.album.total} titres, dont une partie tirée du carnet. Rapporte des fans. Consomme un tour.`}
                     disabled={career.energy < career.liveCosts.album}
                     onClick={onRelease}
-                  >{`Sortir un album (${career.liveCosts.album} énergies)`}</button>
-                  <button
-                    type="button"
+                  >{`Album (${career.liveCosts.album} énergies)`}</ActionButton>
+                  <ActionButton
+                    tooltip={`Coûte ${energies(career.liveCosts.concert)}. ${career.concert.total} titres, dont une partie tirée du carnet. Consomme un tour.`}
                     disabled={career.energy < career.liveCosts.concert}
                     onClick={onConcert}
-                  >{`Donner un concert (${career.liveCosts.concert} énergies)`}</button>
+                  >{`Concert (${career.liveCosts.concert} énergies)`}</ActionButton>
                 </div>
               )}
               <div className="actions">
-                <button type="button" className="secondary" onClick={onRest}>
-                  Se reposer
-                </button>
+                <ActionButton
+                  className="secondary"
+                  tooltip="Rend toute l'énergie. Consomme un tour."
+                  onClick={onRest}
+                >
+                  Repos
+                </ActionButton>
               </div>
             </>
           )}

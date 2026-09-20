@@ -45,6 +45,34 @@ describe('GamePlay', () => {
     expect(screen.getByText('0:04')).toBeInTheDocument();
   });
 
+  test('has no description of the quiz above the player', () => {
+    vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
+    render(
+      <GamePlay
+        gameId="g1"
+        stage={1}
+        maxStage={6}
+        durationSeconds={1}
+        nextDurationSeconds={null}
+        answerWindowMs={30000}
+        startedAt={Date.now()}
+        songIndex={1}
+        songCount={1}
+        scores={{}}
+        onSubmitAnswer={vi.fn()}
+        answerFeedback={null}
+        forfeited={false}
+        onForfeit={vi.fn()}
+        songHistory={[]}
+        answerPending={false}
+        forfeitPending={false}
+        players={[]}
+      />
+    );
+
+    expect(screen.queryByText(/deviner le titre/i)).not.toBeInTheDocument();
+  });
+
   test('renders the current song index out of the total song count', () => {
     vi.mocked(api.fetchTitles).mockResolvedValue(TITLES);
     render(

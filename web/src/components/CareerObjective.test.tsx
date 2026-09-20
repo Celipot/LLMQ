@@ -31,8 +31,8 @@ describe('CareerObjective in the third phase', () => {
   test('shows the concerts then, on the next line, the albums rated B+ still to release, with the turns left', () => {
     render(<CareerObjective career={phase3} />);
 
-    expect(screen.getByText('Concert B+ 1 / 2')).toBeInTheDocument();
-    expect(screen.getByText((text) => text.startsWith('Album B+ 1 / 2'))).toBeInTheDocument();
+    expect(screen.getByText('Obtenir au moins B au Concert : 1 / 2')).toBeInTheDocument();
+    expect(screen.getByText((text) => text.startsWith("Obtenir au moins B à l'Album : 1 / 2"))).toBeInTheDocument();
     expect(screen.getByText('(dans 21 tours)')).toBeInTheDocument();
   });
 

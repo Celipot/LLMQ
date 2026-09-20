@@ -94,10 +94,11 @@ describe('App — Mode Carrière', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Commencer une carrière' }));
 
     expect(await screen.findByText('Tour 1')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Étudier : Oreille' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Chanter' }));
 
     expect(await screen.findByRole('button', { name: 'Valider' })).toBeInTheDocument();
     expect(api.studyCareer).toHaveBeenCalledWith('oreille');
+    expect(screen.queryByText(/deviner le titre/i)).not.toBeInTheDocument();
     expect(screen.queryByText('Tour 1')).not.toBeInTheDocument();
   });
 
@@ -110,16 +111,18 @@ describe('App — Mode Carrière', () => {
     render(<App />);
     await userEvent.click(screen.getByText('Mode Carrière'));
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Sortir un single' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Se faire connaître' }));
 
     expect(await screen.findByRole('button', { name: 'Valider' })).toBeInTheDocument();
     expect(api.singleCareer).toHaveBeenCalledOnce();
-    expect(screen.getByText(/Single \(Culture\) : deviner le titre/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Se faire connaître' })).toBeInTheDocument();
+    expect(screen.getByText('Stat travaillée : Endurance')).toBeInTheDocument();
+    expect(screen.queryByText(/deviner le titre/i)).not.toBeInTheDocument();
   });
 
   test.each([
     ['study', 'Étude'],
-    ['single', 'Single'],
+    ['single', 'Se faire connaître'],
     ['release', 'Album'],
     ['concert', 'Concert'],
     ['finale', 'SIF'],
@@ -134,7 +137,7 @@ describe('App — Mode Carrière', () => {
     expect(await screen.findByRole('heading', { name: title })).toBeInTheDocument();
   });
 
-  test('the guessing screen shows the career placeholder image', async () => {
+  test('the guessing screen shows the career illustration', async () => {
     vi.mocked(api.fetchCareer).mockResolvedValue({
       career,
       round: { kind: 'study', stat: 'oreille', inNotebook: false, state: roundState },
@@ -143,7 +146,59 @@ describe('App — Mode Carrière', () => {
     await userEvent.click(screen.getByText('Mode Carrière'));
 
     const image = await screen.findByRole('img', { name: 'Illustration de la carrière' });
-    expect(image).toHaveAttribute('src', '/career-placeholder.svg');
+    expect(image).toHaveAttribute('src', '/career-illustration.png');
+  });
+
+  test('an album round shows the album cover instead of the career illustration', async () => {
+    vi.mocked(api.fetchCareer).mockResolvedValue({
+      career,
+      round: { kind: 'release', stat: null, inNotebook: false, state: roundState },
+    });
+    render(<App />);
+    await userEvent.click(screen.getByText('Mode Carrière'));
+
+    const image = await screen.findByRole('img', { name: "Cover de l'album" });
+    expect(image).toHaveAttribute('src', '/album-cover.png');
+    expect(screen.queryByRole('img', { name: 'Illustration de la carrière' })).not.toBeInTheDocument();
+  });
+
+  test('a concert round shows the concert illustration instead of the career one', async () => {
+    vi.mocked(api.fetchCareer).mockResolvedValue({
+      career,
+      round: { kind: 'concert', stat: null, inNotebook: false, state: roundState },
+    });
+    render(<App />);
+    await userEvent.click(screen.getByText('Mode Carrière'));
+
+    const image = await screen.findByRole('img', { name: 'Illustration du concert' });
+    expect(image).toHaveAttribute('src', '/concert-illustration.png');
+    expect(screen.queryByRole('img', { name: 'Illustration de la carrière' })).not.toBeInTheDocument();
+  });
+
+  test('a round to get known shows its own illustration instead of the career one', async () => {
+    vi.mocked(api.fetchCareer).mockResolvedValue({
+      career,
+      round: { kind: 'single', stat: 'culture', inNotebook: false, state: roundState },
+    });
+    render(<App />);
+    await userEvent.click(screen.getByText('Mode Carrière'));
+
+    const image = await screen.findByRole('img', { name: 'Illustration de Se faire connaître' });
+    expect(image).toHaveAttribute('src', '/single-illustration.png');
+    expect(screen.queryByRole('img', { name: 'Illustration de la carrière' })).not.toBeInTheDocument();
+  });
+
+  test('a finale round shows the SIF illustration instead of the career one', async () => {
+    vi.mocked(api.fetchCareer).mockResolvedValue({
+      career,
+      round: { kind: 'finale', stat: null, inNotebook: false, state: roundState },
+    });
+    render(<App />);
+    await userEvent.click(screen.getByText('Mode Carrière'));
+
+    const image = await screen.findByRole('img', { name: 'Illustration du SIF' });
+    expect(image).toHaveAttribute('src', '/sif-illustration.png');
+    expect(screen.queryByRole('img', { name: 'Illustration de la carrière' })).not.toBeInTheDocument();
   });
 
   test('the notebook stays on the left of the guessing screen', async () => {
@@ -246,7 +301,7 @@ describe('App — Mode Carrière', () => {
 
       await userEvent.click(screen.getByText('Mode Carrière'));
 
-      expect(await screen.findByText("Sortie de l'album : titre 3 / 6")).toBeInTheDocument();
+      expect(await screen.findByText('Titre 3 / 6')).toBeInTheDocument();
     });
 
     test('after a track, "Titre suivant" starts the next one without going back to the hub', async () => {
@@ -305,7 +360,7 @@ describe('App — Mode Carrière', () => {
 
       await userEvent.click(screen.getByText('Mode Carrière'));
 
-      expect(await screen.findByText('Concert : titre 5 / 15')).toBeInTheDocument();
+      expect(await screen.findByText('Titre 5 / 15')).toBeInTheDocument();
     });
 
     test('after a track, "Titre suivant" starts the next one of the concert', async () => {

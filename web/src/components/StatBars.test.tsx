@@ -20,7 +20,7 @@ describe('StatBars', () => {
   test('hovering a stat lists what its steps unlock', async () => {
     render(<StatBars stats={stats} statMax={statMax} statStep={100} />);
 
-    await userEvent.hover(statItem('Oreille'));
+    await userEvent.hover(statItem('Chant'));
 
     const tooltip = screen.getByRole('tooltip');
     expect(tooltip).toHaveTextContent("+0,5 s à l'intro du 1er essai");
@@ -29,9 +29,9 @@ describe('StatBars', () => {
 
   test('leaving the stat hides the tooltip', async () => {
     render(<StatBars stats={stats} statMax={statMax} statStep={100} />);
-    await userEvent.hover(statItem('Oreille'));
+    await userEvent.hover(statItem('Chant'));
 
-    await userEvent.unhover(statItem('Oreille'));
+    await userEvent.unhover(statItem('Chant'));
 
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
@@ -47,17 +47,17 @@ describe('StatBars', () => {
   test('only the hovered stat has a tooltip, described by aria-describedby', async () => {
     render(<StatBars stats={stats} statMax={statMax} statStep={100} />);
 
-    await userEvent.hover(statItem('Mémoire'));
+    await userEvent.hover(statItem('Connaissances'));
 
     expect(screen.getAllByRole('tooltip')).toHaveLength(1);
     expect(screen.getByRole('tooltip')).toHaveTextContent('2 suggestions de recherche');
-    expect(statItem('Mémoire')).toHaveAccessibleDescription(/2 suggestions de recherche/);
+    expect(statItem('Connaissances')).toHaveAccessibleDescription(/2 suggestions de recherche/);
   });
 
   test('marks the steps already reached and shows the value still to reach', async () => {
     render(<StatBars stats={stats} statMax={statMax} statStep={100} />);
 
-    await userEvent.hover(statItem('Oreille'));
+    await userEvent.hover(statItem('Chant'));
 
     const tooltip = screen.getByRole('tooltip');
     expect(tooltip).toHaveTextContent("✓ 100 : +0,5 s à l'intro du 1er essai");
@@ -69,11 +69,11 @@ describe('StatBars with the step of the server', () => {
   test('the steps of the tooltip and the fill follow the step sent by the server', async () => {
     render(<StatBars stats={{ oreille: 25, memoire: 0, culture: 0 }} statMax={statMax} statStep={50} />);
 
-    await userEvent.hover(statItem('Oreille'));
+    await userEvent.hover(statItem('Chant'));
 
     expect(screen.getByRole('tooltip')).toHaveTextContent("· 50 : +0,5 s à l'intro du 1er essai");
     expect(screen.getByRole('tooltip')).toHaveTextContent("· 100 : +0,5 s à l'intro du 2e essai");
-    expect(statItem('Oreille').querySelector('.stat-bar-fill')).toHaveStyle({ width: '50%' });
+    expect(statItem('Chant').querySelector('.stat-bar-fill')).toHaveStyle({ width: '50%' });
   });
 });
 
@@ -85,21 +85,21 @@ describe('StatBars beyond the maximum', () => {
   test('a stat that reached its maximum is shown full, even when it keeps growing', () => {
     render(<StatBars stats={{ oreille: 340, memoire: 0, culture: 200 }} statMax={statMax} statStep={100} />);
 
-    expect(fillOf('Oreille')).toHaveStyle({ width: '100%' });
-    expect(fillOf('Culture')).toHaveStyle({ width: '100%' });
-    expect(statItem('Oreille')).toHaveTextContent('340');
+    expect(fillOf('Chant')).toHaveStyle({ width: '100%' });
+    expect(fillOf('Endurance')).toHaveStyle({ width: '100%' });
+    expect(statItem('Chant')).toHaveTextContent('340');
   });
 
   test('a stat under its maximum still fills toward the next step', () => {
     render(<StatBars stats={{ oreille: 250, memoire: 0, culture: 0 }} statMax={statMax} statStep={100} />);
 
-    expect(fillOf('Oreille')).toHaveStyle({ width: '50%' });
+    expect(fillOf('Chant')).toHaveStyle({ width: '50%' });
   });
 
   test('a negative stat is shown empty with its value', () => {
     render(<StatBars stats={{ oreille: -100, memoire: 0, culture: 0 }} statMax={statMax} statStep={100} />);
 
-    expect(fillOf('Oreille')).toHaveStyle({ width: '0%' });
-    expect(statItem('Oreille')).toHaveTextContent('-100');
+    expect(fillOf('Chant')).toHaveStyle({ width: '0%' });
+    expect(statItem('Chant')).toHaveTextContent('-100');
   });
 });

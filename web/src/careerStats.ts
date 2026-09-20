@@ -9,10 +9,18 @@ export interface StatStep {
 // Display order and wording of the career stats. What each one unlocks is
 // decided server-side (server/career.js); the steps below only describe it,
 // so they must be updated together with the rules there.
-export const CAREER_STATS: { stat: CareerStat; label: string; effect: string; steps: StatStep[] }[] = [
+export const CAREER_STATS: {
+  stat: CareerStat;
+  label: string;
+  // The action that trains this stat.
+  studyLabel: string;
+  effect: string;
+  steps: StatStep[];
+}[] = [
   {
     stat: 'oreille',
-    label: 'Oreille',
+    label: 'Chant',
+    studyLabel: 'Chanter',
     effect: 'Allonge les extraits',
     steps: [
       { step: 1, text: "+0,5 s à l'intro du 1er essai" },
@@ -22,7 +30,8 @@ export const CAREER_STATS: { stat: CareerStat; label: string; effect: string; st
   },
   {
     stat: 'memoire',
-    label: 'Mémoire',
+    label: 'Connaissances',
+    studyLabel: 'Étudier',
     effect: 'Plus de suggestions',
     steps: [
       { step: 1, text: '2 suggestions de recherche' },
@@ -32,7 +41,8 @@ export const CAREER_STATS: { stat: CareerStat; label: string; effect: string; st
   },
   {
     stat: 'culture',
-    label: 'Culture',
+    label: 'Endurance',
+    studyLabel: 'Musculation',
     effect: 'Plus d’essais',
     steps: [
       { step: 1, text: 'un 4e essai (intro de 4 s)' },

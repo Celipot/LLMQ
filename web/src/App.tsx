@@ -26,7 +26,16 @@ import { audioTrackUrl, careerAudioTrackUrl } from './api';
 import { useAudioPlayer } from './hooks/useAudioPlayer';
 import './App.css';
 
-const CAREER_ROUND_TITLES = { study: 'Étude', single: 'Single', release: 'Album', concert: 'Concert', finale: 'SIF' };
+const CAREER_ROUND_TITLES = { study: 'Étude', single: 'Se faire connaître', release: 'Album', concert: 'Concert', finale: 'SIF' };
+
+const CAREER_ILLUSTRATION = { src: '/career-illustration.png', alt: 'Illustration de la carrière' };
+// Each kind of round has its own image, except the study, which uses the career one.
+const CAREER_ROUND_ILLUSTRATIONS: Partial<Record<keyof typeof CAREER_ROUND_TITLES, { src: string; alt: string }>> = {
+  single: { src: '/single-illustration.png', alt: 'Illustration de Se faire connaître' },
+  release: { src: '/album-cover.png', alt: "Cover de l'album" },
+  concert: { src: '/concert-illustration.png', alt: 'Illustration du concert' },
+  finale: { src: '/sif-illustration.png', alt: 'Illustration du SIF' },
+};
 
 type Screen = 'home' | 'profile' | 'random-setup' | 'random' | 'career' | 'list' | 'join' | 'lobby';
 
@@ -104,12 +113,13 @@ export default function App() {
   // A finished track is already counted in the series progress, a playing one is not.
   const seriesPosition = (series?.progress.done ?? 0) + (careerFinished ? 0 : 1);
   const continueLabel = !series ? 'Continuer' : series.over ? 'Voir le résultat' : 'Titre suivant';
+  // Only what the title does not say: the stat a single trains, the position in a series.
   const roundSubtitle =
     careerRound?.kind === 'study'
-      ? "Étude : deviner le titre à partir de l'intro"
+      ? null
       : careerRound?.kind === 'single'
-        ? `Single (${CAREER_STATS.find(({ stat }) => stat === careerRound.stat)?.label}) : deviner le titre à partir de l'intro (il n'entre pas dans le carnet)`
-        : `${series?.label} : titre ${seriesPosition} / ${series?.progress.total}`;
+        ? `Stat travaillée : ${CAREER_STATS.find(({ stat }) => stat === careerRound.stat)?.label}`
+        : `Titre ${seriesPosition} / ${series?.progress.total}`;
 
   const allowedSeconds = careerRound?.state.allowedSeconds ?? state?.allowedSeconds ?? 1;
   const {
@@ -337,9 +347,12 @@ export default function App() {
 
           <div className="quiz-area">
             <h2 className="career-round-title">{CAREER_ROUND_TITLES[careerRound.kind]}</h2>
-            <p className="subtitle">{roundSubtitle}</p>
+            {roundSubtitle && <p className="subtitle">{roundSubtitle}</p>}
 
-            <img className="career-illustration" src="/career-placeholder.svg" alt="Illustration de la carrière" />
+            <img
+              className="career-illustration"
+              {...(CAREER_ROUND_ILLUSTRATIONS[careerRound.kind] ?? CAREER_ILLUSTRATION)}
+            />
 
             <Player
               audioRef={audioRef}
@@ -382,7 +395,7 @@ export default function App() {
                   </div>
                   {careerFinished && (
                     <div className="actions">
-                      <button type="button" onClick={handleCareerContinue}>
+                      <button type="button" className="career-continue" onClick={handleCareerContinue}>
                         {continueLabel}
                       </button>
                     </div>
@@ -417,8 +430,6 @@ export default function App() {
             {!showQuiz && <p className="subtitle">Choisir une chanson dans la bibliothèque pour commencer.</p>}
             {showQuiz && state && (
               <>
-                <p className="subtitle">Deviner le titre à partir de l'intro</p>
-
                 <Player
                   audioRef={audioRef}
                   allowedSeconds={allowedSeconds}

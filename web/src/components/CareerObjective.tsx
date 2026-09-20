@@ -43,7 +43,8 @@ function objectiveOf(career: Career): Objective {
     const { concerts, albums } = finaleGoals;
     return {
       text: '',
-      lines: [`Concert B+ ${concerts.good} / ${concerts.requiredGood}`, `Album B+ ${albums.good} / ${albums.requiredGood}`],
+      lines: [`Obtenir au moins ${albumGoalGrade} au Concert : ${concerts.good} / ${concerts.requiredGood}`,
+        `Obtenir au moins ${albumGoalGrade} à l'Album : ${albums.good} / ${albums.requiredGood}`],
       turnsLeft: finalTurn - turn + 1,
     };
   }
@@ -54,7 +55,7 @@ function objectiveOf(career: Career): Objective {
       turnsLeft: concertAt - turn + 1,
     };
   }
-  const text = `Sortir l'album avec un grade ${albumGoalGrade} ou mieux`;
+  const text = `Obtenir au moins ${albumGoalGrade} à l'Album`;
   return releaseDue ? { text } : { text, turnsLeft: releaseAt - turn + 1 };
 }
 

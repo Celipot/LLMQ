@@ -641,6 +641,17 @@ button {
   cursor: pointer;
 }
 
+.career-continue {
+  padding: 1.25rem 1.5rem;
+  border: none;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 1.3rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .secondary {
   padding: 0.85rem 1rem;
   border-radius: 8px;
@@ -918,6 +929,40 @@ button:disabled {
 
 .stat-tooltip li.reached {
   color: var(--accent);
+}
+
+.action-tip {
+  position: relative;
+  display: flex;
+  flex: 1;
+}
+
+.action-tip > button {
+  flex: 1;
+}
+
+/* A disabled button gets no pointer events: the wrapper receives them instead. */
+.action-tip > button:disabled {
+  pointer-events: none;
+}
+
+.action-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  z-index: 10;
+  width: max-content;
+  max-width: min(16rem, 80vw);
+  margin-bottom: 0.4rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.85rem;
+  text-align: left;
+  transform: translateX(-50%);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 .stat-bar-head {

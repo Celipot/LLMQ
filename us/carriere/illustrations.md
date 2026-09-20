@@ -4,18 +4,18 @@ Liste des illustrations nécessaires à ce jour. Les covers de chansons sont com
 
 ## 1. Illustration du hub et de l'écran de round
 
-- **Fichier actuel** : `web/public/career-placeholder.svg`.
+- **Fichier actuel** : `web/public/career-illustration.png` (fournie : les trois membres d'A・ZU・NA, 16/9). Elle sert de version minimale ; les variantes ci-dessous restent optionnelles.
 - **Où** : entre l'objectif et les actions dans le hub (`CareerHub.tsx`), et sous le titre du round (`App.tsx`).
 - **Format** : 16/9, largeur maximale 560 px sur l'écran de round (`.career-illustration` dans `App.css`).
-- **Minimum** : 1 image pour tout le Mode Carrière.
-- **Version plus riche** : 1 image par type d'action, soit 5 illustrations :
+- **Minimum** : 1 image pour tout le Mode Carrière (fait).
+- **Album** : la cover `web/public/album-cover.png` (« AZUNALAND », fournie) remplace l'illustration de la carrière sur l'écran d'un round d'album, phases 1 et 3 comprises.
+- **Concert** : l'illustration `web/public/concert-illustration.png` (fournie) remplace l'illustration de la carrière sur l'écran d'un round de concert, phases 2 et 3 comprises.
+- **Se faire connaître** : l'illustration `web/public/single-illustration.png` (fournie, un carrefour couvert d'affiches AZUNA) remplace l'illustration de la carrière sur l'écran de ce round.
+- **SIF** : l'illustration `web/public/sif-illustration.png` (fournie, un pont et des feux d'artifice autour du logo SIF) remplace l'illustration de la carrière sur l'écran du round de la finale.
+- **Version plus riche** : 1 image par type d'action (5 en tout, dont l'album, le concert, « Se faire connaître » et le SIF, déjà fournis). Reste à produire :
   - Étude
-  - Single
-  - Album
-  - Concert
-  - SIF (finale)
 
-  Le hub pourrait aussi avoir 1 image par phase (3 au total), soit 8 illustrations avec les précédentes.
+  Le hub pourrait aussi avoir 1 image par phase (3 de plus).
 
 ## 2. Illustration des événements
 
@@ -30,7 +30,7 @@ Liste des illustrations nécessaires à ce jour. Les covers de chansons sont com
 | Carnet gagné | 2, 9 |
 | Carnet perdu | 3, 5 |
 | Malus de stat temporaire | 4, 11 |
-| Bonus de stat au maximum | 6, 7, 8 (ou 3 images séparées : Oreille, Mémoire, Culture) |
+| Bonus de stat au maximum | 6, 7, 8 (ou 3 images séparées : Chant, Connaissances, Endurance) |
 | Série de 5 titres et choix de récompense | 10 |
 | SIF : malus de stat | 12, 13, 14 |
 | SIF : bonus de temps | 15 |
@@ -47,5 +47,5 @@ Il n'existe pas d'écran de fin (réussite ou échec de carrière), ni de page d
 
 ## Total
 
-- **2 images** pour être complet dans l'état actuel (SVG ou PNG).
-- **8 à 13 images** selon le niveau de détail voulu pour un rendu plus riche (5 pour le hub et le round, jusqu'à 9 pour les événements).
+- **1 image** pour être complet dans l'état actuel : celle des événements (SVG ou PNG), l'illustration du hub et du round étant fournie.
+- **Jusqu'à 10 images de plus** pour un rendu plus riche : 1 pour les rounds (étude), jusqu'à 9 pour les événements.

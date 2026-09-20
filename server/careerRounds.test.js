@@ -58,9 +58,9 @@ describe('the events of the finale', () => {
     assert.deepEqual(
       newEvents.map((event) => event.text),
       [
-        'Oreille −500 pendant 3 titres',
-        'Mémoire −500 pendant 3 titres',
-        'Culture −500 pendant 3 titres',
+        'Chant −500 pendant 3 titres',
+        'Connaissances −500 pendant 3 titres',
+        'Endurance −500 pendant 3 titres',
         'Intro +15 s à chaque essai pendant 3 titres',
       ],
     );

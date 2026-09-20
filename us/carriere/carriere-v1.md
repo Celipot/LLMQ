@@ -15,9 +15,9 @@ Suite de [`solo.md`](solo.md) : périmètre de la première version jouable.
 
 | Stat | Effet | 100 | 200 | 300 |
 |---|---|---|---|---|
-| Oreille | secondes | palier 1 : +0,5 s (1,5 s) | palier 2 : +0,5 s (2,5 s) | palier 3 : +0,5 s (3,5 s) |
-| Culture | nombre de paliers | 4e palier (4 s) | 5e palier (5 s) | (max) |
-| Mémoire | suggestions | 2 | 3 | 4 |
+| Oreille (affichée « Chant ») | secondes | palier 1 : +0,5 s (1,5 s) | palier 2 : +0,5 s (2,5 s) | palier 3 : +0,5 s (3,5 s) |
+| Culture (affichée « Endurance ») | nombre de paliers | 4e palier (4 s) | 5e palier (5 s) | (max) |
+| Mémoire (affichée « Connaissances ») | suggestions | 2 | 3 | 4 |
 
 Les effets de chaque stat s'affichent au survol (ou au focus clavier) de la stat dans le hub, avec les paliers atteints marqués « ✓ ».
 

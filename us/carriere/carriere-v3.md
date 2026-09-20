@@ -80,9 +80,9 @@ Une stat effective négative **déclenche la perte d'une fonctionnalité**, sous
 
 | Stat | Effective < 0 |
 |---|---|
-| Oreille | le premier palier dure 0,5 s au lieu de 1 s |
-| Culture | un seul essai (un seul palier) au lieu de 3 |
-| Mémoire | plus aucune suggestion de recherche : le joueur doit saisir le titre exact |
+| Chant | le premier palier dure 0,5 s au lieu de 1 s |
+| Endurance | un seul essai (un seul palier) au lieu de 3 |
+| Connaissances | plus aucune suggestion de recherche : le joueur doit saisir le titre exact |
 
 **Titre saisi sans suggestion** : le serveur compare déjà le titre saisi sans casse ni accents (`songs.normalize` / `findByTitle` : « ete » = « Été »). Aucun changement de règle côté serveur, mais un test verrouille ce comportement (casse, accents) et le client, quand `suggestionCount` vaut 0, envoie le texte saisi tel quel à `/api/guess` au lieu d'exiger le choix d'une suggestion. Un titre inexact reste `UNKNOWN_TITLE` et ne consomme pas d'essai.
 
@@ -96,9 +96,9 @@ Chaque événement a un id technique (1, 2, 3…) et un texte bref provisoire. L
 | 3 | Plage tours 21-30 | Carnet −2 titres | « Carnet −2 » |
 | 4 | Plage tours 31-40 | Une stat au hasard −400 pendant 5 tours (plancher effectif −100) | « <Stat> −400 pendant 5 tours » |
 | 5 | Plage tours 45-50 | Carnet −5 titres | « Carnet −5 » |
-| 6 | Oreille au maximum (300) | Culture +50 | « Culture +50 » |
-| 7 | Mémoire au maximum (300) | Oreille +50 | « Oreille +50 » |
-| 8 | Culture au maximum (200) | Mémoire +50 | « Mémoire +50 » |
+| 6 | Chant au maximum (300) | Endurance +50 | « Endurance +50 » |
+| 7 | Connaissances au maximum (300) | Chant +50 | « Chant +50 » |
+| 8 | Endurance au maximum (200) | Connaissances +50 | « Connaissances +50 » |
 | 9 | Fans ≥ 500 | Carnet +3 titres | « Carnet +3 » |
 | 10 | Série de 5 titres trouvés (étude ou single) | Au choix : toutes les stats +15 × efficacité (max 60 chacune) ou énergie +1 × efficacité (max 4) | « Série ! » |
 | 11 | Plage tours 30-50 | Une stat au hasard −400 pendant 5 tours (plancher effectif −100), comme l'événement 4 | « <Stat> −400 pendant 5 tours » |
@@ -106,6 +106,23 @@ Chaque événement a un id technique (1, 2, 3…) et un texte bref provisoire. L
 | 15 | SIF : une piste tirée entre la 2e et la 25e | +15 s sur chaque essai (tous les paliers) pendant 3 titres | « Intro +15 s à chaque essai pendant 3 titres » |
 
 Les stats forment un cycle : oreille → culture → mémoire → oreille (+100, soit un palier de bonus). Les plages des événements de tour sont tirées à la création de la carrière ; plusieurs événements peuvent tomber le même tour (par exemple les tours 45-50 avec un autre), ils s'affichent alors l'un après l'autre. Aucun événement de tour entre les tours 41 et 44 pour l'instant.
+
+### Vocabulaire affiché
+Les identifiants d'API restent `oreille`, `memoire` et `culture` ; l'interface et les textes d'événements parlent de **Chant**, **Connaissances** et **Endurance**. Le reste des specs (v1 à v3) emploie encore les anciens termes dans sa prose.
+
+| Action | Bouton |
+|---|---|
+| Étude, stat `oreille` | Chanter |
+| Étude, stat `memoire` | Étudier |
+| Étude, stat `culture` | Musculation |
+| Single (titre de l'écran de round et bouton) | Se faire connaître |
+| Repos | Repos |
+| Album de la phase 3 | Album (3 énergies) |
+| Concert de la phase 3 | Concert (4 énergies) |
+
+Objectifs : « Obtenir au moins B à l'Album » (phase 1) ; en phase 3, « Obtenir au moins B au Concert : n / 2 » et « Obtenir au moins B à l'Album : n / 2 ».
+
+**Infobulles** : chaque bouton d'action explique au survol (et au focus clavier) son coût en énergie, ce qu'il fait progresser et s'il consomme un tour ; elles s'affichent aussi sur un bouton désactivé. Les coûts et tailles viennent du serveur (`career.costs`, `career.liveCosts`, `career.album.total`, `career.concert.total`).
 
 ### Affichage
 Quand une action déclenche un ou plusieurs événements, le hub affiche pour chacun une **image placeholder** (`web/public/career-event-placeholder.svg`), le **texte bref** dessous et un bouton **Continuer** ; une fois le dernier fermé, on revient au hub. Les effets sont déjà appliqués : l'affichage se fait côté client à partir de `career.newEvents` (renvoyé avec la réponse de l'action), l'historique complet reste dans `career.events`.
@@ -166,4 +183,5 @@ Trois objectifs affichés l'un après l'autre, avec leur échéance en tours (v2
 - **Fenêtre d'événement** : elle liste aussi les titres gagnés par un gain de carnet (`career.newEvents[].gained`) et est plus grande.
 - **Historique des sorties** : la colonne de gauche liste chaque album, concert et le SIF avec le tour où il a été joué (les sorties imposées des phases 1 et 2 sont datées 10 et 20).
 - **Changements d'un round** : au retour au hub, pendant 5 s, une carte à flèche à droite de chaque champ qui a bougé (stat, énergie, fans) affiche la variation, `+N` en vert ou `−N` en rouge, malus compris. Elle est calculée côté client, par différence entre la carrière avant et après le round.
+- **Illustration du round** : l'illustration de la carrière, sauf pour un round d'album, où la cover de l'album (`web/public/album-cover.png`) la remplace, un round de concert, où c'est `web/public/concert-illustration.png`, un round « Se faire connaître », où c'est `web/public/single-illustration.png`, et le SIF, où c'est `web/public/sif-illustration.png`.
 - **Écran de devinage** : le carnet est affiché à gauche, avec au-dessus l'indicateur « Ce titre est dans ton carnet » quand le titre à deviner y figure (`round.inNotebook`) ; « Continuer » / « Titre suivant » passe sous « Valider » et la réponse s'affiche en plus petit, à droite.

@@ -5,7 +5,7 @@
 
 const career = require('./career');
 
-const STAT_LABELS = { oreille: 'Oreille', memoire: 'Mémoire', culture: 'Culture' };
+const STAT_LABELS = { oreille: 'Chant', memoire: 'Connaissances', culture: 'Endurance' };
 
 const SERIES_EVENT_ID = 10;
 const SERIES_LENGTH = 5;
@@ -21,9 +21,9 @@ const EVENTS = [
   { id: 3, window: [21, 30], effects: [{ type: 'notebook', amount: -2 }], text: 'Carnet −2' },
   { id: 4, window: [31, 40], effects: [{ type: 'penalty', amount: 400, turns: 5 }] },
   { id: 5, window: [45, 50], effects: [{ type: 'notebook', amount: -5 }], text: 'Carnet −5' },
-  { id: 6, statMax: 'oreille', effects: [{ type: 'stat', stat: 'culture', amount: 50 }], text: 'Culture +50' },
-  { id: 7, statMax: 'memoire', effects: [{ type: 'stat', stat: 'oreille', amount: 50 }], text: 'Oreille +50' },
-  { id: 8, statMax: 'culture', effects: [{ type: 'stat', stat: 'memoire', amount: 50 }], text: 'Mémoire +50' },
+  { id: 6, statMax: 'oreille', effects: [{ type: 'stat', stat: 'culture', amount: 50 }], text: 'Endurance +50' },
+  { id: 7, statMax: 'memoire', effects: [{ type: 'stat', stat: 'oreille', amount: 50 }], text: 'Chant +50' },
+  { id: 8, statMax: 'culture', effects: [{ type: 'stat', stat: 'memoire', amount: 50 }], text: 'Connaissances +50' },
   { id: 9, fans: 500, effects: [{ type: 'notebook', amount: 3 }], text: 'Carnet +3' },
   { id: 11, window: [30, 50], effects: [{ type: 'penalty', amount: 400, turns: 5 }] },
 ];

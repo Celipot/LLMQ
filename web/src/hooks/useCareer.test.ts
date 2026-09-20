@@ -295,7 +295,7 @@ describe('useCareer events', () => {
     vi.mocked(api.submitGuess).mockResolvedValue({
       correct: true,
       state: { ...playing, status: 'won' },
-      career: { ...career, newEvents: [{ id: 6, text: 'Culture +100' }] },
+      career: { ...career, newEvents: [{ id: 6, text: 'Endurance +100' }] },
     });
     const { result } = renderHook(() => useCareer());
     await act(async () => {
@@ -306,7 +306,7 @@ describe('useCareer events', () => {
       await result.current.guess('Dream with You');
     });
 
-    expect(result.current.events).toEqual([{ id: 6, text: 'Culture +100' }]);
+    expect(result.current.events).toEqual([{ id: 6, text: 'Endurance +100' }]);
   });
 
   test('entering the career again does not replay the events already seen', async () => {

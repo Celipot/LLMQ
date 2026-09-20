@@ -118,7 +118,7 @@ describe('CareerHub', () => {
   test('shows each stat with its value', () => {
     renderHub();
 
-    expect(screen.getByText('Oreille')).toBeInTheDocument();
+    expect(screen.getByText('Chant')).toBeInTheDocument();
     expect(screen.getByText('80')).toBeInTheDocument();
     expect(screen.getByText('130')).toBeInTheDocument();
   });
@@ -126,15 +126,21 @@ describe('CareerHub', () => {
   test('each study button trains its own stat', async () => {
     const { onStudy } = renderHub();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Étudier : Mémoire' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Étudier' }));
 
     expect(onStudy).toHaveBeenCalledWith('memoire');
+  });
+
+  test('the intro of the career names the action to get known', () => {
+    renderHub(null);
+
+    expect(screen.getByText(/se faire connaître/)).toBeInTheDocument();
   });
 
   test('the single button releases a single without choosing a stat', async () => {
     const { onSingle } = renderHub();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Sortir un single' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Se faire connaître' }));
 
     expect(onSingle).toHaveBeenCalledOnce();
   });
@@ -142,15 +148,15 @@ describe('CareerHub', () => {
   test('the energy a single or a study needs is the one sent by the server', () => {
     renderHub({ energy: 2, costs: { study: 3, single: 3 } });
 
-    expect(screen.getByRole('button', { name: 'Sortir un single' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Étudier : Oreille' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Se faire connaître' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Chanter' })).toBeDisabled();
   });
 
   test('with only 1 energy a single is disabled but a study is not', () => {
     renderHub({ energy: 1 });
 
-    expect(screen.getByRole('button', { name: 'Sortir un single' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Étudier : Oreille' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Se faire connaître' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Chanter' })).toBeEnabled();
   });
 
   test('the restart button is not part of the hub, it lives in the app header', () => {
@@ -162,7 +168,7 @@ describe('CareerHub', () => {
   test('the rest button calls onRest', async () => {
     const { onRest } = renderHub();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Se reposer' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Repos' }));
 
     expect(onRest).toHaveBeenCalledOnce();
   });
@@ -170,16 +176,16 @@ describe('CareerHub', () => {
   test('without energy studying is disabled but resting is not', () => {
     renderHub({ energy: 0 });
 
-    expect(screen.getByRole('button', { name: 'Étudier : Oreille' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Sortir un single' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Se reposer' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Chanter' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Se faire connaître' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Repos' })).toBeEnabled();
   });
 
   test('once the release is due only the release can be played', async () => {
     const { onRelease } = renderHub({ releaseDue: true, turn: 11 });
 
-    expect(screen.queryByRole('button', { name: 'Se reposer' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Étudier : Oreille' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Repos' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Chanter' })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: "Lancer la sortie de l'album" }));
 
     expect(onRelease).toHaveBeenCalledOnce();
@@ -221,9 +227,9 @@ describe('CareerHub', () => {
     test('the career goes on: study, single and rest are available and no more album', () => {
       renderHub(released);
 
-      expect(screen.getByRole('button', { name: 'Étudier : Oreille' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Sortir un single' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Se reposer' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Chanter' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Se faire connaître' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Repos' })).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /album/ })).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Nouvelle carrière' })).not.toBeInTheDocument();
     });
@@ -235,8 +241,8 @@ describe('CareerHub', () => {
     test('once due only the concert can be played', async () => {
       const { onConcert } = renderHub(due);
 
-      expect(screen.queryByRole('button', { name: 'Se reposer' })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Sortir un single' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Repos' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Se faire connaître' })).not.toBeInTheDocument();
       await userEvent.click(screen.getByRole('button', { name: 'Lancer le concert' }));
 
       expect(onConcert).toHaveBeenCalledOnce();
@@ -280,7 +286,7 @@ describe('CareerHub', () => {
     test('before the album: release it with at least the grade B, with the turns left', () => {
       renderHub();
 
-      expect(objective()).toHaveTextContent("Sortir l'album avec un grade B ou mieux");
+      expect(objective()).toHaveTextContent("Obtenir au moins B à l'Album");
       expect(objective()).toHaveTextContent('(dans 8 tours)');
     });
 
@@ -314,8 +320,8 @@ describe('CareerHub', () => {
     test('once the concert is over the goals of the finale are shown', () => {
       renderHub({ turn: 21, release: albumResult, phase3: true, concertResult });
 
-      expect(within(objective()).getByText('Concert B+ 0 / 2')).toBeInTheDocument();
-      expect(within(objective()).getByText((text) => text.startsWith('Album B+ 0 / 2'))).toBeInTheDocument();
+      expect(within(objective()).getByText('Obtenir au moins B au Concert : 0 / 2')).toBeInTheDocument();
+      expect(within(objective()).getByText((text) => text.startsWith("Obtenir au moins B à l'Album : 0 / 2"))).toBeInTheDocument();
       expect(objective()).toHaveTextContent('(dans 30 tours)');
     });
 
@@ -377,19 +383,20 @@ describe('CareerHub', () => {
     test('offers only a new career', async () => {
       const { onBegin } = renderHub(failed);
 
-      expect(screen.queryByRole('button', { name: 'Se reposer' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Repos' })).not.toBeInTheDocument();
       await userEvent.click(screen.getByRole('button', { name: 'Nouvelle carrière' }));
 
       expect(onBegin).toHaveBeenCalledOnce();
     });
   });
 
-  test('a placeholder image sits between the objective and the actions', () => {
+  test('the career illustration sits between the objective and the actions', () => {
     renderHub();
 
     const objective = screen.getByRole('region', { name: 'Objectif en cours' });
     const image = screen.getByRole('img', { name: 'Illustration de la carrière' });
     const actions = screen.getByRole('group', { name: 'Actions' });
+    expect(image).toHaveAttribute('src', '/career-illustration.png');
     expect(objective.compareDocumentPosition(image) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(image.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
@@ -401,10 +408,10 @@ describe('CareerHub', () => {
       renderHub();
 
       const stats = screen.getByRole('complementary', { name: 'Statistiques' });
-      expect(within(stats).getByText('Oreille')).toBeInTheDocument();
-      expect(within(stats).queryByRole('button', { name: 'Se reposer' })).not.toBeInTheDocument();
+      expect(within(stats).getByText('Chant')).toBeInTheDocument();
+      expect(within(stats).queryByRole('button', { name: 'Repos' })).not.toBeInTheDocument();
       expect(screen.getByRole('group', { name: 'Actions' })).toContainElement(
-        screen.getByRole('button', { name: 'Se reposer' }),
+        screen.getByRole('button', { name: 'Repos' }),
       );
     });
 
@@ -445,8 +452,8 @@ describe('CareerHub third phase', () => {
   test('offers an album and a concert, with their energy cost', async () => {
     const { onRelease, onConcert } = renderHub(phase3);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Sortir un album (3 énergies)' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Donner un concert (4 énergies)' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Album (3 énergies)' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Concert (4 énergies)' }));
 
     expect(onRelease).toHaveBeenCalledOnce();
     expect(onConcert).toHaveBeenCalledOnce();
@@ -455,15 +462,15 @@ describe('CareerHub third phase', () => {
   test('disables a sortie the energy cannot pay', () => {
     renderHub({ ...phase3, energy: 3 });
 
-    expect(screen.getByRole('button', { name: 'Sortir un album (3 énergies)' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Donner un concert (4 énergies)' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Album (3 énergies)' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Concert (4 énergies)' })).toBeDisabled();
   });
 
   test('offers no album nor concert before the concert of the second phase', () => {
     renderHub({ turn: 5, energy: 4 });
 
-    expect(screen.queryByRole('button', { name: /Sortir un album/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Donner un concert/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Album/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Concert/ })).not.toBeInTheDocument();
   });
 
   test('a sortie in progress can only be continued', async () => {
@@ -472,7 +479,7 @@ describe('CareerHub third phase', () => {
     await userEvent.click(screen.getByRole('button', { name: "Poursuivre l'album (2 / 6)" }));
 
     expect(onRelease).toHaveBeenCalledOnce();
-    expect(screen.queryByRole('button', { name: /Se reposer/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Repos/ })).not.toBeInTheDocument();
   });
 
   test('once the finale is due, only the SIF can be launched', async () => {
@@ -481,7 +488,7 @@ describe('CareerHub third phase', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Lancer le SIF' }));
 
     expect(onFinale).toHaveBeenCalledOnce();
-    expect(screen.queryByRole('button', { name: /Se reposer/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Repos/ })).not.toBeInTheDocument();
   });
 
   test('a finale in progress can be continued', () => {
@@ -517,7 +524,7 @@ describe('CareerHub third phase', () => {
     });
 
     expect(screen.getByRole('button', { name: 'Nouvelle carrière' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Sortir un album/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Album/ })).not.toBeInTheDocument();
   });
 
   test('the left column dates every release with the turn it was played on', () => {
@@ -561,8 +568,8 @@ describe('CareerHub — changes of the last round', () => {
   test('a badge sits on every field that moved', () => {
     renderHub({}, { changes: { stats: { oreille: 50, culture: -100 }, energy: 2, fans: 40 } });
 
-    expect(screen.getByRole('status', { name: 'Oreille +50' })).toBeInTheDocument();
-    expect(screen.getByRole('status', { name: 'Culture −100' })).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Chant +50' })).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Endurance −100' })).toBeInTheDocument();
     expect(screen.getByRole('status', { name: 'Énergie +2' })).toBeInTheDocument();
     expect(screen.getByRole('status', { name: 'Fans +40' })).toBeInTheDocument();
   });
@@ -577,5 +584,47 @@ describe('CareerHub — changes of the last round', () => {
     renderHub({}, { changes: null });
 
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+});
+
+describe('CareerHub — tooltips of the actions', () => {
+  async function tooltipOf(name: string) {
+    await userEvent.hover(screen.getByRole('button', { name }));
+    return screen.getByRole('tooltip');
+  }
+
+  test('a study says what it costs and which stat it trains', async () => {
+    renderHub();
+
+    const tooltip = await tooltipOf('Chanter');
+
+    expect(tooltip).toHaveTextContent('Coûte 1 énergie');
+    expect(tooltip).toHaveTextContent('Chant');
+    expect(tooltip).toHaveTextContent('carnet');
+  });
+
+  test('making oneself known says what it costs, that it gains fans and that the title skips the notebook', async () => {
+    renderHub();
+
+    const tooltip = await tooltipOf('Se faire connaître');
+
+    expect(tooltip).toHaveTextContent('Coûte 2 énergies');
+    expect(tooltip).toHaveTextContent('fans');
+    expect(tooltip).toHaveTextContent("n'entre pas dans le carnet");
+  });
+
+  test('the rest says it gives the whole energy back', async () => {
+    renderHub();
+
+    expect(await tooltipOf('Repos')).toHaveTextContent("Rend toute l'énergie");
+  });
+
+  test('the album and the concert of the third phase give their cost and their number of titles', async () => {
+    renderHub({ phase3: true, energy: 4 });
+
+    expect(await tooltipOf('Album (3 énergies)')).toHaveTextContent('Coûte 3 énergies');
+    expect(await tooltipOf('Album (3 énergies)')).toHaveTextContent('6 titres');
+    await userEvent.unhover(screen.getByRole('button', { name: 'Album (3 énergies)' }));
+    expect(await tooltipOf('Concert (4 énergies)')).toHaveTextContent('15 titres');
   });
 });
