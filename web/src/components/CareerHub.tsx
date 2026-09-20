@@ -1,5 +1,6 @@
 import { CAREER_STATS } from '../careerStats';
-import type { Career, CareerStat } from '../types';
+import type { Career, CareerEvent as CareerEventData, CareerStat, RewardOption } from '../types';
+import CareerEvent from './CareerEvent';
 import CareerObjective from './CareerObjective';
 import CareerResult from './CareerResult';
 import CareerScore from './CareerScore';
@@ -17,7 +18,14 @@ interface CareerHubProps {
   onSingle: () => void;
   onRelease: () => void;
   onConcert: () => void;
+  onFinale: () => void;
+  // Events fired by the last action, still to be acknowledged.
+  events: CareerEventData[];
+  onDismissEvent: () => void;
+  onChooseReward: (option: RewardOption) => void;
 }
+
+const LIVE_LABELS = { album: "l'album", concert: 'le concert', finale: 'le SIF' };
 
 export default function CareerHub({
   career,
@@ -28,6 +36,10 @@ export default function CareerHub({
   onSingle,
   onRelease,
   onConcert,
+  onFinale,
+  events,
+  onDismissEvent,
+  onChooseReward,
 }: CareerHubProps) {
   if (!career) {
     return (
@@ -48,11 +60,20 @@ export default function CareerHub({
     );
   }
 
-  const turn = Math.min(career.turn, career.totalTurns);
-  const over = career.failure !== null || career.concertResult !== null;
+  const turn = Math.min(career.turn, career.finalTurn);
+  const over = career.failure !== null || career.finaleResult !== null;
+  const liveActions = { album: onRelease, concert: onConcert, finale: onFinale };
+  const { live } = career;
 
   return (
     <section className="career-hub career-layout">
+      <CareerEvent
+        event={events[0] ?? null}
+        choice={career.pendingChoice}
+        onContinue={onDismissEvent}
+        onChoose={onChooseReward}
+      />
+
       <aside className="career-column" aria-label="Statistiques">
         <div className="career-status">
           <span>{`Tour ${turn}`}</span>
@@ -60,7 +81,7 @@ export default function CareerHub({
           <span>{`FSI ${career.fans.current}`}</span>
         </div>
 
-        <StatBars stats={career.stats} />
+        <StatBars stats={career.stats} statMax={career.statMax} />
 
         {career.notebook.length > 0 && (
           <div className="career-notebook">
@@ -88,6 +109,18 @@ export default function CareerHub({
                 </button>
               </div>
             </>
+          ) : live ? (
+            <div className="actions">
+              <button type="button" onClick={liveActions[live.kind]}>
+                {`Poursuivre ${LIVE_LABELS[live.kind]} (${live.done} / ${live.total})`}
+              </button>
+            </div>
+          ) : career.finaleDue ? (
+            <div className="actions">
+              <button type="button" onClick={onFinale}>
+                Lancer le SIF
+              </button>
+            </div>
           ) : career.concertDue ? (
             <div className="actions">
               <button type="button" onClick={onConcert}>
@@ -123,6 +156,20 @@ export default function CareerHub({
                   Sortir un single
                 </button>
               </div>
+              {career.phase3 && (
+                <div className="actions">
+                  <button
+                    type="button"
+                    disabled={career.energy < career.liveCosts.album}
+                    onClick={onRelease}
+                  >{`Sortir un album (${career.liveCosts.album} énergies)`}</button>
+                  <button
+                    type="button"
+                    disabled={career.energy < career.liveCosts.concert}
+                    onClick={onConcert}
+                  >{`Donner un concert (${career.liveCosts.concert} énergies)`}</button>
+                </div>
+              )}
               <div className="actions">
                 <button type="button" className="secondary" onClick={onRest}>
                   Se reposer
@@ -142,6 +189,15 @@ export default function CareerHub({
       <aside className="career-column" aria-label="Récapitulatifs">
         {career.release && <CareerResult label="Album" result={career.release} />}
         {career.concertResult && <CareerResult label="Concert" result={career.concertResult} />}
+        {career.sorties.map((sortie, index) => (
+          <CareerResult
+            // Sorties are only ever appended, in the order they were released.
+            key={index}
+            label={sortie.kind === 'album' ? 'Album' : 'Concert'}
+            result={sortie}
+          />
+        ))}
+        {career.finaleResult && <CareerResult label="SIF" result={career.finaleResult} />}
       </aside>
     </section>
   );

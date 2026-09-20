@@ -12,6 +12,8 @@ export default function CareerScore({ score }: CareerScoreProps) {
       <ul className="career-score-parts">
         <li>{`Album : ${score.album}`}</li>
         <li>{`Concert : ${score.concert}`}</li>
+        <li>{`Sorties : ${score.sorties}`}</li>
+        <li>{`SIF : ${score.finale}`}</li>
         <li>{`Stats : ${score.stats}`}</li>
         <li>{`Fans : ${score.fans}`}</li>
       </ul>

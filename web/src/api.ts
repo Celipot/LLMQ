@@ -3,6 +3,7 @@ import type {
   AnswerWindowResponse,
   CareerResponse,
   CareerStat,
+  RewardOption,
   CreateGameResponse,
   GameState,
   GameSummary,
@@ -141,6 +142,18 @@ export function concertCareer(): Promise<CareerResponse> {
 
 export function releaseCareer(): Promise<CareerResponse> {
   return soloFetch('/api/career/release', { method: 'POST' }).then((res) => parseOrThrow<CareerResponse>(res));
+}
+
+export function finaleCareer(): Promise<CareerResponse> {
+  return soloFetch('/api/career/finale', { method: 'POST' }).then((res) => parseOrThrow<CareerResponse>(res));
+}
+
+export function chooseCareerReward(option: RewardOption): Promise<CareerResponse> {
+  return soloFetch('/api/career/event/choice', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ option }),
+  }).then((res) => parseOrThrow<CareerResponse>(res));
 }
 
 export function createMultiplayerGame(): Promise<CreateGameResponse> {

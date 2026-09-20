@@ -2,8 +2,10 @@ import { useCallback, useState } from 'react';
 import {
   abandonCareer,
   ApiError,
+  chooseCareerReward,
   concertCareer,
   fetchCareer,
+  finaleCareer,
   releaseCareer,
   restCareer,
   singleCareer,
@@ -12,16 +14,27 @@ import {
   submitGuess,
   submitSkip,
 } from '../api';
-import type { Career, CareerResponse, CareerRound, CareerStat, GameState } from '../types';
+import type {
+  Career,
+  CareerEvent,
+  CareerResponse,
+  CareerRound,
+  CareerStat,
+  GameState,
+  RewardOption,
+} from '../types';
 
 export function useCareer() {
   const [career, setCareer] = useState<Career | null>(null);
   const [round, setRound] = useState<CareerRound | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Events fired by the last action, acknowledged one at a time by the player.
+  const [events, setEvents] = useState<CareerEvent[]>([]);
 
   const apply = useCallback((response: CareerResponse) => {
     setCareer(response.career);
     setRound(response.round);
+    setEvents(response.career.newEvents);
     setError(null);
   }, []);
 
@@ -37,9 +50,12 @@ export function useCareer() {
     [apply],
   );
 
+  // Coming back to the hub replays no event: the player has already seen them.
   const enter = useCallback(async () => {
     try {
-      apply(await fetchCareer());
+      const response = await fetchCareer();
+      apply(response);
+      setEvents([]);
     } catch (err) {
       // No career yet is the normal first visit, not a failure.
       if (err instanceof ApiError && err.code === 'NO_CAREER') return;
@@ -54,6 +70,7 @@ export function useCareer() {
       await abandonCareer();
       setCareer(null);
       setRound(null);
+      setEvents([]);
       setError(null);
     } catch (err) {
       setError(errorText(err));
@@ -64,12 +81,18 @@ export function useCareer() {
   const single = useCallback(() => run(singleCareer), [run]);
   const release = useCallback(() => run(releaseCareer), [run]);
   const concert = useCallback(() => run(concertCareer), [run]);
+  const finale = useCallback(() => run(finaleCareer), [run]);
+  const chooseReward = useCallback((option: RewardOption) => run(() => chooseCareerReward(option)), [run]);
+  const dismissEvent = useCallback(() => setEvents((previous) => previous.slice(1)), []);
 
   // The round outcome comes back on the last guess/skip together with the
   // updated career; while it goes on only the round state changes.
   const applyRoundResult = useCallback((state: GameState, updatedCareer?: Career) => {
     setRound((previous) => (previous ? { ...previous, state } : previous));
-    if (updatedCareer) setCareer(updatedCareer);
+    if (updatedCareer) {
+      setCareer(updatedCareer);
+      setEvents(updatedCareer.newEvents);
+    }
     setError(null);
   }, []);
 
@@ -104,6 +127,7 @@ export function useCareer() {
   return {
     career,
     round,
+    events,
     error,
     enter,
     begin,
@@ -113,6 +137,9 @@ export function useCareer() {
     single,
     release,
     concert,
+    finale,
+    chooseReward,
+    dismissEvent,
     guess,
     skip,
     closeRound,
@@ -127,6 +154,10 @@ function errorText(err: unknown): string {
       return "Pas assez d'énergie : il faut se reposer.";
     case 'ROUND_IN_PROGRESS':
       return 'Un round est déjà en cours.';
+    case 'EVENT_PENDING':
+      return 'Choisir une récompense avant de continuer.';
+    case 'RELEASE_IN_PROGRESS':
+      return 'Terminer la sortie en cours avant de faire autre chose.';
     case 'UNKNOWN_TITLE':
       return 'Ce titre ne fait pas partie des chansons jouables.';
     case 'TITLE_REQUIRED':

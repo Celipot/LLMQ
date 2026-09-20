@@ -375,12 +375,28 @@ describe('careerScore', () => {
     state.fans = 200;
     state.release = { score: 420, grade: 'A', tracks: [] };
     state.concert = { score: 1000, grade: 'A', tracks: [] };
-    assert.deepEqual(career.careerScore(state), { album: 420, concert: 1000, stats: 170, fans: 200, total: 1790 });
+    assert.deepEqual(career.careerScore(state), {
+      album: 420,
+      concert: 1000,
+      sorties: 0,
+      finale: 0,
+      stats: 170,
+      fans: 200,
+      total: 1790,
+    });
   });
 
   test('a part never reached counts for nothing', () => {
     const state = career.createCareer();
-    assert.deepEqual(career.careerScore(state), { album: 0, concert: 0, stats: 0, fans: 0, total: 0 });
+    assert.deepEqual(career.careerScore(state), {
+      album: 0,
+      concert: 0,
+      sorties: 0,
+      finale: 0,
+      stats: 0,
+      fans: 0,
+      total: 0,
+    });
   });
 
   test('a failed career is scored on what was played', () => {
@@ -397,6 +413,8 @@ describe('careerScore', () => {
     assert.equal(career.isOver(state), true);
     state.failure = null;
     state.concert = { score: 0, grade: 'D', tracks: [] };
+    assert.equal(career.isOver(state), false);
+    state.finale = { score: 0, grade: 'D', tracks: [] };
     assert.equal(career.isOver(state), true);
   });
 });
@@ -477,12 +495,241 @@ describe('the second phase and the concert', () => {
     assert.equal(state.concert.grade, 'D');
   });
 
-  test('once the concert is over the career is finished', () => {
+  test('once the concert is over the career goes on with a third phase', () => {
     const state = careerAtConcert();
     playConcert(state, Array(15).fill(1));
+    assert.equal(career.isOver(state), false);
+    assert.equal(career.isConcertDue(state), false);
+    assert.throws(() => career.finishConcertTrack(state, 1, 43), { message: 'CONCERT_NOT_DUE' });
+    career.rest(state);
+    assert.equal(state.turn, 22);
+  });
+});
+
+function careerInPhase3() {
+  const state = career.createCareer();
+  for (let i = 0; i < 10; i += 1) career.rest(state);
+  for (let i = 0; i < 6; i += 1) career.finishAlbumTrack(state, 1, 100 + i);
+  for (let i = 0; i < 10; i += 1) career.rest(state);
+  for (let i = 0; i < 15; i += 1) career.finishConcertTrack(state, 1, 200 + i);
+  return state;
+}
+
+function playLive(state, kind, stages) {
+  stages.forEach((stage, i) => {
+    career.startLive(state, kind);
+    career.finishLiveTrack(state, stage, 300 + i);
+  });
+}
+
+describe('the third phase', () => {
+  test('lasts from turn 21 to turn 50', () => {
+    assert.equal(career.FINAL_TURN, 50);
+    assert.equal(career.isPhase3(careerInPhase3()), true);
+    assert.equal(career.isPhase3(career.createCareer()), false);
+  });
+
+  test('an album or a concert cannot be started before the concert of the second phase', () => {
+    const state = career.createCareer();
+    assert.throws(() => career.startLive(state, 'album'), { message: 'RELEASE_NOT_DUE' });
+    assert.throws(() => career.startLive(state, 'concert'), { message: 'CONCERT_NOT_DUE' });
+  });
+
+  test('an album costs 3 energy, paid when the first track starts', () => {
+    const state = careerInPhase3();
+    career.startLive(state, 'album');
+    assert.equal(state.energy, 1);
+  });
+
+  test('a concert costs 4 energy', () => {
+    const state = careerInPhase3();
+    career.startLive(state, 'concert');
+    assert.equal(state.energy, 0);
+  });
+
+  test('is refused without enough energy and starts nothing', () => {
+    const state = careerInPhase3();
+    state.energy = 2;
+    assert.throws(() => career.startLive(state, 'album'), { message: 'NO_ENERGY' });
+    assert.equal(state.live, null);
+    assert.equal(state.energy, 2);
+  });
+
+  test('going on with the same sortie does not cost energy again', () => {
+    const state = careerInPhase3();
+    career.startLive(state, 'album');
+    career.finishLiveTrack(state, 1, 301);
+    career.startLive(state, 'album');
+    assert.equal(state.energy, 1);
+    assert.equal(state.live.tracks.length, 1);
+  });
+
+  test('nothing else can be done while a sortie is in progress', () => {
+    const state = careerInPhase3();
+    career.startLive(state, 'album');
+    career.finishLiveTrack(state, 1, 301);
+    assert.throws(() => career.rest(state), { message: 'RELEASE_IN_PROGRESS' });
+    assert.throws(() => career.study(state, 'oreille', 1, 42), { message: 'RELEASE_IN_PROGRESS' });
+    assert.throws(() => career.startLive(state, 'concert'), { message: 'RELEASE_IN_PROGRESS' });
+  });
+
+  test('an album is released after its 6th track: score, grade, half of the score in fans, one turn', () => {
+    const state = careerInPhase3();
+    const fansBefore = state.fans;
+    playLive(state, 'album', [1, 1, 1, 1, 1, 1]);
+    assert.equal(state.live, null);
+    assert.equal(state.turn, 22);
+    assert.equal(state.fans, fansBefore + 300);
+    assert.equal(state.sorties.length, 1);
+    assert.equal(state.sorties[0].kind, 'album');
+    assert.equal(state.sorties[0].score, 600);
+    assert.equal(state.sorties[0].grade, 'S');
+    assert.equal(state.sorties[0].tracks.length, 6);
+  });
+
+  test('a concert has 15 tracks, wins no fan and uses one turn', () => {
+    const state = careerInPhase3();
+    const fansBefore = state.fans;
+    playLive(state, 'concert', Array(15).fill(2));
+    assert.equal(state.sorties[0].kind, 'concert');
+    assert.equal(state.sorties[0].score, 1050);
+    assert.equal(state.sorties[0].grade, 'A');
+    assert.equal(state.fans, fansBefore);
+    assert.equal(state.turn, 22);
+  });
+
+  test('a failed album in the third phase does not fail the career', () => {
+    const state = careerInPhase3();
+    playLive(state, 'album', Array(6).fill(null));
+    assert.equal(state.failure, null);
+    assert.equal(state.sorties[0].grade, 'D');
+  });
+
+  test('the titles already played in the sortie in progress are known', () => {
+    const state = careerInPhase3();
+    career.startLive(state, 'album');
+    career.finishLiveTrack(state, 1, 301);
+    assert.deepEqual(career.liveSongIds(state), [301]);
+  });
+
+  test('goals: 2 concerts and 3 albums, of which 2 and 2 graded B or better', () => {
+    const state = careerInPhase3();
+    assert.deepEqual(career.finaleGoals(state), {
+      concerts: { done: 0, good: 0, required: 2, requiredGood: 2 },
+      albums: { done: 0, good: 0, required: 3, requiredGood: 2 },
+      met: false,
+    });
+    state.sorties = [
+      { kind: 'concert', score: 800, grade: 'B' },
+      { kind: 'concert', score: 100, grade: 'D' },
+      { kind: 'album', score: 400, grade: 'B' },
+      { kind: 'album', score: 400, grade: 'B' },
+      { kind: 'album', score: 0, grade: 'D' },
+    ];
+    assert.equal(career.finaleGoals(state).met, false);
+    state.sorties.push({ kind: 'concert', score: 800, grade: 'B' });
+    assert.equal(career.finaleGoals(state).met, true);
+    assert.deepEqual(career.finaleGoals(state).concerts, { done: 3, good: 2, required: 2, requiredGood: 2 });
+  });
+
+  test('the finale is not due before turn 51 and cannot be started', () => {
+    const state = careerInPhase3();
+    assert.equal(career.isFinaleDue(state), false);
+    assert.throws(() => career.startLive(state, 'finale'), { message: 'FINALE_NOT_DUE' });
+  });
+
+  test('turn 51 without the goals fails the career', () => {
+    const state = careerInPhase3();
+    state.turn = 50;
+    career.rest(state);
+    assert.equal(state.failure, 'FINALE_GOALS');
+    assert.equal(career.isFinaleDue(state), false);
     assert.throws(() => career.rest(state), { message: 'CAREER_FINISHED' });
-    assert.throws(() => career.finishConcertTrack(state, 1, 43), { message: 'CAREER_FINISHED' });
-    assert.throws(() => career.assertCanConcert(state), { message: 'CAREER_FINISHED' });
+  });
+
+  function careerAtFinale() {
+    const state = careerInPhase3();
+    state.sorties = [
+      { kind: 'concert', score: 800, grade: 'B' },
+      { kind: 'concert', score: 800, grade: 'B' },
+      { kind: 'album', score: 400, grade: 'B' },
+      { kind: 'album', score: 400, grade: 'B' },
+      { kind: 'album', score: 0, grade: 'D' },
+    ];
+    state.turn = 50;
+    career.rest(state);
+    return state;
+  }
+
+  test('turn 51 with the goals makes the finale due, and nothing else is possible', () => {
+    const state = careerAtFinale();
+    assert.equal(state.failure, null);
+    assert.equal(career.isFinaleDue(state), true);
+    assert.throws(() => career.rest(state), { message: 'FINALE_DUE' });
+    assert.throws(() => career.startLive(state, 'album'), { message: 'FINALE_DUE' });
+  });
+
+  test('the finale has 50 tracks for 5000 points, costs no energy and ends the career', () => {
+    assert.equal(career.FINALE_SIZE, 50);
+    assert.equal(career.MAX_FINALE_SCORE, 5000);
+    const state = careerAtFinale();
+    state.energy = 0;
+    playLive(state, 'finale', [...Array(49).fill(1), null]);
+    assert.equal(state.finale.score, 4900);
+    assert.equal(state.finale.grade, 'S');
+    assert.equal(state.live, null);
+    assert.equal(career.isOver(state), true);
+    assert.throws(() => career.rest(state), { message: 'CAREER_FINISHED' });
+  });
+
+  test('the career score adds the sorties of the third phase and the finale', () => {
+    const state = careerAtFinale();
+    playLive(state, 'finale', Array(50).fill(1));
+    assert.deepEqual(career.careerScore(state), {
+      album: 600,
+      concert: 1500,
+      sorties: 2400,
+      finale: 5000,
+      stats: 0,
+      fans: 300,
+      total: 9800,
+    });
+  });
+});
+
+describe('the effective stats', () => {
+  test('a temporary penalty lowers a stat until its expiry turn, without touching the base', () => {
+    const state = career.createCareer();
+    state.stats.oreille = 350;
+    state.turn = 33;
+    state.modifiers = [{ stat: 'oreille', delta: -400, expiresAtTurn: 38 }];
+    assert.equal(career.effectiveStats(state).oreille, -50);
+    assert.equal(state.stats.oreille, 350);
+    state.turn = 38;
+    assert.equal(career.effectiveStats(state).oreille, 350);
+  });
+
+  test('an effective stat never goes under -100', () => {
+    const state = career.createCareer();
+    state.turn = 33;
+    state.modifiers = [{ stat: 'culture', delta: -400, expiresAtTurn: 38 }];
+    assert.equal(career.effectiveStats(state).culture, -100);
+  });
+
+  test('the maximum of a stat is its last bonus step', () => {
+    assert.deepEqual(career.STAT_MAX, { oreille: 300, memoire: 300, culture: 200 });
+  });
+
+  test('a negative hearing shortens the first tier to 0.5 s', () => {
+    assert.deepEqual(career.roundTiers(stats({ oreille: -100 })), [0.5, 2, 3]);
+  });
+
+  test('a negative culture leaves a single tier', () => {
+    assert.deepEqual(career.roundTiers(stats({ culture: -100 })), [1]);
+  });
+
+  test('a negative memory removes every suggestion', () => {
+    assert.equal(career.suggestionCount(stats({ memoire: -100 })), 0);
   });
 });
 

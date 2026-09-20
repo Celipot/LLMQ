@@ -17,9 +17,10 @@ const MAX_EXTRA_TIERS = 2;
 const MAX_EXTRA_SUGGESTIONS = 3;
 
 // Two phases of 10 turns: the album is released after the first, the concert
-// after the second.
+// after the second. A third phase of 30 turns follows, ended by the finale.
 const RELEASE_AFTER_TURN = 10;
-const TOTAL_TURNS = 2 * RELEASE_AFTER_TURN;
+const CONCERT_AFTER_TURN = 2 * RELEASE_AFTER_TURN;
+const FINAL_TURN = CONCERT_AFTER_TURN + 30;
 const MAX_ENERGY = 4;
 const STUDY_COST = 1;
 const SINGLE_COST = 2;
@@ -39,9 +40,34 @@ const GRADE_ORDER = ['S', 'A', 'B', 'C', 'D'];
 
 const ALBUM_SIZE = 6;
 const CONCERT_SIZE = 15;
+const FINALE_SIZE = 50;
 const TRACK_POINTS_BY_STAGE = { 1: 100, 2: 70, 3: 50, 4: 35, 5: 25 };
 const MAX_ALBUM_SCORE = ALBUM_SIZE * TRACK_POINTS_BY_STAGE[1];
 const MAX_CONCERT_SCORE = CONCERT_SIZE * TRACK_POINTS_BY_STAGE[1];
+const MAX_FINALE_SCORE = FINALE_SIZE * TRACK_POINTS_BY_STAGE[1];
+
+// In the third phase albums and concerts are released on demand and cost
+// energy, paid with the first track. The finale is free and only due at the end.
+const LIVES = {
+  album: { size: ALBUM_SIZE, cost: 3, maxScore: MAX_ALBUM_SCORE },
+  concert: { size: CONCERT_SIZE, cost: 4, maxScore: MAX_CONCERT_SCORE },
+  finale: { size: FINALE_SIZE, cost: 0, maxScore: MAX_FINALE_SCORE },
+};
+// To take part in the finale: this many sorties in the third phase, of which
+// this many graded at least ALBUM_GOAL_GRADE ("above the average").
+const FINALE_GOALS = {
+  concerts: { required: 2, requiredGood: 2 },
+  albums: { required: 3, requiredGood: 2 },
+};
+
+// The maximum of a stat is its last bonus step; it can keep growing past it.
+const STAT_MAX = {
+  oreille: BASE_TIERS.length * STAT_STEP,
+  memoire: MAX_EXTRA_SUGGESTIONS * STAT_STEP,
+  culture: MAX_EXTRA_TIERS * STAT_STEP,
+};
+// A temporary penalty can push a stat under 0 (which removes a feature) but no further.
+const MIN_EFFECTIVE_STAT = -100;
 // Minimum share of the maximum score (in %) for each grade, best first.
 const GRADES = [
   ['S', 90],
@@ -58,8 +84,11 @@ function unlockedSteps(value) {
   return Math.floor(value / STAT_STEP);
 }
 
+// A negative stat removes a feature below the starting level: one tier only for
+// culture, a shorter first tier for hearing.
 function roundTiers(stats) {
-  const tiers = [...BASE_TIERS];
+  const tiers = stats.culture < 0 ? [BASE_TIERS[0]] : [...BASE_TIERS];
+  if (stats.oreille < 0) tiers[0] -= HEARING_BONUS_SECONDS;
   const hearingSteps = Math.min(unlockedSteps(stats.oreille), tiers.length);
   for (let i = 0; i < hearingSteps; i += 1) tiers[i] += HEARING_BONUS_SECONDS;
   const extraTiers = Math.min(unlockedSteps(stats.culture), MAX_EXTRA_TIERS);
@@ -68,6 +97,7 @@ function roundTiers(stats) {
 }
 
 function suggestionCount(stats) {
+  if (stats.memoire < 0) return 0;
   return 1 + Math.min(unlockedSteps(stats.memoire), MAX_EXTRA_SUGGESTIONS);
 }
 
@@ -100,9 +130,29 @@ function createCareer() {
     notebook: [],
     album: [],
     concertTracks: [],
+    sorties: [],
+    live: null,
+    modifiers: [],
+    pendingChoice: null,
+    eventTurns: {},
+    firedEvents: [],
+    events: [],
+    streak: [],
     fans: 0,
     failure: null,
   };
+}
+
+// The base stats plus the temporary penalties still running.
+function effectiveStats(state) {
+  const stats = { ...state.stats };
+  state.modifiers.forEach(({ stat, delta, expiresAtTurn }) => {
+    if (state.turn < expiresAtTurn) stats[stat] += delta;
+  });
+  STATS.forEach((stat) => {
+    stats[stat] = Math.max(MIN_EFFECTIVE_STAT, stats[stat]);
+  });
+  return stats;
 }
 
 // state.release is the released album, state.concert the finished concert.
@@ -111,32 +161,72 @@ function isReleaseDue(state) {
 }
 
 function isConcertDue(state) {
-  return Boolean(state.release) && !state.failure && !state.concert && state.turn > TOTAL_TURNS;
+  return Boolean(state.release) && !state.failure && !state.concert && state.turn > CONCERT_AFTER_TURN;
+}
+
+// state.concert is the concert of the second phase: it opens the third one.
+function isPhase3(state) {
+  return Boolean(state.concert);
+}
+
+// state.finale is the finished finale, which ends the career.
+function isFinaleDue(state) {
+  return isPhase3(state) && !state.failure && !state.finale && state.turn > FINAL_TURN;
+}
+
+function finaleGoals(state) {
+  const goals = {};
+  Object.entries({ concerts: 'concert', albums: 'album' }).forEach(([name, kind]) => {
+    const sorties = state.sorties.filter((sortie) => sortie.kind === kind);
+    goals[name] = {
+      done: sorties.length,
+      good: sorties.filter((sortie) => albumGoalReached(sortie.grade)).length,
+      ...FINALE_GOALS[name],
+    };
+  });
+  goals.met = Object.keys(FINALE_GOALS).every(
+    (name) => goals[name].done >= goals[name].required && goals[name].good >= goals[name].requiredGood,
+  );
+  return goals;
 }
 
 // Spending a turn ends the second phase on a failure when the fans needed for
-// the concert were not won in time.
+// the concert were not won in time, and the third one when the goals of the
+// finale were not reached.
 function advanceTurn(state) {
   state.turn += 1;
-  if (state.release && state.turn > TOTAL_TURNS && state.fans < FANS_REQUIRED) state.failure = 'FANS';
+  if (state.release && !state.concert && state.turn > CONCERT_AFTER_TURN && state.fans < FANS_REQUIRED) {
+    state.failure = 'FANS';
+  }
+  if (isPhase3(state) && state.turn > FINAL_TURN && !finaleGoals(state).met) state.failure = 'FINALE_GOALS';
 }
 
 function isOver(state) {
-  return Boolean(state.failure || state.concert);
+  return Boolean(state.failure || state.finale);
 }
 
 // What was played counts, so a career failed early still gets a (low) score.
 function careerScore(state) {
   const album = state.release?.score ?? 0;
   const concert = state.concert?.score ?? 0;
+  const sorties = state.sorties.reduce((total, sortie) => total + sortie.score, 0);
+  const finale = state.finale?.score ?? 0;
   const stats = Object.values(state.stats).reduce((total, value) => total + value, 0);
-  return { album, concert, stats, fans: state.fans, total: album + concert + stats + state.fans };
+  const total = album + concert + sorties + finale + stats + state.fans;
+  return { album, concert, sorties, finale, stats, fans: state.fans, total };
+}
+
+function assertIdle(state) {
+  if (isOver(state)) throw new Error('CAREER_FINISHED');
+  if (state.pendingChoice) throw new Error('EVENT_PENDING');
 }
 
 function assertTurnAvailable(state) {
-  if (isOver(state)) throw new Error('CAREER_FINISHED');
+  assertIdle(state);
+  if (state.live) throw new Error('RELEASE_IN_PROGRESS');
   if (isReleaseDue(state)) throw new Error('RELEASE_DUE');
   if (isConcertDue(state)) throw new Error('CONCERT_DUE');
+  if (isFinaleDue(state)) throw new Error('FINALE_DUE');
 }
 
 // Checked before a round starts, so a refused action never draws a title.
@@ -198,12 +288,12 @@ function grade(score, maxScore) {
 }
 
 function assertCanRelease(state) {
-  if (isOver(state)) throw new Error('CAREER_FINISHED');
+  assertIdle(state);
   if (!isReleaseDue(state)) throw new Error('RELEASE_NOT_DUE');
 }
 
 function assertCanConcert(state) {
-  if (isOver(state)) throw new Error('CAREER_FINISHED');
+  assertIdle(state);
   if (!isConcertDue(state)) throw new Error('CONCERT_NOT_DUE');
 }
 
@@ -227,13 +317,55 @@ function finishAlbumTrack(state, foundAtStage, songId) {
   if (!albumGoalReached(state.release.grade)) state.failure = 'ALBUM_GRADE';
 }
 
-// The concert ends the career once its last track is recorded.
+// The concert of the second phase opens the third one once its last track is
+// recorded.
 function finishConcertTrack(state, foundAtStage, songId) {
   assertCanConcert(state);
   recordTrack(state.concertTracks, foundAtStage, songId);
   if (state.concertTracks.length === CONCERT_SIZE) {
     state.concert = summarize(state.concertTracks, MAX_CONCERT_SCORE);
   }
+}
+
+// Starts (or goes on with) a sortie of the third phase or the finale. The
+// energy is paid once, with the first track, so a refusal draws no title.
+function startLive(state, kind) {
+  assertIdle(state);
+  if (state.live) {
+    if (state.live.kind !== kind) throw new Error('RELEASE_IN_PROGRESS');
+    return;
+  }
+  if (kind === 'finale') {
+    if (!isFinaleDue(state)) throw new Error('FINALE_NOT_DUE');
+  } else {
+    if (isFinaleDue(state)) throw new Error('FINALE_DUE');
+    if (!isPhase3(state)) throw new Error(kind === 'album' ? 'RELEASE_NOT_DUE' : 'CONCERT_NOT_DUE');
+    if (state.energy < LIVES[kind].cost) throw new Error('NO_ENERGY');
+    state.energy -= LIVES[kind].cost;
+  }
+  state.live = { kind, tracks: [] };
+}
+
+// The last track releases the sortie. An album and a concert use a turn, an
+// album also wins fans; the finale ends the career.
+function finishLiveTrack(state, foundAtStage, songId) {
+  const { kind, tracks } = state.live;
+  const { size, maxScore } = LIVES[kind];
+  recordTrack(tracks, foundAtStage, songId);
+  if (tracks.length < size) return;
+  const result = summarize(tracks, maxScore);
+  state.live = null;
+  if (kind === 'finale') {
+    state.finale = result;
+    return;
+  }
+  state.sorties.push({ kind, ...result });
+  if (kind === 'album') state.fans += Math.floor(result.score / ALBUM_FANS_DIVISOR);
+  advanceTurn(state);
+}
+
+function liveSongIds(state) {
+  return state.live ? state.live.tracks.map((track) => track.songId) : [];
 }
 
 // A single trains a stat the player does not choose.
@@ -263,12 +395,17 @@ module.exports = {
   FANS_REQUIRED,
   ALBUM_GOAL_GRADE,
   RELEASE_AFTER_TURN,
-  TOTAL_TURNS,
+  CONCERT_AFTER_TURN,
+  FINAL_TURN,
   MAX_ENERGY,
+  STAT_MAX,
   ALBUM_SIZE,
   CONCERT_SIZE,
+  FINALE_SIZE,
   MAX_ALBUM_SCORE,
   MAX_CONCERT_SCORE,
+  MAX_FINALE_SCORE,
+  LIVES,
   discographyIds,
   roundTiers,
   suggestionCount,
@@ -276,8 +413,12 @@ module.exports = {
   singleGain,
   singleFans,
   createCareer,
+  effectiveStats,
   isReleaseDue,
   isConcertDue,
+  isPhase3,
+  isFinaleDue,
+  finaleGoals,
   isOver,
   careerScore,
   assertCanStudy,
@@ -289,6 +430,9 @@ module.exports = {
   assertCanConcert,
   finishAlbumTrack,
   finishConcertTrack,
+  startLive,
+  finishLiveTrack,
+  liveSongIds,
   trackPoints,
   grade,
   releaseRank,

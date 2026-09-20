@@ -33,7 +33,7 @@ En tant que **joueur**, je veux **une carte « Mode Carrière » sur l'accueil**
 **Critères d'acceptation :**
 - La carte « Mode Carrière » est placée après « Mode Solo » sur l'accueil.
 - Sans carrière en cours, l'écran propose « Commencer une carrière » ; avec une carrière, il affiche son état (tour, énergie, stats, carnet).
-- Les règles et l'écran de fin (grade, score, tracklist) sont décrits dans [`carriere-v1.md`](carriere-v1.md).
+- Les règles et l'écran de fin (grade, score, tracklist) sont décrits dans [`carriere-v1.md`](carriere/carriere-v1.md).
 
 ---
 

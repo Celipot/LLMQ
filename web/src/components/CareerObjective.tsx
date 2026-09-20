@@ -11,19 +11,46 @@ interface Objective {
 
 // The current turn still counts: at turn 1 there are 10 turns before the album.
 function objectiveOf(career: Career): Objective {
-  const { failure, concertResult, concertDue, release, releaseDue, albumGoalGrade, fans, turn, releaseAt, totalTurns } =
-    career;
+  const {
+    failure,
+    concertResult,
+    concertDue,
+    release,
+    releaseDue,
+    albumGoalGrade,
+    fans,
+    turn,
+    releaseAt,
+    concertAt,
+    finalTurn,
+    finaleDue,
+    finaleResult,
+    finaleGoals,
+  } = career;
   const fansProgress = `${fans.current} / ${fans.required}`;
   if (failure === 'ALBUM_GRADE') return { text: `Objectif raté : l'album n'a pas atteint le grade ${albumGoalGrade}` };
   if (failure === 'FANS') {
     return { text: `Objectif raté : pas assez de FSI pour participer au concert (${fansProgress})` };
   }
-  if (concertResult) return { text: 'Carrière terminée' };
+  if (failure === 'FINALE_GOALS') {
+    return { text: "Objectif raté : pas assez de concerts et d'albums réussis pour le SIF" };
+  }
+  if (finaleResult) return { text: 'Carrière terminée' };
+  if (finaleDue) return { text: 'Donner le SIF' };
+  if (concertResult) {
+    const { concerts, albums } = finaleGoals;
+    return {
+      text:
+        `Préparer le SIF : concerts ${concerts.done} / ${concerts.required} (B+ ${concerts.good} / ${concerts.requiredGood}), ` +
+        `albums ${albums.done} / ${albums.required} (B+ ${albums.good} / ${albums.requiredGood})`,
+      turnsLeft: finalTurn - turn + 1,
+    };
+  }
   if (concertDue) return { text: 'Donner le concert' };
   if (release) {
     return {
       text: `Atteindre ${fans.required} FSI pour participer au concert (${fansProgress})`,
-      turnsLeft: totalTurns - turn + 1,
+      turnsLeft: concertAt - turn + 1,
     };
   }
   const text = `Sortir l'album avec un grade ${albumGoalGrade} ou mieux`;

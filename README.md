@@ -46,14 +46,15 @@ server/
   gameState.js         # état de partie en mémoire (paliers, essais, victoire/défaite)
   songs.js             # chargement/recherche des titres jouables
   soloSessions.js      # session solo par joueur (en-tête X-Solo-Session, expiration après 2 h)
-  career.js            # règles pures du Mode Carrière (stats, énergie, tours, single, album de 6 titres, concert de 15, score)
-  careerRounds.js      # lien session ↔ gameState ↔ career (rounds d'étude, de single, d'album et de concert)
+  career.js            # règles pures du Mode Carrière (stats, énergie, tours, single, album de 6 titres, concert de 15, SIF de 50, score)
+  careerEvents.js      # événements de carrière (catalogue, seuils, série de réponses)
+  careerRounds.js      # lien session ↔ gameState ↔ career (rounds d'étude, de single, d'album, de concert et de SIF, événements)
   wavTruncate.js        # découpe la piste WAV au nombre de secondes autorisé
 web/
   src/                 # frontend React + TypeScript (Vite)
     api.ts, types.ts    # client fetch typé pour le contrat API ci-dessous
     hooks/               # useGameState, useCareer (état + actions), useAudioPlayer (lecture + progress)
-    components/          # Player, Pips, SearchAutocomplete, History, Result, ShinyText, CareerHub, CareerObjective, CareerResult, CareerScore, StatBars
+    components/          # Player, Pips, SearchAutocomplete, History, Result, ShinyText, CareerHub, CareerObjective, CareerEvent, CareerResult, CareerScore, StatBars
   vite.config.ts        # dev proxy vers Express, build vers ../public
 public/
   (généré par `npm run build`, ne pas éditer à la main)
@@ -76,9 +77,11 @@ Le frontend utilise [React Bits](https://reactbits.dev) pour l'habillage animé 
 | `/api/career/study` | POST | `{ "stat": "oreille" \| "memoire" \| "culture" }` — démarre un round d'étude (coûte 1 énergie, le titre trouvé entre dans le carnet) |
 | `/api/career/single` | POST | Démarre un round de single sur une stat tirée au hasard par le serveur (coûte 2 énergies, plus de stats qu'une étude, le titre n'entre pas dans le carnet) |
 | `/api/career/release` | POST | Après les 10 premiers tours : démarre le titre suivant de l'album de 6 (score et grade après le 6e), puis 10 nouveaux tours |
-| `/api/career/concert` | POST | Après les tours 11 à 20 : démarre le titre suivant du concert de 15 (score sur 1500 et grade après le 15e), qui termine la carrière |
+| `/api/career/concert` | POST | Après les tours 11 à 20 : démarre le titre suivant du concert de 15 (score sur 1500 et grade après le 15e), qui ouvre la 3e phase ; ensuite, concert à la demande (4 énergies) |
+| `/api/career/finale` | POST | Après le tour 50, objectifs remplis (2 concerts et 3 albums, dont 2 et 2 de grade B+) : démarre le titre suivant du SIF de 50 (score sur 5000), qui termine la carrière |
+| `/api/career/event/choice` | POST | `{ "option": "stats" \| "energy" }` — choisit la récompense d'une série de 5 titres trouvés (bloque toute action tant qu'elle est en attente) |
 
-Les routes solo (dont `/api/career*`) exigent l'en-tête `X-Solo-Session` (id opaque de 16 à 64 caractères généré par le client). Un round de carrière se joue avec `/api/guess`, `/api/skip` et `/audio/track` ; sa spécification est dans [`us/carriere-v1.md`](us/carriere-v1.md) et [`us/carriere-v2.md`](us/carriere-v2.md) (single, deuxième phase, concert).
+Les routes solo (dont `/api/career*`) exigent l'en-tête `X-Solo-Session` (id opaque de 16 à 64 caractères généré par le client). Un round de carrière se joue avec `/api/guess`, `/api/skip` et `/audio/track` ; sa spécification est dans [`us/carriere-v1.md`](us/carriere/carriere-v1.md) et [`us/carriere-v2.md`](us/carriere/carriere-v2.md) (single, deuxième phase, concert) et [`us/carriere-v3.md`](us/carriere/carriere-v3.md) (troisième phase, événements, SIF).
 
 Le serveur est la seule source de vérité : le titre correct n'est jamais renvoyé avant la fin de partie, et la durée audio servie est réellement limitée côté back (pas seulement côté lecteur front).
 

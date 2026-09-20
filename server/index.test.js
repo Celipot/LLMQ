@@ -920,9 +920,12 @@ function newCareerPlayer() {
       headers: { ...headers, 'Content-Type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
+  // The timed events are drawn when the career is created: pinning the draw to 0
+  // makes them fall on the first turn of their window.
   return {
     get: (path) => call('GET', path),
-    post: (path, body) => call('POST', path, body),
+    post: (path, body, draw = 0) =>
+      path === '/api/career' ? withFirstDraw(() => call('POST', path, body), draw) : call('POST', path, body),
     delete: (path) => call('DELETE', path),
   };
 }
@@ -962,7 +965,8 @@ test('career routes require a solo session', async () => {
 test('POST /api/career starts a career with full energy, no stats and the base help', async () => {
   const body = await (await newCareerPlayer().post('/api/career')).json();
   assert.equal(body.career.turn, 1);
-  assert.equal(body.career.totalTurns, 20);
+  assert.equal(body.career.concertAt, 20);
+  assert.equal(body.career.finalTurn, 50);
   assert.equal(body.career.releaseAt, 10);
   assert.equal(body.career.energy, 4);
   assert.equal(body.career.maxEnergy, 4);
@@ -1070,7 +1074,9 @@ test('a study won at the first tier teaches more and the song joins the notebook
 
 test('a study is refused without energy', async () => {
   const player = newCareerPlayer();
-  await player.post('/api/career');
+  // The energy event of the first phase is drawn at turn 10 instead of 5: it
+  // must not refill the energy this test drains.
+  await player.post('/api/career', undefined, 0.999);
   for (let i = 0; i < 4; i += 1) {
     await player.post('/api/career/study', { stat: 'oreille' });
     await skipRound(player);
@@ -1346,16 +1352,17 @@ test('a concert of 15 tracks found at the first tier scores 1500 and is graded S
   assert.deepEqual(last.career.concert, { done: 15, total: 15 });
 });
 
-test('once the concert is over the career is finished', async () => {
+test('once the concert is over the career goes on with the third phase', async () => {
   const player = newCareerPlayer();
   await restUntilConcert(player);
   for (let i = 0; i < 15; i += 1) await playConcertTrack(player, i);
 
-  for (const path of ['/api/career/concert', '/api/career/rest']) {
-    const res = await player.post(path);
-    assert.equal(res.status, 409);
-    assert.equal((await res.json()).error, 'CAREER_FINISHED');
-  }
+  const res = await player.post('/api/career/rest');
+  assert.equal(res.status, 200);
+  const { career: state } = await res.json();
+  assert.equal(state.phase3, true);
+  assert.equal(state.turn, 22);
+  assert.equal(state.finalScore, null);
 });
 test('DELETE /api/career abandons the career: the next visit finds none', async () => {
   const player = newCareerPlayer();
@@ -1480,13 +1487,27 @@ test('the final score is only given once the career is over', async () => {
   assert.equal(during.finalScore, null);
 });
 
-test('a finished concert gives a final score from the album, the concert, the stats and the fans', async () => {
-  const player = newCareerPlayer();
+async function restUntilPhase3(player) {
   await restUntilConcert(player);
-  let last;
-  for (let i = 0; i < 15; i += 1) last = await playConcertTrack(player, i);
+  for (let i = 0; i < 15; i += 1) await playConcertTrack(player, i);
+}
 
-  assert.deepEqual(last.career.finalScore, { album: 600, concert: 1500, stats: 0, fans: 300, total: 2400 });
+test('a career that misses the goals of the finale gets a final score at turn 51', async () => {
+  const player = newCareerPlayer();
+  await restUntilPhase3(player);
+  let last;
+  for (let i = 0; i < 30; i += 1) last = await (await player.post('/api/career/rest')).json();
+
+  assert.equal(last.career.failure, 'FINALE_GOALS');
+  assert.deepEqual(last.career.finalScore, {
+    album: 600,
+    concert: 1500,
+    sorties: 0,
+    finale: 0,
+    stats: 0,
+    fans: 300,
+    total: 2400,
+  });
 });
 
 test('a failed career also gets a final score', async () => {
@@ -1498,5 +1519,159 @@ test('a failed career also gets a final score', async () => {
     last = await skipRound(player);
   }
 
-  assert.deepEqual(last.career.finalScore, { album: 0, concert: 0, stats: 0, fans: 0, total: 0 });
+  assert.deepEqual(last.career.finalScore, {
+    album: 0,
+    concert: 0,
+    sorties: 0,
+    finale: 0,
+    stats: 0,
+    fans: 0,
+    total: 0,
+  });
+});
+
+// --- Troisième phase, événements et SIF ------------------------------------
+
+test('the third phase exposes its goals, its limits and the stat maximums', async () => {
+  const player = newCareerPlayer();
+  await restUntilPhase3(player);
+
+  const { career: state } = await (await player.get('/api/career')).json();
+
+  assert.equal(state.phase3, true);
+  assert.deepEqual(state.statMax, { oreille: 300, memoire: 300, culture: 200 });
+  assert.deepEqual(state.finaleGoals.concerts, { done: 0, good: 0, required: 2, requiredGood: 2 });
+  assert.deepEqual(state.finaleGoals.albums, { done: 0, good: 0, required: 3, requiredGood: 2 });
+  assert.equal(state.live, null);
+  assert.deepEqual(state.sorties, []);
+  assert.equal(state.pendingChoice, null);
+});
+
+test('a concert of the third phase costs 4 energy and blocks every other action until it is over', async () => {
+  const player = newCareerPlayer();
+  await restUntilPhase3(player);
+
+  const started = await (await withFirstDraw(() => player.post('/api/career/concert'))).json();
+
+  assert.equal(started.career.energy, 0);
+  assert.deepEqual(started.career.live, { kind: 'concert', done: 0, total: 15 });
+  await skipRound(player);
+  const res = await player.post('/api/career/rest');
+  assert.equal(res.status, 409);
+  assert.equal((await res.json()).error, 'RELEASE_IN_PROGRESS');
+});
+
+test('an album of the third phase is refused without 3 energy', async () => {
+  const player = newCareerPlayer();
+  await restUntilPhase3(player);
+  await withFirstDraw(() => player.post('/api/career/concert'));
+  await skipRound(player);
+  for (let i = 0; i < 14; i += 1) {
+    await withFirstDraw(() => player.post('/api/career/concert'));
+    await skipRound(player);
+  }
+  const res = await player.post('/api/career/release');
+  assert.equal(res.status, 409);
+  assert.equal((await res.json()).error, 'NO_ENERGY');
+});
+
+test('an album of the third phase is a sortie: 6 tracks, one turn, listed with its grade', async () => {
+  const player = newCareerPlayer();
+  await restUntilPhase3(player);
+  let last;
+  for (let i = 0; i < 6; i += 1) {
+    await withFirstDraw(() => player.post('/api/career/release'));
+    last = await skipRound(player);
+  }
+
+  assert.equal(last.career.turn, 22);
+  assert.equal(last.career.live, null);
+  assert.equal(last.career.sorties.length, 1);
+  assert.equal(last.career.sorties[0].kind, 'album');
+  assert.equal(last.career.sorties[0].grade, 'D');
+  assert.equal(last.career.sorties[0].maxScore, 600);
+  assert.equal(last.career.sorties[0].tracks.length, 6);
+});
+
+test('the finale is refused before the end of the third phase', async () => {
+  const player = newCareerPlayer();
+  await restUntilPhase3(player);
+  const res = await player.post('/api/career/finale');
+  assert.equal(res.status, 409);
+  assert.equal((await res.json()).error, 'FINALE_NOT_DUE');
+});
+
+test('a timed event is returned with the action that triggered it, then cleared', async () => {
+  const player = newCareerPlayer();
+  await player.post('/api/career');
+  let last;
+  for (let i = 0; i < 4; i += 1) last = await (await player.post('/api/career/rest')).json();
+
+  assert.deepEqual(last.career.newEvents, [{ id: 1, text: 'Énergie +2' }]);
+  assert.deepEqual(last.career.events, [{ id: 1, turn: 5, text: 'Énergie +2' }]);
+  const next = await (await player.post('/api/career/rest')).json();
+  assert.deepEqual(next.career.newEvents, []);
+  assert.equal(next.career.events.length, 1);
+});
+
+async function winFiveStudies(player) {
+  await player.post('/api/career');
+  for (let i = 0; i < 5; i += 1) {
+    if (i === 4) await player.post('/api/career/rest');
+    await withFirstDraw(() => player.post('/api/career/study', { stat: 'oreille' }));
+    await player.post('/api/guess', { title: albumSong(i).title });
+  }
+}
+
+test('5 studies won in a row ask for a choice and block every action until it is made', async () => {
+  const player = newCareerPlayer();
+  await winFiveStudies(player);
+
+  const { career: state } = await (await player.get('/api/career')).json();
+  assert.deepEqual(state.pendingChoice, {
+    eventId: 10,
+    options: { stats: { amount: 60 }, energy: { amount: 4 } },
+  });
+  const res = await player.post('/api/career/rest');
+  assert.equal(res.status, 409);
+  assert.equal((await res.json()).error, 'EVENT_PENDING');
+});
+
+test('choosing the stats reward applies it to the three stats and unblocks the career', async () => {
+  const player = newCareerPlayer();
+  await winFiveStudies(player);
+
+  const res = await player.post('/api/career/event/choice', { option: 'stats' });
+
+  assert.equal(res.status, 200);
+  const { career: state } = await res.json();
+  assert.equal(state.pendingChoice, null);
+  assert.equal(state.stats.memoire, 60);
+  assert.equal(state.stats.culture, 60);
+  assert.equal(state.newEvents[0].id, 10);
+  assert.equal((await player.post('/api/career/rest')).status, 200);
+});
+
+test('an unknown reward is refused and a choice without a pending one too', async () => {
+  const player = newCareerPlayer();
+  await player.post('/api/career');
+  const none = await player.post('/api/career/event/choice', { option: 'stats' });
+  assert.equal(none.status, 409);
+  assert.equal((await none.json()).error, 'NO_PENDING_CHOICE');
+
+  const pending = newCareerPlayer();
+  await winFiveStudies(pending);
+  const res = await pending.post('/api/career/event/choice', { option: 'fans' });
+  assert.equal(res.status, 400);
+  assert.equal((await res.json()).error, 'INVALID_CHOICE');
+});
+
+test('a career guess matches the exact title whatever its case, which a player without suggestions relies on', async () => {
+  const player = newCareerPlayer();
+  await player.post('/api/career');
+  await withFirstDraw(() => player.post('/api/career/study', { stat: 'oreille' }));
+
+  const body = await (await player.post('/api/guess', { title: firstDiscographySong.title.toUpperCase() })).json();
+
+  assert.equal(body.correct, true);
 });

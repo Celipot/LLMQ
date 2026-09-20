@@ -16,6 +16,8 @@ vi.mock('../api', async () => {
     singleCareer: vi.fn(),
     releaseCareer: vi.fn(),
     concertCareer: vi.fn(),
+    finaleCareer: vi.fn(),
+    chooseCareerReward: vi.fn(),
     abandonCareer: vi.fn(),
     submitGuess: vi.fn(),
     submitSkip: vi.fn(),
@@ -24,7 +26,24 @@ vi.mock('../api', async () => {
 
 const career: Career = {
   turn: 1,
-  totalTurns: 20,
+  concertAt: 20,
+  finalTurn: 50,
+  statMax: { oreille: 300, memoire: 300, culture: 200 },
+  modifiers: [],
+  phase3: false,
+  sorties: [],
+  liveCosts: { album: 3, concert: 4 },
+  live: null,
+  finaleGoals: {
+    concerts: { done: 0, good: 0, required: 2, requiredGood: 2 },
+    albums: { done: 0, good: 0, required: 3, requiredGood: 2 },
+    met: false,
+  },
+  finaleDue: false,
+  finaleResult: null,
+  events: [],
+  newEvents: [],
+  pendingChoice: null,
   releaseAt: 10,
   energy: 4,
   maxEnergy: 4,
@@ -242,5 +261,97 @@ describe('useCareer', () => {
     });
 
     expect(result.current.round?.state.attemptsUsed).toBe(1);
+  });
+});
+
+describe('useCareer events', () => {
+  const withEvents = (events: Career['newEvents']): CareerResponse => ({
+    career: { ...career, newEvents: events },
+    round: null,
+  });
+
+  test('the events fired by an action are queued and dismissed one by one', async () => {
+    vi.mocked(api.restCareer).mockResolvedValue(
+      withEvents([
+        { id: 1, text: 'Énergie +2' },
+        { id: 2, text: 'Carnet +1' },
+      ]),
+    );
+    const { result } = renderHook(() => useCareer());
+
+    await act(async () => {
+      await result.current.rest();
+    });
+    expect(result.current.events.map((event) => event.id)).toEqual([1, 2]);
+
+    act(() => result.current.dismissEvent());
+    expect(result.current.events.map((event) => event.id)).toEqual([2]);
+  });
+
+  test('the events of the last track of a sortie come with the guess result', async () => {
+    vi.mocked(api.studyCareer).mockResolvedValue(studyRound);
+    vi.mocked(api.submitGuess).mockResolvedValue({
+      correct: true,
+      state: { ...playing, status: 'won' },
+      career: { ...career, newEvents: [{ id: 6, text: 'Culture +100' }] },
+    });
+    const { result } = renderHook(() => useCareer());
+    await act(async () => {
+      await result.current.study('oreille');
+    });
+
+    await act(async () => {
+      await result.current.guess('Dream with You');
+    });
+
+    expect(result.current.events).toEqual([{ id: 6, text: 'Culture +100' }]);
+  });
+
+  test('entering the career again does not replay the events already seen', async () => {
+    vi.mocked(api.fetchCareer).mockResolvedValue(withEvents([{ id: 1, text: 'Énergie +2' }]));
+    const { result } = renderHook(() => useCareer());
+
+    await act(async () => {
+      await result.current.enter();
+    });
+
+    expect(result.current.events).toEqual([]);
+  });
+
+  test('chooseReward() sends the option and queues the resulting event', async () => {
+    vi.mocked(api.chooseCareerReward).mockResolvedValue(withEvents([{ id: 10, text: 'Série ! Énergie +4' }]));
+    const { result } = renderHook(() => useCareer());
+
+    await act(async () => {
+      await result.current.chooseReward('energy');
+    });
+
+    expect(api.chooseCareerReward).toHaveBeenCalledWith('energy');
+    expect(result.current.events).toEqual([{ id: 10, text: 'Série ! Énergie +4' }]);
+  });
+
+  test('finale() starts the finale round', async () => {
+    vi.mocked(api.finaleCareer).mockResolvedValue({
+      career,
+      round: { kind: 'finale', stat: null, state: playing },
+    });
+    const { result } = renderHook(() => useCareer());
+
+    await act(async () => {
+      await result.current.finale();
+    });
+
+    expect(result.current.round?.kind).toBe('finale');
+  });
+
+  test('a refused action reports why it is blocked by a pending choice', async () => {
+    vi.mocked(api.restCareer).mockRejectedValue(new ApiError('EVENT_PENDING'));
+    const { result } = renderHook(() => useCareer());
+
+    await act(async () => {
+      await result.current.rest();
+    });
+
+    expect(result.current.error).toBe('Choisir une récompense avant de continuer.');
   });
 });

@@ -62,19 +62,41 @@ export default function App() {
     !careerRound &&
     !!careerState.career &&
     !careerState.career.failure &&
-    !careerState.career.concertResult;
+    !careerState.career.finaleResult;
   const careerFinished = !!careerRound && careerRound.state.status !== 'playing';
   const careerLastAttempt =
     !!careerRound && !careerFinished && careerRound.state.attemptsUsed === careerRound.state.maxAttempts - 1;
 
-  // The album and the concert are series of rounds played back to back.
+  // The album, the concert and the finale are series of rounds played back to back.
+  // In the third phase (which opens once the concert is over) the server only reports
+  // the sortie in progress, `career.live`, and it is null after its last track.
   const career = careerState.career;
+  const kind = careerRound?.kind;
+  const liveProgress = (total: number) => career?.live ?? { done: total, total };
   const series =
-    career && careerRound?.kind === 'release'
-      ? { label: "Sortie de l'album", progress: career.album, over: !!career.release, next: careerState.release }
-      : career && careerRound?.kind === 'concert'
-        ? { label: 'Concert', progress: career.concert, over: !!career.concertResult, next: careerState.concert }
-        : null;
+    !career || !kind
+      ? null
+      : kind === 'finale'
+        ? {
+            label: 'SIF',
+            progress: liveProgress(career.finaleResult?.tracks.length ?? 0),
+            over: !career.live,
+            next: careerState.finale,
+          }
+        : kind === 'release'
+          ? career.phase3
+            ? {
+                label: "Sortie d'un album",
+                progress: liveProgress(career.album.total),
+                over: !career.live,
+                next: careerState.release,
+              }
+            : { label: "Sortie de l'album", progress: career.album, over: !!career.release, next: careerState.release }
+          : kind === 'concert'
+            ? career.phase3
+              ? { label: 'Concert', progress: liveProgress(career.concert.total), over: !career.live, next: careerState.concert }
+              : { label: 'Concert', progress: career.concert, over: !!career.concertResult, next: careerState.concert }
+            : null;
   // A finished track is already counted in the series progress, a playing one is not.
   const seriesPosition = (series?.progress.done ?? 0) + (careerFinished ? 0 : 1);
   const continueLabel = !series ? 'Continuer' : series.over ? 'Voir le résultat' : 'Titre suivant';
@@ -294,6 +316,10 @@ export default function App() {
           onSingle={() => startCareerRound(careerState.single)}
           onRelease={() => startCareerRound(careerState.release)}
           onConcert={() => startCareerRound(careerState.concert)}
+          onFinale={() => startCareerRound(careerState.finale)}
+          events={careerState.events}
+          onDismissEvent={careerState.dismissEvent}
+          onChooseReward={careerState.chooseReward}
         />
       )}
 

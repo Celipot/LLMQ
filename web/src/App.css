@@ -1100,3 +1100,38 @@ button:disabled {
     animation: none;
   }
 }
+
+.career-event {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.career-event-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 360px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--card-bg, #fff);
+  color: var(--text, #222);
+  text-align: center;
+}
+
+.career-event-image {
+  width: 100%;
+  border-radius: 8px;
+}
+
+.career-event-text {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}

@@ -228,6 +228,12 @@ const CAREER_ERROR_STATUS = {
   CONCERT_DUE: 409,
   CONCERT_NOT_DUE: 409,
   CAREER_FINISHED: 409,
+  RELEASE_IN_PROGRESS: 409,
+  FINALE_DUE: 409,
+  FINALE_NOT_DUE: 409,
+  EVENT_PENDING: 409,
+  NO_PENDING_CHOICE: 409,
+  INVALID_CHOICE: 400,
 };
 
 function requireCareer(req, res, next) {
@@ -311,6 +317,22 @@ app.post(
   requireCareer,
   requireNoCareerRound,
   careerAction((session) => careerRounds.startConcert(session)),
+);
+
+app.post(
+  '/api/career/finale',
+  requireSession,
+  requireCareer,
+  requireNoCareerRound,
+  careerAction((session) => careerRounds.startFinale(session)),
+);
+
+app.post(
+  '/api/career/event/choice',
+  requireSession,
+  requireCareer,
+  requireNoCareerRound,
+  careerAction((session, body) => careerRounds.chooseReward(session, body.option)),
 );
 
 app.post('/games', (req, res) => {

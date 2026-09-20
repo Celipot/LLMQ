@@ -46,11 +46,17 @@ export interface CareerSong {
 
 export interface Career {
   turn: number;
-  totalTurns: number;
+  // Last turn of the second phase (concert) and of the third one (finale).
+  concertAt: number;
+  finalTurn: number;
   releaseAt: number;
   energy: number;
   maxEnergy: number;
+  // Effective stats: a temporary penalty can push one under 0.
   stats: Record<CareerStat, number>;
+  // A stat keeps growing past its maximum, its bar is then shown full.
+  statMax: Record<CareerStat, number>;
+  modifiers: CareerModifier[];
   suggestionCount: number;
   notebook: CareerSong[];
   releaseDue: boolean;
@@ -63,19 +69,76 @@ export interface Career {
   // Why the career ended early, null while it is going on or once the concert is over.
   failure: CareerFailure | null;
   albumGoalGrade: CareerGrade;
-  // Only once the career is over (concert played or failure).
+  // Only once the career is over (finale played or failure).
   finalScore: CareerScore | null;
+  // Third phase: albums and concerts on demand, then the finale.
+  phase3: boolean;
+  sorties: CareerSortie[];
+  liveCosts: { album: number; concert: number };
+  // The album, concert or finale being played track by track.
+  live: { kind: CareerSortieKind | 'finale'; done: number; total: number } | null;
+  finaleGoals: FinaleGoals;
+  finaleDue: boolean;
+  finaleResult: CareerResult | null;
+  events: CareerEventRecord[];
+  // Fired by the last action, shown one after the other.
+  newEvents: CareerEvent[];
+  // Set while the player has to choose the reward of a series.
+  pendingChoice: PendingChoice | null;
+}
+
+export interface CareerModifier {
+  stat: CareerStat;
+  delta: number;
+  expiresAtTurn: number;
+}
+
+export interface CareerEvent {
+  id: number;
+  text: string;
+}
+
+export interface CareerEventRecord extends CareerEvent {
+  turn: number;
+}
+
+export type RewardOption = 'stats' | 'energy';
+
+export interface PendingChoice {
+  eventId: number;
+  options: Record<RewardOption, { amount: number }>;
+}
+
+export type CareerSortieKind = 'album' | 'concert';
+
+export interface CareerSortie extends CareerResult {
+  kind: CareerSortieKind;
+}
+
+interface FinaleGoal {
+  done: number;
+  good: number;
+  required: number;
+  requiredGood: number;
+}
+
+export interface FinaleGoals {
+  concerts: FinaleGoal;
+  albums: FinaleGoal;
+  met: boolean;
 }
 
 export interface CareerScore {
   album: number;
   concert: number;
+  sorties: number;
+  finale: number;
   stats: number;
   fans: number;
   total: number;
 }
 
-export type CareerFailure = 'ALBUM_GRADE' | 'FANS';
+export type CareerFailure = 'ALBUM_GRADE' | 'FANS' | 'FINALE_GOALS';
 
 export type CareerGrade = 'S' | 'A' | 'B' | 'C' | 'D';
 
@@ -95,7 +158,7 @@ export interface CareerResult {
 }
 
 export interface CareerRound {
-  kind: 'study' | 'single' | 'release' | 'concert';
+  kind: 'study' | 'single' | 'release' | 'concert' | 'finale';
   stat: CareerStat | null;
   state: GameState;
 }

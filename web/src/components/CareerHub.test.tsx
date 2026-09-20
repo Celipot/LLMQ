@@ -6,7 +6,24 @@ import type { Career, CareerResult } from '../types';
 
 const career: Career = {
   turn: 3,
-  totalTurns: 20,
+  concertAt: 20,
+  finalTurn: 50,
+  statMax: { oreille: 300, memoire: 300, culture: 200 },
+  modifiers: [],
+  phase3: false,
+  sorties: [],
+  liveCosts: { album: 3, concert: 4 },
+  live: null,
+  finaleGoals: {
+    concerts: { done: 0, good: 0, required: 2, requiredGood: 2 },
+    albums: { done: 0, good: 0, required: 3, requiredGood: 2 },
+    met: false,
+  },
+  finaleDue: false,
+  finaleResult: null,
+  events: [],
+  newEvents: [],
+  pendingChoice: null,
   releaseAt: 10,
   energy: 2,
   maxEnergy: 4,
@@ -50,9 +67,18 @@ function renderHub(overrides: Partial<Career> | null = {}, props: Partial<Parame
     onSingle: vi.fn(),
     onRelease: vi.fn(),
     onConcert: vi.fn(),
+    onFinale: vi.fn(),
+    onDismissEvent: vi.fn(),
+    onChooseReward: vi.fn(),
   };
   render(
-    <CareerHub career={overrides === null ? null : { ...career, ...overrides }} error={null} {...handlers} {...props} />,
+    <CareerHub
+      career={overrides === null ? null : { ...career, ...overrides }}
+      error={null}
+      events={[]}
+      {...handlers}
+      {...props}
+    />,
   );
   return handlers;
 }
@@ -207,9 +233,11 @@ describe('CareerHub', () => {
       expect(onConcert).toHaveBeenCalledOnce();
     });
 
-    test('once over shows its grade and score and offers a new career', async () => {
-      const { onBegin } = renderHub({
+    test('once played shows its grade and score in the recap, and the career goes on', async () => {
+      renderHub({
         ...due,
+        concertDue: false,
+        phase3: true,
         concert: { done: 15, total: 15 },
         concertResult,
       });
@@ -218,10 +246,7 @@ describe('CareerHub', () => {
       expect(screen.getByText('Score 1350 / 1500')).not.toBeVisible();
       await userEvent.click(screen.getByText('Concert'));
       expect(screen.getByText('Score 1350 / 1500')).toBeVisible();
-      expect(screen.queryByRole('button', { name: /concert/i })).not.toBeInTheDocument();
-      await userEvent.click(screen.getByRole('button', { name: 'Nouvelle carrière' }));
-
-      expect(onBegin).toHaveBeenCalledOnce();
+      expect(screen.queryByRole('button', { name: 'Nouvelle carrière' })).not.toBeInTheDocument();
     });
   });
 
@@ -269,8 +294,15 @@ describe('CareerHub', () => {
       expect(objective()).not.toHaveTextContent('(dans');
     });
 
-    test('once the concert is over the career is complete', () => {
-      renderHub({ turn: 21, release: albumResult, concertDue: true, concertResult });
+    test('once the concert is over the goals of the finale are shown', () => {
+      renderHub({ turn: 21, release: albumResult, phase3: true, concertResult });
+
+      expect(objective()).toHaveTextContent('Préparer le SIF : concerts 0 / 2 (B+ 0 / 2), albums 0 / 3 (B+ 0 / 2)');
+      expect(objective()).toHaveTextContent('(dans 30 tours)');
+    });
+
+    test('once the finale is over the career is complete', () => {
+      renderHub({ turn: 51, release: albumResult, concertResult, finaleResult: concertResult });
 
       expect(objective()).toHaveTextContent('Carrière terminée');
       expect(objective()).not.toHaveTextContent('(dans');
@@ -290,8 +322,8 @@ describe('CareerHub', () => {
   });
 
   describe('the final score', () => {
-    const finalScore = { album: 420, concert: 1000, stats: 170, fans: 200, total: 1790 };
-    const over = { turn: 21, release: albumResult, concertDue: true, concertResult, finalScore };
+    const finalScore = { album: 420, concert: 1000, sorties: 0, finale: 0, stats: 170, fans: 200, total: 1790 };
+    const over = { turn: 21, release: albumResult, concertResult, finaleResult: concertResult, finalScore };
 
     test('is shown at the end, with what it is made of', () => {
       renderHub(over);
@@ -301,6 +333,8 @@ describe('CareerHub', () => {
       expect(within(score).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
         'Album : 420',
         'Concert : 1000',
+        'Sorties : 0',
+        'SIF : 0',
         'Stats : 170',
         'Fans : 200',
       ]);
@@ -365,8 +399,8 @@ describe('CareerHub', () => {
       expect(within(recaps).queryByRole('button', { name: 'Nouvelle carrière' })).not.toBeInTheDocument();
     });
 
-    test('once the concert is over the new career button stays in the middle', () => {
-      renderHub(finished);
+    test('once the career is over the new career button stays in the middle', () => {
+      renderHub({ ...finished, failure: 'FINALE_GOALS' });
 
       expect(screen.getByRole('group', { name: 'Actions' })).toContainElement(
         screen.getByRole('button', { name: 'Nouvelle carrière' }),
@@ -378,5 +412,113 @@ describe('CareerHub', () => {
     renderHub({}, { error: 'Une erreur est survenue.' });
 
     expect(screen.getByRole('alert')).toHaveTextContent('Une erreur est survenue.');
+  });
+});
+
+describe('CareerHub third phase', () => {
+  const phase3: Partial<Career> = {
+    turn: 25,
+    phase3: true,
+    energy: 4,
+    release: albumResult,
+    concertResult,
+  };
+
+  test('offers an album and a concert, with their energy cost', async () => {
+    const { onRelease, onConcert } = renderHub(phase3);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Sortir un album (3 énergies)' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Donner un concert (4 énergies)' }));
+
+    expect(onRelease).toHaveBeenCalledOnce();
+    expect(onConcert).toHaveBeenCalledOnce();
+  });
+
+  test('disables a sortie the energy cannot pay', () => {
+    renderHub({ ...phase3, energy: 3 });
+
+    expect(screen.getByRole('button', { name: 'Sortir un album (3 énergies)' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Donner un concert (4 énergies)' })).toBeDisabled();
+  });
+
+  test('offers no album nor concert before the concert of the second phase', () => {
+    renderHub({ turn: 5, energy: 4 });
+
+    expect(screen.queryByRole('button', { name: /Sortir un album/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Donner un concert/ })).not.toBeInTheDocument();
+  });
+
+  test('a sortie in progress can only be continued', async () => {
+    const { onRelease } = renderHub({ ...phase3, live: { kind: 'album', done: 2, total: 6 } });
+
+    await userEvent.click(screen.getByRole('button', { name: "Poursuivre l'album (2 / 6)" }));
+
+    expect(onRelease).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('button', { name: /Se reposer/ })).not.toBeInTheDocument();
+  });
+
+  test('once the finale is due, only the SIF can be launched', async () => {
+    const { onFinale } = renderHub({ ...phase3, turn: 51, finaleDue: true });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Lancer le SIF' }));
+
+    expect(onFinale).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('button', { name: /Se reposer/ })).not.toBeInTheDocument();
+  });
+
+  test('a finale in progress can be continued', () => {
+    renderHub({ ...phase3, turn: 51, finaleDue: true, live: { kind: 'finale', done: 10, total: 50 } });
+
+    expect(screen.getByRole('button', { name: 'Poursuivre le SIF (10 / 50)' })).toBeInTheDocument();
+  });
+
+  test('keeps the turn at the last one once the third phase is over', () => {
+    renderHub({ ...phase3, turn: 51, finaleDue: true });
+
+    expect(screen.getByText('Tour 50')).toBeInTheDocument();
+  });
+
+  test('lists every sortie of the third phase on the right, with its grade', () => {
+    renderHub({
+      ...phase3,
+      sorties: [
+        { kind: 'album', ...albumResult },
+        { kind: 'concert', ...concertResult },
+      ],
+    });
+
+    const recaps = screen.getByRole('complementary', { name: 'Récapitulatifs' });
+    expect(within(recaps).getAllByText(/Album|Concert/).length).toBeGreaterThanOrEqual(4);
+  });
+
+  test('a played finale ends the career: score and new career', () => {
+    renderHub({
+      ...phase3,
+      finaleResult: { ...concertResult, maxScore: 5000 },
+      finalScore: { album: 1, concert: 1, sorties: 1, finale: 1, stats: 1, fans: 1, total: 6 },
+    });
+
+    expect(screen.getByRole('button', { name: 'Nouvelle carrière' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Sortir un album/ })).not.toBeInTheDocument();
+  });
+
+  test('shows the event to acknowledge, one at a time', async () => {
+    const { onDismissEvent } = renderHub({}, { events: [{ id: 1, text: 'Énergie +2' }, { id: 2, text: 'Carnet +1' }] });
+
+    expect(screen.getByText('Énergie +2')).toBeInTheDocument();
+    expect(screen.queryByText('Carnet +1')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Continuer' }));
+
+    expect(onDismissEvent).toHaveBeenCalledOnce();
+  });
+
+  test('a pending series choice offers the rewards and calls onChooseReward', async () => {
+    const { onChooseReward } = renderHub({
+      pendingChoice: { eventId: 10, options: { stats: { amount: 60 }, energy: { amount: 4 } } },
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Toutes les stats +60' }));
+
+    expect(onChooseReward).toHaveBeenCalledWith('stats');
   });
 });
