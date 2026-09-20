@@ -5,26 +5,32 @@ const career = require('./career');
 const AYUMU = 'Ayumu Uehara (CV: Aguri Onishi)';
 const AZUNA = 'A・ZU・NA';
 const GROUP = 'Nijigasaki High School Idol Club';
+const SHIZUKU = 'Shizuku Osaka (CV: Kaori Maeda)';
+const SETSUNA = 'Setsuna Yuki (CV: Tomori Kusunoki)';
+const SETSUNA_LATER_VOICE = 'Setsuna Yuki (CV: Coco Hayashi)';
 
 function stats(overrides = {}) {
   return { oreille: 0, memoire: 0, culture: 0, ...overrides };
 }
 
 describe('discographyIds', () => {
-  test('keeps Ayumu solos, A・ZU・NA and the Nijigasaki group, nothing else', () => {
+  test('keeps the solos of Ayumu, Shizuku and Setsuna (both voices), A・ZU・NA and the Nijigasaki group, nothing else', () => {
     const songs = [
       { id: 1, artist: AYUMU },
       { id: 2, artist: AZUNA },
       { id: 3, artist: GROUP },
-      { id: 4, artist: 'Shizuku Osaka (CV: Kaori Maeda)' },
-      { id: 5, artist: 'DiverDiva' },
+      { id: 4, artist: SHIZUKU },
+      { id: 5, artist: SETSUNA },
+      { id: 6, artist: SETSUNA_LATER_VOICE },
+      { id: 7, artist: 'Karin Asaka (CV: Miyu Kubota)' },
+      { id: 8, artist: 'DiverDiva' },
     ];
-    assert.deepEqual(career.discographyIds(songs), [1, 2, 3]);
+    assert.deepEqual(career.discographyIds(songs), [1, 2, 3, 4, 5, 6]);
   });
 
-  test('matches the 64 titles of the real library', () => {
+  test('matches the 82 titles of the real library', () => {
     const songs = require('../data/songs.json');
-    assert.equal(career.discographyIds(songs).length, 64);
+    assert.equal(career.discographyIds(songs).length, 82);
   });
 });
 

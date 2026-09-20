@@ -51,7 +51,7 @@ export default function CareerHub({
     return (
       <section className="career-hub">
         <p className="subtitle">
-          Suivre la carrière d'Ayumu Uehara : étudier, sortir des singles, se reposer, sortir un album, puis donner un
+          Suivre la carrière d'A・ZU・NA : étudier, sortir des singles, se reposer, sortir un album, puis donner un
           concert.
         </p>
         <button type="button" onClick={onBegin}>

@@ -1,10 +1,10 @@
-# Planning — Mode Carrière (personnage : Ayumu Uehara)
+# Planning — Mode Carrière (personnage : l'unité A・ZU・NA)
 
 Statut : **réflexion / planning du mode complet.** Une première version simplifiée est développée et spécifiée dans [`carriere-v1.md`](carriere-v1.md) : 10 tours d'études et de repos, 3 stats, puis la sortie d'un album de 6 titres avec un score et un grade. Elle diffère de ce document (pas de saisons, de fans, d'objectifs, de Moral, de finale ni de Discographie) ; ces éléments restent à décider ci-dessous. Les chiffres (nombre de tours, gains de fans, seuils) sont des points de départ à équilibrer.
 
 Inspiration : le mode « scénario » d'Uma Musume (suivre la carrière d'un personnage sur des tours, s'entraîner entre deux courses, atteindre des objectifs). Socle de gameplay : le round LLMQ (deviner une chanson à partir d'une intro qui s'allonge, 6 étapes).
 
-Périmètre de cette première version : **un seul personnage, Ayumu Uehara** (CV Aguri Onishi, Nijigasaki, unité A・ZU・NA), pour valider la boucle avant tout élargissement.
+Périmètre de cette première version : **une seule carrière, celle de l'unité A・ZU・NA** (Ayumu Uehara, Shizuku Osaka et Setsuna Yuki, Nijigasaki), pour valider la boucle avant tout élargissement.
 
 ---
 
@@ -13,22 +13,24 @@ Périmètre de cette première version : **un seul personnage, Ayumu Uehara** (C
 | Catégorie | Titres | Détail |
 |---|---|---|
 | Solos d'Ayumu (crédit nominatif) | 10 | Awakening Promise, Break The System, Dream with You, Kaika Sengen, Say Good-Bye Namida, Yume e no Ippo, Walking Dream, Stellar Stream, The Sweetest Time♡, secret |
+| Solos de Shizuku (crédit nominatif) | 9 | |
+| Solos de Setsuna (crédit nominatif, les deux voix : Tomori Kusunoki 5, Coco Hayashi 4) | 9 | |
 | Unité A・ZU・NA | 13 | Cheer for you!!, Dream Land! Dream World!, Folklore ~Kanki no Uta~, Happy Nyan! Days, Kakushiaji!, Maze Town, Infinity! Our wings!!, Poker face & Onegai! Fairy, Romance no Naka de, Blue!, Dancing in the Light, Monochrome Labyrinth, Jungle Hunter♡ |
 | Groupe Nijigasaki | 41 | Hurray Hurray, Just Believe!!!, Nijiiro Passions!, TOKIMEKI Runners, … |
 | Crossovers touchant Nijigasaki | 6 | facultatifs, laissés de côté dans la première version |
 
-Le **répertoire jouable** de la carrière compte donc **64 titres** (10 + 13 + 41).
+Le **répertoire jouable** de la carrière compte donc **82 titres** (10 + 9 + 9 + 13 + 41).
 
 Limites des données :
 - **Pas de chronologie** : aucune date de sortie, et l'ordre des `id` n'est pas chronologique. Retracer une discographie demande une chronologie fournie à la main.
-- **Pas de liste de membres par unité** : les membres de A・ZU・NA ne figurent pas dans la base (de mémoire : Ayumu, Shizuku, Setsuna, à confirmer).
+- **Pas de liste de membres par unité** : les membres de A・ZU・NA ne figurent pas dans la base (Ayumu, Shizuku et Setsuna, confirmé : leurs solos forment le pool avec l'unité et le groupe).
 - **Pas d'illustration de personnage** : le portrait sera la cover d'un de ses solos.
 
 ---
 
 ## 2. Principe
 
-On suit la carrière d'Ayumu en 3 saisons. Entre les sorties, on **étudie** son répertoire pour apprendre à reconnaître ses titres. À chaque **sortie**, un round LLMQ complet met cette connaissance à l'épreuve. Les fans gagnés font avancer les objectifs, jusqu'à la finale et à la discographie complète.
+On suit la carrière d'A・ZU・NA en 3 saisons. Entre les sorties, on **étudie** son répertoire pour apprendre à reconnaître ses titres. À chaque **sortie**, un round LLMQ complet met cette connaissance à l'épreuve. Les fans gagnés font avancer les objectifs, jusqu'à la finale et à la discographie complète.
 
 Correspondance avec Uma Musume :
 
@@ -86,7 +88,7 @@ Elles changent l'aide dont dispose le joueur, pas les règles du round.
 
 - Un objectif de saison raté termine la carrière (voir décision 3).
 - **Finale** : 3 sorties d'affilée sur des titres de groupe. Le **grade final** (S à D) dépend des fans et des rangs.
-- **Récompense** : la page **Discographie** (64 emplacements, avec cover, titre et liens d'écoute déjà présents dans `listenOn`) se remplit au fil des carrières.
+- **Récompense** : la page **Discographie** (82 emplacements, avec cover, titre et liens d'écoute déjà présents dans `listenOn`) se remplit au fil des carrières.
 
 ---
 
@@ -100,7 +102,7 @@ Elles changent l'aide dont dispose le joueur, pas les règles du round.
 
 1. **Chronologie** : ordre de sortie (ou dates) des 10 solos et des 13 titres A・ZU・NA ; choix des titres de groupe (parmi les 41) retenus pour les sorties de groupe et la finale.
 2. **Titres de départ** : lesquels sont déjà « connus » au tour 1 (proposition : 5 titres de groupe).
-3. **Membres de A・ZU・NA** : à confirmer.
+3. **Membres de A・ZU・NA** : confirmés (Ayumu, Shizuku, Setsuna).
 4. **Portrait** : quelle cover de solo sert de portrait.
 
 ---
@@ -116,7 +118,7 @@ Elles changent l'aide dont dispose le joueur, pas les règles du round.
 
 ## 7. Découpage pressenti (pour plus tard)
 
-1. Données d'Ayumu (chronologie validée, titres de départ, portrait).
+1. Données d'A・ZU・NA (chronologie validée, titres de départ, portrait).
 2. Boucle de base : sorties, rang, fans, objectifs.
 3. Études, Énergie, Moral et stats.
 4. Finale, grade, Carnet et page Discographie.

@@ -3,6 +3,9 @@
 
 const DISCOGRAPHY_ARTISTS = new Set([
   'Ayumu Uehara (CV: Aguri Onishi)',
+  'Shizuku Osaka (CV: Kaori Maeda)',
+  'Setsuna Yuki (CV: Tomori Kusunoki)',
+  'Setsuna Yuki (CV: Coco Hayashi)',
   'A・ZU・NA',
   'Nijigasaki High School Idol Club',
 ]);

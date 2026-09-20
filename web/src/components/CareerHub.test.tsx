@@ -94,6 +94,12 @@ describe('CareerHub', () => {
     expect(onBegin).toHaveBeenCalledOnce();
   });
 
+  test('without a career, presents the career of A・ZU・NA', () => {
+    renderHub(null);
+
+    expect(screen.getByText(/Suivre la carrière d'A・ZU・NA/)).toBeInTheDocument();
+  });
+
   test('shows only the current turn, without the total', () => {
     renderHub();
 

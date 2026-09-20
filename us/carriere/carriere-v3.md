@@ -151,7 +151,7 @@ Trois objectifs affichés l'un après l'autre, avec leur échéance en tours (v2
 - Le concert de la phase 2 n'est plus l'état final : le front et les tests v2 qui supposaient « concert ⇒ terminé » utilisent la fin du SIF (`finaleResult`) ou un échec.
 - Un titre ajouté au carnet par un événement ne doit jamais être celui d'un round en cours : les événements s'appliquent hors round.
 - Une stat effective négative doit être gérée explicitement par `roundTiers` et `suggestionCount` (règles du tableau du malus temporaire), pas par `Math.floor(valeur / 100)` : la mémoire passe à 0 suggestion, la culture à 1 seul palier, l'oreille réduit le premier palier à 0,5 s. Le client n'est plus limité aux suggestions quand il n'y en a plus.
-- Retirer des titres du carnet réduit le pool préparé des albums, concerts et du SIF (50 titres uniques : la discographie de 64 titres complète le manque).
+- Retirer des titres du carnet réduit le pool préparé des albums, concerts et du SIF (50 titres uniques : la discographie de 82 titres complète le manque).
 - Équilibrage : énergie des sorties, probabilité de négatif, poids du SIF ; tout est en constantes.
 
 ## Vérification
