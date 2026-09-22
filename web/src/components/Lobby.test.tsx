@@ -889,6 +889,24 @@ describe('Lobby', () => {
     expect(await screen.findByText('En attente du lancement de la partie...')).toBeInTheDocument();
   });
 
+  test('pressing Enter after the game ends returns to the lobby, like clicking "Retour au lobby"', async () => {
+    render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
+    const socket = MockWebSocket.instances[0];
+    socket.emit({ type: 'lobby:state', players: [{ playerId: 'p1', nickname: 'Alice' }] });
+    await screen.findByText('Alice');
+    socket.emit({
+      type: 'game:ended',
+      song: { title: 'Some Song', artist: 'Some Artist', coverUrl: '/covers/x.png' },
+      players: [{ playerId: 'p1', nickname: 'Alice', foundStage: 1, score: 6 }],
+    });
+    await screen.findByText(/Some Song — Some Artist/);
+
+    await userEvent.keyboard('{Enter}');
+
+    expect(socket.sent).toContainEqual(JSON.stringify({ type: 'player:returnToLobby' }));
+    expect(await screen.findByText('En attente du lancement de la partie...')).toBeInTheDocument();
+  });
+
   test('game:reset after a full game (stage:start then game:ended) shows the lobby, not GamePlay again', async () => {
     render(<Lobby gameId="g1" playerId="p1" onSessionInvalid={vi.fn()} onLeave={vi.fn()} />);
     const socket = MockWebSocket.instances[0];

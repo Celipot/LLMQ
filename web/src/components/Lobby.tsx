@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ApiError, startMultiplayerGame, updateSongCount, updateAnswerWindow, updateGenerations } from '../api';
 import { useGenerationOptions } from '../hooks/useGenerationOptions';
+import { useEnterKey } from '../hooks/useEnterKey';
 import type { AnswerFeedback, GameEndedPlayer, GameEndedSong, MultiplayerPlayer } from '../types';
 import GamePlay from './GamePlay';
 import GameResult from './GameResult';
@@ -66,6 +67,8 @@ export default function Lobby({ gameId, playerId, onSessionInvalid, onLeave }: L
   const [answerWindowSeconds, setAnswerWindowSeconds] = useState(DEFAULT_ANSWER_WINDOW_SECONDS);
   // null while the host is not typing: the field then shows the shared value.
   const [answerWindowDraft, setAnswerWindowDraft] = useState<string | null>(null);
+
+  useEnterKey(!!gameResult, confirmReturnToLobby);
   const [answerWindowError, setAnswerWindowError] = useState<string | null>(null);
   const generationOptions = useGenerationOptions();
   const [generations, setGenerations] = useState<string[] | null>(null);

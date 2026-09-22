@@ -678,6 +678,14 @@ describe('CareerHub third phase', () => {
     expect(onDismissEvent).toHaveBeenCalledOnce();
   });
 
+  test('pressing Enter while an event is shown dismisses it, like clicking Continuer', async () => {
+    const { onDismissEvent } = renderHub({}, { events: [{ id: 1, text: 'Énergie +2' }] });
+
+    await userEvent.keyboard('{Enter}');
+
+    expect(onDismissEvent).toHaveBeenCalledOnce();
+  });
+
   test('a pending series choice offers the rewards and calls onChooseReward', async () => {
     const { onChooseReward } = renderHub({
       pendingChoice: { eventId: 10, options: { stats: { amount: 60 }, energy: { amount: 4 } } },

@@ -219,6 +219,18 @@ describe('App — solo answer screen', () => {
 
     expect(await screen.findByText('Choisir un mode pour commencer')).toBeInTheDocument();
   });
+
+  test('pressing Enter once the round is over draws another song, like "Musique suivante"', async () => {
+    vi.mocked(api.resetGame).mockResolvedValue(playingState);
+    await finishARandomRound();
+    await screen.findByRole('heading', { name: 'Perdu' });
+
+    await userEvent.keyboard('{Enter}');
+
+    expect(await screen.findByRole('button', { name: 'Valider' })).toBeInTheDocument();
+    expect(api.resetGame).toHaveBeenCalled();
+    expect(screen.queryByRole('heading', { name: 'Perdu' })).not.toBeInTheDocument();
+  });
 });
 
 describe('App — leaving a solo round', () => {

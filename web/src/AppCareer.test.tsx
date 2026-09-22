@@ -297,6 +297,21 @@ describe('App — Mode Carrière', () => {
     expect(screen.getByText(/La chanson était/).closest('.career-round-controls')).toBeNull();
   });
 
+  test('once a round is over, pressing Enter continues, like clicking Continuer', async () => {
+    vi.mocked(api.fetchCareer).mockResolvedValue({
+      career,
+      round: { kind: 'study', stat: 'oreille', inNotebook: false, state: wonState },
+    });
+    render(<App />);
+    await userEvent.click(screen.getByText('Mode Carrière'));
+    await screen.findByRole('button', { name: 'Continuer' });
+
+    await userEvent.keyboard('{Enter}');
+
+    expect(await screen.findByRole('button', { name: 'Repos' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Continuer' })).not.toBeInTheDocument();
+  });
+
   test('the restart button sits in the header, to the left of Accueil', async () => {
     vi.mocked(api.fetchCareer).mockResolvedValue({ career, round: null });
     render(<App />);

@@ -1,6 +1,7 @@
 import type { CareerChanges } from '../careerChanges';
 import { CAREER_STATS } from '../careerStats';
 import { useState } from 'react';
+import { useEnterKey } from '../hooks/useEnterKey';
 import { illustrationFor } from '../careerIllustrations';
 import { CAREER_UNITS } from '../careerUnits';
 import { CAREER_GENERATIONS } from '../careerGenerations';
@@ -93,6 +94,8 @@ export default function CareerHub({
 }: CareerHubProps) {
   const [unit, setUnit] = useState<Unit>(CAREER_UNITS[0].unit);
   const [infiniteGeneration, setInfiniteGeneration] = useState<Generation>('nijigasaki');
+
+  useEnterKey(!!events[0], onDismissEvent);
 
   if (!career) {
     const { label: unitLabel } = CAREER_UNITS.find((choice) => choice.unit === unit) ?? CAREER_UNITS[0];

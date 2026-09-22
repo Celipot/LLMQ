@@ -18,6 +18,7 @@ import Toast from './components/Toast';
 import ConfirmDialog from './components/ConfirmDialog';
 import { useGameState } from './hooks/useGameState';
 import { useCareer } from './hooks/useCareer';
+import { useEnterKey } from './hooks/useEnterKey';
 import { useLeaderboard } from './hooks/useLeaderboard';
 import { useGenerationOptions } from './hooks/useGenerationOptions';
 import { useSongHistory } from './hooks/useSongHistory';
@@ -170,6 +171,8 @@ export default function App() {
     resetProgress();
   }
 
+  useEnterKey(showAnswer, handleReset);
+
   async function handleStartRandom() {
     setScreen('random');
     setInputValue('');
@@ -196,6 +199,8 @@ export default function App() {
     if (series && !series.over) await startCareerRound(series.next);
     else careerState.closeRound();
   }
+
+  useEnterKey(careerFinished, handleCareerContinue);
 
   async function handleCareerSubmit() {
     await careerState.guess(inputValue);
