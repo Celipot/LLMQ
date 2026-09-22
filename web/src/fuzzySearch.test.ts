@@ -17,6 +17,12 @@ const TITLES = [
 const titlesOf = (query: string, titles = TITLES) => rankMatches(titles, query).map((t) => t.title);
 
 describe('rankMatches', () => {
+  test('returns at most the given number of suggestions', () => {
+    const titles = [song(1, 'Song A', 'X'), song(2, 'Song B', 'X'), song(3, 'Song C', 'X')];
+    expect(rankMatches(titles, 'song', 1).map((t) => t.title)).toEqual(['Song A']);
+    expect(rankMatches(titles, 'song', 2)).toHaveLength(2);
+  });
+
   test('ignores case and accents', () => {
     expect(titlesOf('ETE eternel')).toEqual(['Été éternel']);
   });

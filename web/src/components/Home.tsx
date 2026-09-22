@@ -3,11 +3,13 @@ import { createMultiplayerGame } from '../api';
 
 interface HomeProps {
   onSelectRandom: () => void;
+  onSelectCareer: () => void;
   onSelectList: () => void;
   onGameCreated: (gameId: string, hostToken: string) => void;
+  showCareer: boolean;
 }
 
-export default function Home({ onSelectRandom, onSelectList, onGameCreated }: HomeProps) {
+export default function Home({ onSelectRandom, onSelectCareer, onSelectList, onGameCreated, showCareer }: HomeProps) {
   const [error, setError] = useState<string | null>(null);
 
   async function handleCreateMultiplayer() {
@@ -28,6 +30,11 @@ export default function Home({ onSelectRandom, onSelectList, onGameCreated }: Ho
           <span className="mode-card-title">Mode Solo</span>
           <span className="mode-card-desc">Deviner une chanson piochée au hasard</span>
         </button>
+        {showCareer && (
+          <button type="button" className="mode-card" onClick={onSelectCareer}>
+            <span className="mode-card-title">Mode Carrière</span>
+          </button>
+        )}
         <button type="button" className="mode-card" onClick={handleCreateMultiplayer}>
           <span className="mode-card-title">Créer une partie multijoueur</span>
           <span className="mode-card-desc">Générer un lien à partager avec ses amis</span>

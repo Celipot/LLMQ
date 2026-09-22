@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-label="Illustration à venir">
+  <rect width="1600" height="900" fill="#2b2b33"/>
+  <rect x="40" y="40" width="1520" height="820" rx="24" fill="none" stroke="#5a5a68" stroke-width="6" stroke-dasharray="28 20"/>
+  <text x="800" y="470" text-anchor="middle" font-family="sans-serif" font-size="64" fill="#8a8a98">Illustration à venir</text>
+</svg>

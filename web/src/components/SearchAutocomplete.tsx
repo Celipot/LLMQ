@@ -9,13 +9,21 @@ interface SearchAutocompleteProps {
   disabled: boolean;
   onChange: (value: string) => void;
   onSubmit: () => void;
+  maxSuggestions?: number;
 }
 
-export default function SearchAutocomplete({ titles, value, disabled, onChange, onSubmit }: SearchAutocompleteProps) {
+export default function SearchAutocomplete({
+  titles,
+  value,
+  disabled,
+  onChange,
+  onSubmit,
+  maxSuggestions,
+}: SearchAutocompleteProps) {
   const [activeIndex, setActiveIndex] = useState(-1);
   const [open, setOpen] = useState(false);
 
-  const matches = value.trim() && open ? rankMatches(titles, value) : [];
+  const matches = value.trim() && open ? rankMatches(titles, value, maxSuggestions) : [];
 
   function select(title: string) {
     onChange(title);

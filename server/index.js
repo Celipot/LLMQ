@@ -9,6 +9,9 @@ const wsServer = require('./wsServer');
 const songs = require('./songs');
 const songPicker = require('./songPicker');
 const soloSessions = require('./soloSessions');
+const career = require('./career');
+const leaderboard = require('./leaderboard');
+const careerRounds = require('./careerRounds');
 const avatars = require('./avatars');
 const { truncateWavFile } = require('./wavTruncate');
 
@@ -31,24 +34,35 @@ function keyFor(session, mode, songId) {
   return `${session.id}:${mode}:${songId}`;
 }
 
+const CAREER_TTL_MS = 24 * 60 * 60 * 1000;
+
 const soloStore = soloSessions.createStore({
   createSession: () => ({
     activeSongId: null,
     activeKey: null,
     randomGenerations: songs.getGenerations().map((g) => g.generation),
+    career: null,
+    careerRound: null,
   }),
+  ttlFor: (session) => (session.career ? CAREER_TTL_MS : soloSessions.DEFAULT_TTL_MS),
   onExpire: (id) => gameState.deleteByPrefix(`${id}:`),
 });
 
 // <audio src> cannot send headers, so the audio route also takes the id as ?sid=.
-function requireSoloSession(req, res, next) {
+function requireSession(req, res, next) {
   const id = req.get('X-Solo-Session') ?? (req.path === '/audio/track' ? req.query.sid : undefined);
   if (!soloSessions.isValidSessionId(id)) {
     return res.status(400).json({ error: 'SESSION_REQUIRED' });
   }
   req.solo = soloStore.get(id);
-  if (req.solo.activeKey === null) enterRandomMode(req.solo);
   next();
+}
+
+function requireSoloSession(req, res, next) {
+  requireSession(req, res, () => {
+    if (req.solo.activeKey === null) enterRandomMode(req.solo);
+    next();
+  });
 }
 
 function correctSongIfFinished(session) {
@@ -177,6 +191,7 @@ app.post('/api/guess', requireSoloSession, (req, res) => {
   res.json({
     correct: isCorrect,
     state: gameState.getPublicState(activeKey, correctSongIfFinished(session)),
+    ...settledCareer(session),
   });
 });
 
@@ -190,6 +205,7 @@ app.post('/api/skip', requireSoloSession, (req, res) => {
 
   res.json({
     state: gameState.getPublicState(session.activeKey, correctSongIfFinished(session)),
+    ...settledCareer(session),
   });
 });
 
@@ -202,6 +218,150 @@ app.post('/api/reset', requireSoloSession, (req, res) => {
   }
   res.json(forceNewRandomRound(req.solo, history));
 });
+
+// A career round ends through /api/guess or /api/skip, which then also return
+// the updated career so the client does not need a second request.
+function settledCareer(session) {
+  return careerRounds.settleRound(session) ? { career: careerRounds.publicCareer(session) } : {};
+}
+
+const CAREER_ERROR_STATUS = {
+  INVALID_STAT: 400,
+  NO_ENERGY: 409,
+  RELEASE_DUE: 409,
+  RELEASE_NOT_DUE: 409,
+  CONCERT_DUE: 409,
+  CONCERT_NOT_DUE: 409,
+  CAREER_FINISHED: 409,
+  RELEASE_IN_PROGRESS: 409,
+  FINALE_DUE: 409,
+  FINALE_NOT_DUE: 409,
+  EVENT_PENDING: 409,
+  NO_PENDING_CHOICE: 409,
+  INVALID_CHOICE: 400,
+};
+
+function requireCareer(req, res, next) {
+  if (!req.solo.career) return res.status(404).json({ error: 'NO_CAREER' });
+  next();
+}
+
+function requireNoCareerRound(req, res, next) {
+  if (req.solo.careerRound) return res.status(409).json({ error: 'ROUND_IN_PROGRESS' });
+  next();
+}
+
+function careerResponse(session) {
+  return { career: careerRounds.publicCareer(session), round: careerRounds.publicRound(session) };
+}
+
+// Career rule violations are stable error codes, anything else is a real bug.
+function careerAction(action) {
+  return (req, res) => {
+    try {
+      action(req.solo, req.body || {});
+    } catch (err) {
+      const status = CAREER_ERROR_STATUS[err.message];
+      if (!status) throw err;
+      return res.status(status).json({ error: err.message });
+    }
+    res.json(careerResponse(req.solo));
+  };
+}
+
+app.post('/api/career', requireSession, (req, res) => {
+  const { difficulty, unit, mode, username, generation } = req.body || {};
+  if (mode !== undefined && !career.isValidMode(mode)) {
+    return res.status(400).json({ error: 'INVALID_MODE' });
+  }
+  if (mode === 'infinite') {
+    if (!leaderboard.isValidUsername(username)) return res.status(400).json({ error: 'INVALID_USERNAME' });
+    if (generation !== undefined && !career.isValidGeneration(generation)) {
+      return res.status(400).json({ error: 'INVALID_GENERATION' });
+    }
+    careerRounds.createCareer(req.solo, { mode, username, generation });
+    return res.json(careerResponse(req.solo));
+  }
+  if (difficulty !== undefined && !career.isValidDifficulty(difficulty)) {
+    return res.status(400).json({ error: 'INVALID_DIFFICULTY' });
+  }
+  if (unit !== undefined && !career.isValidUnit(unit)) {
+    return res.status(400).json({ error: 'INVALID_UNIT' });
+  }
+  careerRounds.createCareer(req.solo, { difficulty, unit });
+  res.json(careerResponse(req.solo));
+});
+
+// Public: the leaderboard belongs to the whole app, not to a solo session.
+app.get('/api/leaderboard', (req, res) => {
+  res.json({ leaderboards: leaderboard.topByGeneration() });
+});
+
+app.delete('/api/career', requireSession, (req, res) => {
+  careerRounds.abandonCareer(req.solo);
+  res.status(204).end();
+});
+
+app.get('/api/career', requireSession, requireCareer, (req, res) => {
+  careerRounds.resumeRound(req.solo);
+  res.json(careerResponse(req.solo));
+});
+
+app.post(
+  '/api/career/rest',
+  requireSession,
+  requireCareer,
+  requireNoCareerRound,
+  careerAction((session) => careerRounds.rest(session)),
+);
+
+app.post(
+  '/api/career/study',
+  requireSession,
+  requireCareer,
+  requireNoCareerRound,
+  careerAction((session, body) => careerRounds.startStudy(session, body.stat)),
+);
+
+app.post(
+  '/api/career/single',
+  requireSession,
+  requireCareer,
+  requireNoCareerRound,
+  careerAction((session) => careerRounds.startSingle(session)),
+);
+
+app.post(
+  '/api/career/release',
+  requireSession,
+  requireCareer,
+  requireNoCareerRound,
+  careerAction((session) => careerRounds.startRelease(session)),
+);
+
+app.post(
+  '/api/career/concert',
+  requireSession,
+  requireCareer,
+  requireNoCareerRound,
+  careerAction((session) => careerRounds.startConcert(session)),
+);
+
+app.post(
+  '/api/career/finale',
+  requireSession,
+  requireCareer,
+  requireNoCareerRound,
+  careerAction((session) => careerRounds.startFinale(session)),
+);
+
+app.post(
+  '/api/career/event/choice',
+  requireSession,
+  requireCareer,
+  requireNoCareerRound,
+  careerAction((session, body) => careerRounds.chooseReward(session, body.option)),
+);
 
 app.post('/games', (req, res) => {
   try {

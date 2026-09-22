@@ -92,6 +92,17 @@ describe('App — Random mode generation filter', () => {
     await waitFor(() => expect(api.startRandomMode).toHaveBeenCalledWith(['Liella'], {}));
   });
 
+  test('the Mode Solo quiz has no description under the title', async () => {
+    vi.mocked(api.startRandomMode).mockResolvedValue(playingState);
+    render(<App />);
+
+    await userEvent.click(await screen.findByText('Mode Solo'));
+    await userEvent.click(screen.getByRole('button', { name: 'Lancer' }));
+
+    expect(await screen.findByRole('button', { name: 'Valider' })).toBeInTheDocument();
+    expect(screen.queryByText(/deviner le titre/i)).not.toBeInTheDocument();
+  });
+
   test('Lancer sends the stored play history while the adaptive draw is enabled', async () => {
     const history = { 7: { plays: 2, wins: 1, stageSum: 3, lastPlayedAt: 1_700_000_000_000 } };
     localStorage.setItem('songHistory', JSON.stringify(history));

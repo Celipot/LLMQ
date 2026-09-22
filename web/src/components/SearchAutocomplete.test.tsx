@@ -26,6 +26,24 @@ function setup(overrides: Partial<React.ComponentProps<typeof SearchAutocomplete
 }
 
 describe('SearchAutocomplete', () => {
+  test('shows at most maxSuggestions suggestions', async () => {
+    const user = userEvent.setup();
+    setup({ value: 'a', maxSuggestions: 1 });
+    await user.type(screen.getByRole('textbox'), 'n');
+
+    expect(screen.getAllByRole('listitem')).toHaveLength(1);
+  });
+
+  test('shows no suggestion at all when there are none left, and Enter submits the typed text', async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = setup({ value: 'another song', maxSuggestions: 0 });
+    await user.type(screen.getByRole('textbox'), 'x');
+
+    expect(screen.queryByRole('listitem')).not.toBeInTheDocument();
+    await user.keyboard('{Enter}');
+    expect(onSubmit).toHaveBeenCalledOnce();
+  });
+
   test('shows no suggestions for an empty query', () => {
     setup();
     expect(screen.queryByRole('listitem')).not.toBeInTheDocument();
