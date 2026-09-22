@@ -17,14 +17,13 @@ import {
 } from '../api';
 import type {
   Career,
+  CareerChoice,
   CareerEvent,
   CareerResponse,
   CareerRound,
   CareerStat,
-  Difficulty,
   GameState,
   RewardOption,
-  Unit,
 } from '../types';
 
 const CHANGES_HIGHLIGHT_MS = 5000;
@@ -85,7 +84,7 @@ export function useCareer() {
   }, [apply]);
 
   const begin = useCallback(
-    (choice: { unit: Unit; difficulty: Difficulty }) => run(() => startCareer(choice)),
+    (choice: CareerChoice) => run(() => startCareer(choice)),
     [run],
   );
 

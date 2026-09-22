@@ -7,14 +7,25 @@ const gameState = require('./gameState');
 const songs = require('./songs');
 const career = require('./career');
 const careerEvents = require('./careerEvents');
+const leaderboard = require('./leaderboard');
 
 const discographies = Object.fromEntries(
   Object.keys(career.UNITS).map((unit) => [unit, career.discographyIds(songs.getPlayableTitles(), unit)]),
 );
 
-// The titles a career draws from: those of the unit it follows.
+// The infinite mode draws from the whole discography of one franchise, or ('all') the
+// whole playable library across every franchise.
+const infinitePools = {
+  ...Object.fromEntries(
+    Object.entries(career.GENERATIONS).map(([generation, { songsGeneration }]) => [generation, songs.getPoolIds([songsGeneration])]),
+  ),
+  all: songs.getPoolIds(),
+};
+
+// The titles a career draws from: those of the unit it follows, or the pool of its
+// franchise (or the whole library) in the infinite mode.
 function poolOf(state) {
-  return discographies[state.unit];
+  return state.mode === 'infinite' ? infinitePools[state.generation] : discographies[state.unit];
 }
 
 function songSummary(id) {
@@ -28,14 +39,35 @@ function roundKey(session, songId) {
   return `${session.id}:career:${songId}`;
 }
 
-function createCareer(session, difficulty, unit) {
-  session.career = career.createCareer(difficulty, unit);
+// The infinite mode always plays the hard rules: the difficulty and the unit are ignored.
+function createCareer(session, { difficulty, unit, mode = 'classic', generation, username } = {}) {
+  const infinite = mode === 'infinite';
+  session.career = career.createCareer(
+    infinite ? undefined : difficulty,
+    infinite ? undefined : unit,
+    mode,
+    infinite ? generation : undefined,
+  );
+  if (infinite) session.career.username = username.trim();
   careerEvents.scheduleEvents(session.career);
   session.careerRound = null;
   session.careerNewEvents = [];
 }
 
+// An infinite run only ends by failing or being abandoned, so both submit its score, once.
+// A run without any point is not worth a place. It is entered in the board of its own
+// franchise only, never in the others (nor is an 'all' run entered in every franchise's board).
+function recordRun(session) {
+  const state = session.career;
+  if (state.mode !== 'infinite' || state.submitted) return;
+  const { total, grade } = career.careerScore(state);
+  if (total <= 0) return;
+  state.submitted = true;
+  leaderboard.submit({ username: state.username, turn: state.turn, score: total, grade, generation: state.generation });
+}
+
 function abandonCareer(session) {
+  if (session.career) recordRun(session);
   session.career = null;
   session.careerRound = null;
   session.careerNewEvents = [];
@@ -77,11 +109,14 @@ function publicCareer(session) {
   return {
     difficulty: state.difficulty,
     unit: state.unit,
+    generation: state.generation,
     baseTiers: settings.baseTiers,
     baseSuggestions: settings.baseSuggestions,
     turn: state.turn,
     concertAt: career.CONCERT_AFTER_TURN,
-    finalTurn: career.FINAL_TURN,
+    mode: state.mode,
+    cycle: state.cycle,
+    finalTurn: career.finalTurnOf(state),
     releaseAt: career.RELEASE_AFTER_TURN,
     energy: state.energy,
     maxEnergy: career.MAX_ENERGY,
@@ -109,6 +144,7 @@ function publicCareer(session) {
     finaleGoals: career.finaleGoals(state),
     finaleDue: career.isFinaleDue(state),
     finaleResult: publicResult(state.finale, career.MAX_FINALE_SCORE),
+    finales: state.finales.map((result) => publicResult(result, career.MAX_FINALE_SCORE)),
     events: state.events,
     newEvents: session.careerNewEvents.map(publicEvent),
     pendingChoice: state.pendingChoice,
@@ -160,12 +196,13 @@ function rest(session) {
   career.rest(session.career);
   session.careerNewEvents = [];
   applyEvents(session);
+  if (career.isOver(session.career)) recordRun(session);
 }
 
 function startStudy(session, stat) {
   career.assertCanStudy(session.career, stat);
   session.careerNewEvents = [];
-  startRound(session, 'study', stat, career.pickSongId(poolOf(session.career), session.career.notebook));
+  startRound(session, 'study', stat, career.pickSongId(poolOf(session.career)));
 }
 
 // A single trains harder than a study, on a random stat, and its title is not
@@ -174,7 +211,7 @@ function startSingle(session) {
   const stat = career.pickStat();
   career.assertCanSingle(session.career, stat);
   session.careerNewEvents = [];
-  startRound(session, 'single', stat, career.pickSongId(poolOf(session.career), session.career.notebook));
+  startRound(session, 'single', stat, career.pickSongId(poolOf(session.career)));
 }
 
 function trackSongIds(tracks) {
@@ -257,9 +294,14 @@ function settleRound(session) {
     else career.single(state, round.stat, foundAtStage);
     careerEvents.recordAnswer(state, foundAtStage);
     applyEvents(session);
-  } else if (settleTrack(state, round, foundAtStage)) {
-    applyEvents(session);
+  } else {
+    const { cycle } = state;
+    if (settleTrack(state, round, foundAtStage)) {
+      if (state.cycle !== cycle) careerEvents.scheduleLoopEvents(state);
+      applyEvents(session);
+    }
   }
+  if (career.isOver(state)) recordRun(session);
   session.careerRound = null;
   return true;
 }

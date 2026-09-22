@@ -27,6 +27,9 @@ const career: Career = {
   turn: 1,
   concertAt: 20,
   finalTurn: 50,
+  mode: 'classic',
+  cycle: 1,
+  finales: [],
   statMax: { oreille: 300, memoire: 300, culture: 200 },
   modifiers: [],
   phase3: false,
@@ -49,6 +52,7 @@ const career: Career = {
   stats: { oreille: 0, memoire: 0, culture: 0 },
   suggestionCount: 1,
   unit: 'azuna',
+  generation: 'nijigasaki',
   difficulty: 'hard',
   baseTiers: [1, 2, 3],
   baseSuggestions: 1,
@@ -72,6 +76,7 @@ const wonState: GameState = { ...roundState, attemptsUsed: 1, status: 'won', cor
 
 beforeEach(() => {
   vi.resetAllMocks();
+  localStorage.setItem('profile', JSON.stringify({ username: 'betatest-carrière' }));
   vi.mocked(api.fetchState).mockResolvedValue({ ...roundState, maxAttempts: 6 });
   vi.mocked(api.fetchTitles).mockResolvedValue([]);
   vi.mocked(api.fetchGenerations).mockResolvedValue([]);

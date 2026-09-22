@@ -1,7 +1,15 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+
+// Before the leaderboard is first used, so that no test writes the real one.
+process.env.LEADERBOARD_FILE = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'llmq-rounds-')), 'leaderboard.json');
+
 const career = require('./career');
 const careerRounds = require('./careerRounds');
+const leaderboard = require('./leaderboard');
 const songs = require('./songs');
 
 const discographyIds = career.discographyIds(songs.getPlayableTitles(), 'azuna');
@@ -19,7 +27,7 @@ function sessionAtFinale() {
     { kind: 'album', score: 400, grade: 'B', turn: 28, tracks: [] },
     { kind: 'album', score: 0, grade: 'D', turn: 30, tracks: [] },
   ];
-  state.turn = 51;
+  state.turn = 41;
   return { id: 'finale-session-0001', career: state, careerRound: null, careerNewEvents: [] };
 }
 
@@ -88,5 +96,93 @@ describe('the events of the finale', () => {
 
     assert.equal(careerRounds.publicCareer(session).suggestionCount, 1);
     assert.equal(careerRounds.publicRound(session).state.maxAttempts, 3);
+  });
+});
+
+const nijigasakiIds = songs.getPoolIds(['Nijigasaki']);
+
+function infiniteSession(username = 'Ayumu') {
+  const session = { id: 'infinite-session-0001', career: null, careerRound: null, careerNewEvents: [] };
+  careerRounds.createCareer(session, { mode: 'infinite', username });
+  return session;
+}
+
+// The concert of the second phase is over and the third phase is at its last turn.
+function infiniteAtEndOfPhase3(username) {
+  const session = infiniteSession(username);
+  const { career: state } = session;
+  state.release = { score: 600, grade: 'S', turn: 10, tracks: [] };
+  state.concert = { score: 1500, grade: 'S', turn: 20, tracks: [] };
+  state.turn = 40;
+  state.stats.oreille = 500;
+  return session;
+}
+
+const rowOf = (username) => leaderboard.top(100).filter((row) => row.username === username);
+
+describe('the infinite career', () => {
+  test('plays the hard rules and draws every title from the Nijigasaki discography', () => {
+    const session = infiniteSession();
+    withRandomAtZero(() => careerRounds.startStudy(session, 'oreille'));
+
+    assert.equal(session.career.difficulty, 'hard');
+    assert.equal(session.careerRound.songId, nijigasakiIds[0]);
+    const publicState = careerRounds.publicCareer(session);
+    assert.equal(publicState.mode, 'infinite');
+    assert.equal(publicState.cycle, 1);
+    assert.equal(publicState.finalTurn, 40);
+  });
+
+  test('keeps the username without its surrounding spaces', () => {
+    assert.equal(infiniteSession('  Ayumu ').career.username, 'Ayumu');
+  });
+
+  test('a classic career has neither username nor cycle beyond the first', () => {
+    const session = { id: 'classic-session-0001', career: null, careerRound: null, careerNewEvents: [] };
+    careerRounds.createCareer(session, {});
+    assert.equal(session.career.mode, 'classic');
+    assert.equal(session.career.username, null);
+  });
+
+  test('the run joins the leaderboard when the career fails, with its score, grade and turn', () => {
+    const session = infiniteAtEndOfPhase3('Failer');
+    careerRounds.rest(session);
+
+    assert.equal(session.career.failure, 'FINALE_GOALS');
+    assert.deepEqual(rowOf('Failer'), [{ username: 'Failer', turn: 41, score: 2600, grade: 'D' }]);
+  });
+
+  test('a run is submitted once, even if the finished career is then abandoned', () => {
+    const session = infiniteAtEndOfPhase3('Once');
+    careerRounds.rest(session);
+    careerRounds.abandonCareer(session);
+
+    assert.equal(rowOf('Once').length, 1);
+  });
+
+  test('abandoning a career in progress submits its score', () => {
+    const session = infiniteSession('Quitter');
+    session.career.stats.memoire = 120;
+    careerRounds.abandonCareer(session);
+
+    assert.deepEqual(rowOf('Quitter'), [{ username: 'Quitter', turn: 1, score: 120, grade: 'D' }]);
+    assert.equal(session.career, null);
+  });
+
+  test('a career abandoned without any score is not listed', () => {
+    const session = infiniteSession('Nobody');
+    careerRounds.abandonCareer(session);
+
+    assert.deepEqual(rowOf('Nobody'), []);
+  });
+
+  test('a classic career never joins the leaderboard', () => {
+    const session = { id: 'classic-session-0002', career: null, careerRound: null, careerNewEvents: [] };
+    careerRounds.createCareer(session, {});
+    session.career.username = 'Classic';
+    session.career.stats.memoire = 120;
+    careerRounds.abandonCareer(session);
+
+    assert.deepEqual(rowOf('Classic'), []);
   });
 });

@@ -12,7 +12,7 @@ const goals = {
 const phase3 = {
   turn: 30,
   concertAt: 20,
-  finalTurn: 50,
+  finalTurn: 40,
   releaseAt: 10,
   releaseDue: false,
   concertDue: false,
@@ -31,13 +31,13 @@ describe('CareerObjective in the third phase', () => {
   test('shows the concerts then, on the next line, the albums rated B+ still to release, with the turns left', () => {
     render(<CareerObjective career={phase3} />);
 
-    expect(screen.getByText('Obtenir au moins B au Concert : 1 / 2')).toBeInTheDocument();
-    expect(screen.getByText((text) => text.startsWith("Obtenir au moins B à l'Album : 1 / 2"))).toBeInTheDocument();
-    expect(screen.getByText('(dans 21 tours)')).toBeInTheDocument();
+    expect(screen.getByText('Concerts : 1 / 2 joués, dont 1 / 2 au moins B')).toBeInTheDocument();
+    expect(screen.getByText((text) => text.startsWith('Albums : 2 / 3 joués, dont 1 / 2 au moins B'))).toBeInTheDocument();
+    expect(screen.getByText('(dans 11 tours)')).toBeInTheDocument();
   });
 
   test('announces the finale once it is due', () => {
-    render(<CareerObjective career={{ ...phase3, turn: 51, finaleDue: true }} />);
+    render(<CareerObjective career={{ ...phase3, turn: 41, finaleDue: true }} />);
 
     expect(screen.getByText('Donner le SIF')).toBeInTheDocument();
   });
@@ -53,5 +53,11 @@ describe('CareerObjective in the third phase', () => {
     render(<CareerObjective career={{ ...phase3, failure: 'FINALE_GOALS' }} />);
 
     expect(screen.getByText(/pas assez de concerts et d'albums/)).toBeInTheDocument();
+  });
+
+  test('reports a finale under the half of its maximum score in the infinite mode', () => {
+    render(<CareerObjective career={{ ...phase3, failure: 'FINALE_SCORE' }} />);
+
+    expect(screen.getByText(/le SIF n'a pas atteint la moitié du score maximum/)).toBeInTheDocument();
   });
 });

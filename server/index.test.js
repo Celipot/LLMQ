@@ -1,6 +1,13 @@
 const { test, before, after, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+
+// Before the app is loaded, so that the tests never write the real leaderboard.
+process.env.LEADERBOARD_FILE = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'llmq-index-')), 'leaderboard.json');
+
 const app = require('./index');
 const songs = require('./songs');
 const multiplayerGames = require('./multiplayerGames');
@@ -968,7 +975,7 @@ test('POST /api/career starts a career with full energy, no stats and the base h
   const body = await (await newCareerPlayer().post('/api/career')).json();
   assert.equal(body.career.turn, 1);
   assert.equal(body.career.concertAt, 20);
-  assert.equal(body.career.finalTurn, 50);
+  assert.equal(body.career.finalTurn, 40);
   assert.equal(body.career.releaseAt, 10);
   assert.equal(body.career.energy, 4);
   assert.equal(body.career.maxEnergy, 4);
@@ -1428,7 +1435,7 @@ test('a single is refused while a round is in progress', async () => {
 
 // The concert asks for 350 fans, which only singles and the album win: every turn is
 // a single found at the first tier while the energy allows it, a rest otherwise.
-// A single draws the first title not found yet, whatever Math.random says.
+// A single draws the first title of the pool, whatever Math.random says.
 async function spendTurnsOnSingles(player, turns) {
   let { career: state } = await (await player.get('/api/career')).json();
   for (let i = 0; i < turns; i += 1) {
@@ -1437,8 +1444,7 @@ async function spendTurnsOnSingles(player, turns) {
       continue;
     }
     await withFirstDraw(() => player.post('/api/career/single'));
-    const foundIds = state.notebook.map((song) => song.id);
-    const title = songs.getSongById(discographyIds.find((id) => !foundIds.includes(id))).title;
+    const title = songs.getSongById(discographyIds[0]).title;
     state = (await (await player.post('/api/guess', { title })).json()).career;
     if (state.pendingChoice) {
       state = (await (await player.post('/api/career/event/choice', { option: 'energy' })).json()).career;
@@ -1662,12 +1668,12 @@ async function restUntilPhase3(player) {
   for (let i = 0; i < 15; i += 1) await playConcertTrack(player, i);
 }
 
-test('a career that misses the goals of the finale gets a final score at turn 51', async () => {
+test('a career that misses the goals of the finale gets a final score at turn 41', async () => {
   const player = newCareerPlayer();
   await restUntilPhase3(player);
   const { career: before } = await (await player.get('/api/career')).json();
   let last;
-  for (let i = 0; i < 30; i += 1) last = await (await player.post('/api/career/rest')).json();
+  for (let i = 0; i < 20; i += 1) last = await (await player.post('/api/career/rest')).json();
 
   const stats = Object.values(before.stats).reduce((total, value) => total + value, 0);
   assert.equal(last.career.failure, 'FINALE_GOALS');
@@ -1679,6 +1685,7 @@ test('a career that misses the goals of the finale gets a final score at turn 51
     stats,
     fans: before.fans.current,
     total: 600 + 1500 + stats + before.fans.current,
+    grade: 'C',
   });
 });
 
@@ -1699,6 +1706,7 @@ test('a failed career also gets a final score', async () => {
     stats: 0,
     fans: 0,
     total: 0,
+    grade: 'D',
   });
 });
 
@@ -1791,7 +1799,7 @@ async function winFiveStudies(player) {
   for (let i = 0; i < 5; i += 1) {
     if (i === 4) await player.post('/api/career/rest');
     await withFirstDraw(() => player.post('/api/career/study', { stat: 'oreille' }));
-    await player.post('/api/guess', { title: albumSong(i).title });
+    await player.post('/api/guess', { title: albumSong(0).title });
   }
 }
 
@@ -1802,7 +1810,7 @@ test('5 studies won in a row ask for a choice and block every action until it is
   const { career: state } = await (await player.get('/api/career')).json();
   assert.deepEqual(state.pendingChoice, {
     eventId: 10,
-    options: { stats: { amount: 60 }, energy: { amount: 4 } },
+    options: { stats: { amount: 30 }, energy: { amount: 3 } },
   });
   const res = await player.post('/api/career/rest');
   assert.equal(res.status, 409);
@@ -1818,8 +1826,8 @@ test('choosing the stats reward applies it to the three stats and unblocks the c
   assert.equal(res.status, 200);
   const { career: state } = await res.json();
   assert.equal(state.pendingChoice, null);
-  assert.equal(state.stats.memoire, 60);
-  assert.equal(state.stats.culture, 60);
+  assert.equal(state.stats.memoire, 30);
+  assert.equal(state.stats.culture, 30);
   assert.equal(state.newEvents[0].id, 10);
   assert.equal((await player.post('/api/career/rest')).status, 200);
 });
@@ -1846,4 +1854,99 @@ test('a career guess matches the exact title whatever its case, which a player w
   const body = await (await player.post('/api/guess', { title: firstDiscographySong.title.toUpperCase() })).json();
 
   assert.equal(body.correct, true);
+});
+
+const nijigasakiIds = songs.getPoolIds(['Nijigasaki']);
+const leaderboardsOf = async () => (await (await globalThis.fetch(`${baseUrl}/api/leaderboard`)).json()).leaderboards;
+const leaderboardOf = async (generation = 'nijigasaki') => (await leaderboardsOf())[generation];
+
+test('POST /api/career refuses an unknown mode', async () => {
+  const res = await newCareerPlayer().post('/api/career', { mode: 'endless', username: 'Ayumu' });
+  assert.equal(res.status, 400);
+  assert.equal((await res.json()).error, 'INVALID_MODE');
+});
+
+test('POST /api/career in the infinite mode needs a username of 1 to 20 characters', async () => {
+  for (const username of [undefined, '', '   ', 'a'.repeat(21), 42]) {
+    const res = await newCareerPlayer().post('/api/career', { mode: 'infinite', username });
+    assert.equal(res.status, 400);
+    assert.equal((await res.json()).error, 'INVALID_USERNAME');
+  }
+});
+
+test('POST /api/career starts an infinite career on the hard rules, at its first cycle', async () => {
+  const body = await (await newCareerPlayer().post('/api/career', { mode: 'infinite', username: 'Ayumu' })).json();
+  assert.equal(body.career.mode, 'infinite');
+  assert.equal(body.career.difficulty, 'hard');
+  assert.equal(body.career.cycle, 1);
+  assert.equal(body.career.finalTurn, 40);
+  assert.deepEqual(body.career.finales, []);
+});
+
+test('a career is classic unless asked otherwise', async () => {
+  const body = await (await newCareerPlayer().post('/api/career')).json();
+  assert.equal(body.career.mode, 'classic');
+  assert.equal(body.career.cycle, 1);
+});
+
+test('an infinite study draws its title in the Nijigasaki discography by default', async () => {
+  const player = newCareerPlayer();
+  await player.post('/api/career', { mode: 'infinite', username: 'Ayumu' });
+  await withFirstDraw(() => player.post('/api/career/study', { stat: 'oreille' }));
+  const res = await player.post('/api/guess', { title: songs.getSongById(nijigasakiIds[0]).title });
+  assert.equal((await res.json()).state.status, 'won');
+});
+
+test('POST /api/career refuses an unknown generation and starts nothing', async () => {
+  const player = newCareerPlayer();
+  const res = await player.post('/api/career', { mode: 'infinite', username: 'Ayumu', generation: 'azuna' });
+  assert.equal(res.status, 400);
+  assert.equal((await res.json()).error, 'INVALID_GENERATION');
+  assert.equal((await player.get('/api/career')).status, 404);
+});
+
+for (const [generation, songsGeneration] of [
+  ['mus', "µ's"],
+  ['aqours', 'Aqours'],
+  ['hasunosora', 'Hasunosora'],
+  ['liella', 'Liella'],
+  ['ikizulive', 'Ikizulive'],
+]) {
+  test(`an infinite career on ${generation} draws its titles from that franchise's discography`, async () => {
+    const player = newCareerPlayer();
+    const body = await (await player.post('/api/career', { mode: 'infinite', username: 'Ayumu', generation })).json();
+    assert.equal(body.career.generation, generation);
+    const poolIds = songs.getPoolIds([songsGeneration]);
+    await withFirstDraw(() => player.post('/api/career/study', { stat: 'oreille' }));
+    const res = await player.post('/api/guess', { title: songs.getSongById(poolIds[0]).title });
+    assert.equal((await res.json()).state.status, 'won');
+  });
+}
+
+test('an infinite career on "all" draws its titles from the whole library', async () => {
+  const player = newCareerPlayer();
+  const body = await (await player.post('/api/career', { mode: 'infinite', username: 'Ayumu', generation: 'all' })).json();
+  assert.equal(body.career.generation, 'all');
+  const poolIds = songs.getPoolIds();
+  await withFirstDraw(() => player.post('/api/career/study', { stat: 'oreille' }));
+  const res = await player.post('/api/guess', { title: songs.getSongById(poolIds[0]).title });
+  assert.equal((await res.json()).state.status, 'won');
+});
+
+test('GET /api/leaderboard is public and lists an abandoned infinite run with its grade, under its franchise', async () => {
+  const player = newCareerPlayer();
+  await player.post('/api/career', { mode: 'infinite', username: 'Leaderboard test' });
+  await withFirstDraw(() => player.post('/api/career/study', { stat: 'oreille' }));
+  await player.post('/api/guess', { title: songs.getSongById(nijigasakiIds[0]).title });
+  const res = await player.delete('/api/career');
+  assert.equal(res.status, 204);
+
+  const boards = await leaderboardsOf();
+  assert.deepEqual(Object.keys(boards), ['nijigasaki', 'mus', 'aqours', 'hasunosora', 'liella', 'ikizulive', 'all']);
+  const rows = boards.nijigasaki.filter((row) => row.username === 'Leaderboard test');
+  assert.deepEqual(rows, [{ username: 'Leaderboard test', turn: 2, score: 40, grade: 'D' }]);
+  assert.deepEqual(
+    boards.aqours.filter((row) => row.username === 'Leaderboard test'),
+    [],
+  );
 });

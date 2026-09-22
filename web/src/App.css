@@ -790,6 +790,42 @@ button:disabled {
   font-weight: 700;
 }
 
+.career-score-grade {
+  margin: 0 0 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.career-leaderboard {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.career-leaderboard h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+}
+
+.career-leaderboard table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.career-leaderboard th,
+.career-leaderboard td {
+  padding: 0.25rem 0.5rem;
+  text-align: left;
+}
+
+.career-leaderboard th {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
 .career-score-parts {
   display: flex;
   flex-wrap: wrap;

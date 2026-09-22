@@ -19,11 +19,11 @@ describe('scheduleEvents', () => {
   test('draws the turn of every timed event inside its window', () => {
     const first = career.createCareer();
     events.scheduleEvents(first, () => 0);
-    assert.deepEqual(first.eventTurns, { 1: 5, 2: 15, 3: 21, 4: 31, 5: 45, 11: 30 });
+    assert.deepEqual(first.eventTurns, { 1: 5, 2: 15, 3: 21, 4: 26, 5: 35, 11: 30 });
 
     const last = career.createCareer();
     events.scheduleEvents(last, () => 0.999);
-    assert.deepEqual(last.eventTurns, { 1: 10, 2: 20, 3: 30, 4: 40, 5: 50, 11: 50 });
+    assert.deepEqual(last.eventTurns, { 1: 10, 2: 20, 3: 28, 4: 34, 5: 40, 11: 40 });
   });
 });
 
@@ -186,19 +186,28 @@ describe('the series event', () => {
     answers(state, [1, 1, 1, 1, 1]);
     assert.equal(state.pendingChoice.eventId, 10);
     assert.deepEqual(state.pendingChoice.options, {
-      stats: { amount: 60 },
-      energy: { amount: 4 },
+      stats: { amount: 30 },
+      energy: { amount: 3 },
     });
     assert.deepEqual(state.streak, []);
   });
 
-  test('the reward follows the efficiency, capped at 4', () => {
+  test('the reward follows the efficiency, capped at 3', () => {
     const state = career.createCareer();
     answers(state, [3, 3, 3, 3, 3]);
     assert.deepEqual(state.pendingChoice.options, {
-      stats: { amount: 38 },
+      stats: { amount: 25 },
       energy: { amount: 3 },
     });
+  });
+
+  test('it happens only once: a second series offers nothing', () => {
+    const state = career.createCareer();
+    answers(state, [1, 1, 1, 1, 1]);
+    events.chooseReward(state, 'stats');
+    answers(state, [1, 1, 1, 1, 1]);
+    assert.equal(state.pendingChoice, null);
+    assert.deepEqual(state.streak, []);
   });
 
   test('a failed answer resets the series', () => {
@@ -219,7 +228,7 @@ describe('the series event', () => {
     const state = career.createCareer();
     answers(state, [1, 1, 1, 1, 1]);
     const fired = events.chooseReward(state, 'stats');
-    assert.deepEqual(state.stats, { oreille: 60, memoire: 60, culture: 60 });
+    assert.deepEqual(state.stats, { oreille: 30, memoire: 30, culture: 30 });
     assert.equal(state.pendingChoice, null);
     assert.equal(fired.id, 10);
     assert.equal(state.events.at(-1).id, 10);
@@ -246,12 +255,12 @@ describe('the series event', () => {
 });
 
 describe('the second penalty', () => {
-  test('event 11 lowers a random stat by 400 for 5 turns, from turn 30 to 50', () => {
-    const state = scheduled({ 11: 44 });
-    state.turn = 44;
+  test('event 11 lowers a random stat by 400 for 5 turns, from turn 30 to 40', () => {
+    const state = scheduled({ 11: 38 });
+    state.turn = 38;
     const [fired] = apply(state, () => 0.999);
     assert.equal(fired.id, 11);
-    assert.deepEqual(state.modifiers, [{ stat: 'culture', delta: -400, expiresAtTurn: 49 }]);
+    assert.deepEqual(state.modifiers, [{ stat: 'culture', delta: -400, expiresAtTurn: 43 }]);
     assert.match(fired.text, /Endurance −400 pendant 5 tours/);
   });
 });
@@ -362,6 +371,74 @@ describe('the events of the finale', () => {
   });
 });
 
+describe('the events of an infinite cycle', () => {
+  function infinite(cycle) {
+    const state = career.createCareer('hard', 'azuna', 'infinite');
+    state.cycle = cycle;
+    return state;
+  }
+
+  test('the second cycle draws two events in its 20 turns: a penalty, then a notebook loss', () => {
+    const state = infinite(2);
+    events.scheduleLoopEvents(state, () => 0);
+    assert.deepEqual(state.loopEvents, [
+      { id: 4, type: 'penalty', turn: 41, amount: 500, turns: 6 },
+      { id: 3, type: 'notebook', turn: 41, amount: -3 },
+    ]);
+    events.scheduleLoopEvents(state, () => 0.999);
+    assert.deepEqual(state.loopEvents.map((event) => event.turn), [60, 60]);
+  });
+
+  test('the events grow more frequent, longer and heavier with the cycle', () => {
+    const state = infinite(4);
+    events.scheduleLoopEvents(state, () => 0);
+    assert.deepEqual(state.loopEvents.map((event) => [event.type, event.turn, event.amount, event.turns]), [
+      ['penalty', 81, 700, 8],
+      ['notebook', 81, -5, undefined],
+      ['penalty', 81, 700, 8],
+      ['notebook', 81, -5, undefined],
+    ]);
+  });
+
+  test('a loop event fires once, when its turn comes', () => {
+    const state = infinite(2);
+    state.loopEvents = [{ id: 4, type: 'penalty', turn: 45, amount: 500, turns: 6 }];
+    state.turn = 44;
+    assert.deepEqual(apply(state), []);
+    state.turn = 45;
+    const [fired] = apply(state);
+    assert.equal(fired.id, 4);
+    assert.match(fired.text, /Chant −500 pendant 6 tours/);
+    assert.deepEqual(state.modifiers, [{ stat: 'oreille', delta: -500, expiresAtTurn: 51 }]);
+    assert.deepEqual(apply(state), []);
+  });
+
+  test('a loop notebook event takes titles out of the notebook', () => {
+    const state = infinite(2);
+    state.notebook = [1, 2, 3, 4, 5];
+    state.loopEvents = [{ id: 3, type: 'notebook', turn: 41, amount: -3 }];
+    state.turn = 41;
+    const [fired] = apply(state);
+    assert.equal(fired.text, 'Carnet −3');
+    assert.equal(state.notebook.length, 2);
+  });
+
+  test('the penalties of the finale weigh 100 more and last one more track per cycle', () => {
+    const state = infinite(3);
+    state.stats.oreille = 300;
+    state.live = { kind: 'finale', tracks: [{ songId: 1 }], penalties: [], bonus: null, schedule: { 12: 2 } };
+    const [fired] = events.applyFinaleEvents(state, { random: () => 0 });
+    assert.deepEqual(state.live.penalties, [{ stat: 'oreille', delta: -700, untilTrack: 6 }]);
+    assert.equal(fired.text, 'Chant −700 pendant 5 titres');
+  });
+
+  test('the reward of the series weakens with the cycle', () => {
+    const state = infinite(2);
+    [1, 1, 1, 1, 1].forEach((stage) => events.recordAnswer(state, stage));
+    assert.deepEqual(state.pendingChoice.options.stats, { amount: 26 });
+  });
+});
+
 describe('the events of the normal difficulty', () => {
   function normalScheduled(turns) {
     const state = career.createCareer('normal');
@@ -370,9 +447,9 @@ describe('the events of the normal difficulty', () => {
   }
 
   test('the negative events of the turns never happen', () => {
-    const state = normalScheduled({ 3: 21, 4: 31, 5: 45, 11: 30 });
+    const state = normalScheduled({ 3: 21, 4: 26, 5: 35, 11: 30 });
     state.notebook = [1, 2, 3, 4, 5, 6];
-    state.turn = 50;
+    state.turn = 40;
 
     assert.deepEqual(apply(state), []);
     assert.deepEqual(state.notebook, [1, 2, 3, 4, 5, 6]);
@@ -389,9 +466,9 @@ describe('the events of the normal difficulty', () => {
   });
 
   test('the same negative events do happen on hard', () => {
-    const state = scheduled({ 3: 21, 5: 45 });
+    const state = scheduled({ 3: 21, 5: 35 });
     state.notebook = [1, 2, 3, 4, 5, 6, 7];
-    state.turn = 50;
+    state.turn = 40;
 
     assert.deepEqual(apply(state).map((event) => event.id), [3, 5]);
   });

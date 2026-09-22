@@ -1,31 +1,152 @@
 // Pure rules of the Mode Carrière (see us/carriere-v1.md and us/carriere-v2.md):
 // stats, energy, turns and ranks. Isolated from Express and from song data, like gameState.js.
 
+// Every franchise a career (classic or infinite) can follow. groupArtists lists every exact
+// artist string of songs.json that stands for the whole group (Hasunosora has two, an older
+// and a newer credit). songsGeneration is the `generation` field used to draw the infinite pool.
+const GENERATIONS = {
+  nijigasaki: { songsGeneration: 'Nijigasaki', groupArtists: ['Nijigasaki High School Idol Club'] },
+  mus: { songsGeneration: "µ's", groupArtists: ["µ's"] },
+  aqours: { songsGeneration: 'Aqours', groupArtists: ['Aqours'] },
+  hasunosora: {
+    songsGeneration: 'Hasunosora',
+    groupArtists: ["Hasunosora Girls' High School Idol Club", 'Hasunosora High School Idol Club'],
+  },
+  liella: { songsGeneration: 'Liella', groupArtists: ['Liella!'] },
+  ikizulive: { songsGeneration: 'Ikizulive', groupArtists: ["Ikizurai-Bu!"] },
+};
+const DEFAULT_GENERATION = 'nijigasaki';
+// The infinite mode can also draw from every franchise at once, which no unit ever does.
+const INFINITE_GENERATIONS = [...Object.keys(GENERATIONS), 'all'];
+
+function isValidGeneration(generation) {
+  return INFINITE_GENERATIONS.includes(generation);
+}
+
 // The data lists no members per unit: the pool of a unit is the solos of its members, its
-// own titles and those of the group, all found by the exact artist string of songs.json.
-const GROUP_ARTIST = 'Nijigasaki High School Idol Club';
+// own titles and those of its franchise's group, all found by the exact artist string of
+// songs.json. members always starts with the unit's own artist string.
 const UNITS = {
-  azuna: [
-    'A・ZU・NA',
-    'Ayumu Uehara (CV: Aguri Onishi)',
-    'Shizuku Osaka (CV: Kaori Maeda)',
-    'Setsuna Yuki (CV: Tomori Kusunoki)',
-    'Setsuna Yuki (CV: Coco Hayashi)',
-  ],
-  diverdiva: ['DiverDiva', 'Karin Asaka (CV: Miyu Kubota)', 'Ai Miyashita (CV: Natsumi Murakami)'],
-  qu4rtz: [
-    'QU4RTZ',
-    'Kasumi Nakasu (CV: Mayu Sagara)',
-    'Kanata Konoe (CV: Akari Kito)',
-    'Emma Verde (CV: Maria Sashide)',
-    'Rina Tennoji (CV: Chiemi Tanaka)',
-  ],
-  r3birth: [
-    'R3BIRTH',
-    'Shioriko Mifune (CV: Moeka Koizumi)',
-    'Mia Taylor (CV: Shu Uchida)',
-    'Lanzhu Zhong (CV: Akina Homoto)',
-  ],
+  azuna: {
+    generation: 'nijigasaki',
+    members: [
+      'A・ZU・NA',
+      'Ayumu Uehara (CV: Aguri Onishi)',
+      'Shizuku Osaka (CV: Kaori Maeda)',
+      'Setsuna Yuki (CV: Tomori Kusunoki)',
+      'Setsuna Yuki (CV: Coco Hayashi)',
+    ],
+  },
+  diverdiva: {
+    generation: 'nijigasaki',
+    members: ['DiverDiva', 'Karin Asaka (CV: Miyu Kubota)', 'Ai Miyashita (CV: Natsumi Murakami)'],
+  },
+  qu4rtz: {
+    generation: 'nijigasaki',
+    members: [
+      'QU4RTZ',
+      'Kasumi Nakasu (CV: Mayu Sagara)',
+      'Kanata Konoe (CV: Akari Kito)',
+      'Emma Verde (CV: Maria Sashide)',
+      'Rina Tennoji (CV: Chiemi Tanaka)',
+    ],
+  },
+  r3birth: {
+    generation: 'nijigasaki',
+    members: [
+      'R3BIRTH',
+      'Shioriko Mifune (CV: Moeka Koizumi)',
+      'Mia Taylor (CV: Shu Uchida)',
+      'Lanzhu Zhong (CV: Akina Homoto)',
+    ],
+  },
+  printemps: {
+    generation: 'mus',
+    members: ['Printemps', 'Honoka Kosaka (CV: Emi Nitta)', 'Kotori Minami (CV: Aya Uchida)', 'Umi Sonoda (CV: Suzuko Mimori)'],
+  },
+  lilywhite: {
+    generation: 'mus',
+    members: ['lily white', 'Rin Hoshizora (CV: Riho Iida)', 'Hanayo Koizumi (CV: Yurika Kubo)', 'Maki Nishikino (CV: Pile)'],
+  },
+  bibi: {
+    generation: 'mus',
+    members: ['BiBi', 'Nico Yazawa (CV: Sora Tokui)', 'Eli Ayase (CV: Yoshino Nanjo)', 'Nozomi Tojo (CV: Aina Kusuda)'],
+  },
+  cyaron: {
+    generation: 'aqours',
+    members: ['CYaRon!', 'Chika Takami (CV: Anju Inami)', 'You Watanabe (CV: Shuka Saito)', 'Ruby Kurosawa (CV: Ai Furihata)'],
+  },
+  azalea: {
+    generation: 'aqours',
+    members: ['AZALEA', 'Kanan Matsuura (CV: Nanaka Suwa)', 'Dia Kurosawa (CV: Arisa Komiya)', 'Mari Ohara (CV: Aina Suzuki)'],
+  },
+  guiltykiss: {
+    generation: 'aqours',
+    members: [
+      'Guilty Kiss',
+      'Riko Sakurauchi (CV: Rikako Aida)',
+      'Yoshiko Tsushima (CV: Aika Kobayashi)',
+      'Hanamaru Kunikida (CV: Kanako Takatsuki)',
+    ],
+  },
+  cerisebouquet: {
+    generation: 'hasunosora',
+    members: ['Cerise Bouquet', 'Kaho Hinoshita (CV: Nozomi Nirei)', 'Kozue Otomune (CV: Nina Hanamiya)'],
+  },
+  dollchestra: {
+    generation: 'hasunosora',
+    members: ['DOLLCHESTRA', 'Sayaka Murano (CV: Kokona Nonaka)', 'Tsuzuri Yugiri (CV: Kotoko Sasaki)'],
+  },
+  miracrapark: {
+    generation: 'hasunosora',
+    members: ['Mira-Cra Park!', 'Rurino Osawa (CV: Kanna Kan)', 'Megumi Fujishima (CV: Kona Tsukine)'],
+  },
+  edelnote: { generation: 'hasunosora', members: ['Edel Note'] },
+  catchu: {
+    generation: 'liella',
+    members: [
+      'CatChu!',
+      'Chisato Arashi (CV: Nako Misaki)',
+      'Kinako Sakurakoji (CV: Nozomi Suzuhara)',
+      'Shiki Wakana (CV: Wakana Ookuma)',
+    ],
+  },
+  syncrise: {
+    generation: 'liella',
+    members: [
+      '5yncri5e!',
+      'Kanon Shibuya (CV: Sayuri Date)',
+      'Keke Tang (CV: Liyuu)',
+      'Sumire Heanna (CV: Naomi Payton)',
+      'Ren Hazuki (CV: Nagisa Aoyama)',
+    ],
+  },
+  kaleidoscore: {
+    generation: 'liella',
+    members: [
+      'KALEIDOSCORE',
+      'Wien Margarete (CV: Yuina)',
+      'Mei Yoneme (CV: Akane Yabushima)',
+      'Tomari Onitsuka (CV: Sakura Sakakura)',
+      'Natsumi Onitsuka (CV: Aya Emori)',
+    ],
+  },
+  ikizuraibu: {
+    generation: 'ikizulive',
+    members: [
+      'Ikizurai-Bu!',
+      'Akira Goto (CV: Seri Miyano)',
+      'Aurora Konohana (CV: Akane Amasawa)',
+      'Hanabi Komagata (CV: Kokoro Fujino)',
+      'Mai Azabu (CV: Rina Endo)',
+      'Midori Yamada (CV: Honoka Kotomori)',
+      'Miracle Kanazawa (CV: Aiha Sakano)',
+      'Noriko Chofu (CV: Ria Seko)',
+      'Polka Takahashi (CV: Honon Ayasaki)',
+      'Shion Sasaki (CV: Aoi Suzunose)',
+      'Yukuri Harumiya (CV: Yuki Okumura)',
+    ],
+  },
 };
 const DEFAULT_UNIT = 'azuna';
 
@@ -42,10 +163,12 @@ const MAX_EXTRA_TIERS = 2;
 const MAX_EXTRA_SUGGESTIONS = 3;
 
 // Two phases of 10 turns: the album is released after the first, the concert
-// after the second. A third phase of 30 turns follows, ended by the finale.
+// after the second. A third phase of 20 turns follows, ended by the finale. The
+// infinite mode repeats that phase after each finale (see finalTurnOf).
 const RELEASE_AFTER_TURN = 10;
 const CONCERT_AFTER_TURN = 2 * RELEASE_AFTER_TURN;
-const FINAL_TURN = CONCERT_AFTER_TURN + 30;
+const LOOP_TURNS = 20;
+const FINAL_TURN = CONCERT_AFTER_TURN + LOOP_TURNS;
 const MAX_ENERGY = 4;
 const STUDY_COST = 1;
 const SINGLE_COST = 2;
@@ -62,7 +185,7 @@ const GRADE_ORDER = ['S', 'A', 'B', 'C', 'D'];
 
 const ALBUM_SIZE = 6;
 const CONCERT_SIZE = 15;
-const FINALE_SIZE = 50;
+const FINALE_SIZE = 30;
 // A 6th try only exists on normal, where a base of 4 tries plus endurance reaches it.
 const TRACK_POINTS_BY_STAGE = { 1: 100, 2: 70, 3: 50, 4: 35, 5: 25, 6: 15 };
 const MAX_ALBUM_SCORE = ALBUM_SIZE * TRACK_POINTS_BY_STAGE[1];
@@ -108,6 +231,28 @@ const DIFFICULTIES = {
 };
 const DEFAULT_DIFFICULTY = 'hard';
 
+// The infinite mode plays the hard rules on the whole discography and loops on the
+// third phase; a finale under this share of its maximum ends the run.
+const MODES = ['classic', 'infinite'];
+const LOOP_MIN_FINALE_PERCENT = 50;
+// Each loop weakens the stat gains, down to a floor.
+const LOOP_GAIN_LOSS = 0.15;
+const MIN_GAIN_FACTOR = 0.2;
+// Minimum total (best grade first) for the grade of a whole career, per mode.
+const RUN_GRADES = {
+  classic: [['S', 11000], ['A', 8500], ['B', 6000], ['C', 3500]],
+  infinite: [['S', 40000], ['A', 25000], ['B', 12000], ['C', 6000]],
+};
+
+function isValidMode(mode) {
+  return MODES.includes(mode);
+}
+
+function runGrade(total, mode) {
+  const found = RUN_GRADES[mode].find(([, minimum]) => total >= minimum);
+  return found ? found[0] : 'D';
+}
+
 function isValidDifficulty(difficulty) {
   return typeof difficulty === 'string' && Object.hasOwn(DIFFICULTIES, difficulty);
 }
@@ -133,7 +278,8 @@ const GRADES = [
 ];
 
 function discographyIds(songs, unit) {
-  const artists = new Set([...UNITS[unit], GROUP_ARTIST]);
+  const { generation, members } = UNITS[unit];
+  const artists = new Set([...members, ...GENERATIONS[generation].groupArtists]);
   return songs.filter((song) => artists.has(song.artist)).map((song) => song.id);
 }
 
@@ -182,10 +328,15 @@ function albumGoalReached(state, grade) {
   return GRADE_ORDER.indexOf(grade) <= GRADE_ORDER.indexOf(settingsOf(state).albumGoalGrade);
 }
 
-function createCareer(difficulty = DEFAULT_DIFFICULTY, unit = DEFAULT_UNIT) {
+function createCareer(difficulty = DEFAULT_DIFFICULTY, unit = DEFAULT_UNIT, mode = 'classic', generation = DEFAULT_GENERATION) {
   return {
     difficulty,
     unit,
+    mode,
+    generation,
+    cycle: 1,
+    username: null,
+    submitted: false,
     turn: 1,
     energy: MAX_ENERGY,
     stats: { oreille: 0, memoire: 0, culture: 0 },
@@ -193,6 +344,10 @@ function createCareer(difficulty = DEFAULT_DIFFICULTY, unit = DEFAULT_UNIT) {
     album: [],
     concertTracks: [],
     sorties: [],
+    pastSorties: [],
+    finales: [],
+    finale: null,
+    loopEvents: [],
     live: null,
     modifiers: [],
     pendingChoice: null,
@@ -203,6 +358,21 @@ function createCareer(difficulty = DEFAULT_DIFFICULTY, unit = DEFAULT_UNIT) {
     fans: 0,
     failure: null,
   };
+}
+
+// Each cycle of the third phase ends with a finale, 20 turns after the previous one.
+function finalTurnOf(state) {
+  return FINAL_TURN + LOOP_TURNS * (state.cycle - 1);
+}
+
+// The infinite mode weakens the stat gains with each loop.
+function statGainFactor(state) {
+  if (state.mode !== 'infinite') return 1;
+  return Math.max(MIN_GAIN_FACTOR, 1 - LOOP_GAIN_LOSS * (state.cycle - 1));
+}
+
+function scaledGain(state, gain) {
+  return Math.round(gain * statGainFactor(state));
 }
 
 // The track being played in a sortie, 1-based: the round in progress is not recorded yet.
@@ -250,7 +420,7 @@ function isPhase3(state) {
 
 // state.finale is the finished finale, which ends the career.
 function isFinaleDue(state) {
-  return isPhase3(state) && !state.failure && !state.finale && state.turn > FINAL_TURN;
+  return isPhase3(state) && !state.failure && !state.finale && state.turn > finalTurnOf(state);
 }
 
 function finaleGoalsOf(state) {
@@ -281,7 +451,7 @@ function advanceTurn(state) {
   if (state.release && !state.concert && state.turn > CONCERT_AFTER_TURN && state.fans < settingsOf(state).fansRequired) {
     state.failure = 'FANS';
   }
-  if (isPhase3(state) && state.turn > FINAL_TURN && !finaleGoals(state).met) state.failure = 'FINALE_GOALS';
+  if (isPhase3(state) && state.turn > finalTurnOf(state) && !finaleGoals(state).met) state.failure = 'FINALE_GOALS';
 }
 
 function isOver(state) {
@@ -292,11 +462,11 @@ function isOver(state) {
 function careerScore(state) {
   const album = state.release?.score ?? 0;
   const concert = state.concert?.score ?? 0;
-  const sorties = state.sorties.reduce((total, sortie) => total + sortie.score, 0);
-  const finale = state.finale?.score ?? 0;
+  const sorties = [...state.pastSorties, ...state.sorties].reduce((total, sortie) => total + sortie.score, 0);
+  const finale = state.finales.reduce((total, result) => total + result.score, 0);
   const stats = Object.values(state.stats).reduce((total, value) => total + value, 0);
   const total = album + concert + sorties + finale + stats + state.fans;
-  return { album, concert, sorties, finale, stats, fans: state.fans, total };
+  return { album, concert, sorties, finale, stats, fans: state.fans, total, grade: runGrade(total, state.mode) };
 }
 
 function assertIdle(state) {
@@ -327,13 +497,20 @@ function assertCanSingle(state, stat) {
   assertCanSpend(state, stat, SINGLE_COST);
 }
 
+// A found title joins the notebook; found again, it leaves it and goes back to the pool.
+function toggleNotebook(state, songId) {
+  const index = state.notebook.indexOf(songId);
+  if (index === -1) state.notebook.push(songId);
+  else state.notebook.splice(index, 1);
+}
+
 // foundAtStage is the 1-based tier the title was found at, null when the study
 // round was lost. Nothing is mutated unless every check passes.
 function study(state, stat, foundAtStage, songId) {
   assertCanStudy(state, stat);
   state.energy -= STUDY_COST;
-  state.stats[stat] += studyGain(foundAtStage);
-  if (foundAtStage !== null) state.notebook.push(songId);
+  state.stats[stat] += scaledGain(state, studyGain(foundAtStage));
+  if (foundAtStage !== null) toggleNotebook(state, songId);
   advanceTurn(state);
 }
 
@@ -341,7 +518,7 @@ function study(state, stat, foundAtStage, songId) {
 function single(state, stat, foundAtStage) {
   assertCanSingle(state, stat);
   state.energy -= SINGLE_COST;
-  state.stats[stat] += singleGain(foundAtStage);
+  state.stats[stat] += scaledGain(state, singleGain(foundAtStage));
   state.fans += singleFans(foundAtStage);
   advanceTurn(state);
 }
@@ -430,6 +607,20 @@ function startLive(state, kind) {
   state.live = { kind, tracks: [], penalties: [], bonus: null };
 }
 
+// A classic finale ends the career. An infinite one starts the next cycle, unless
+// it scored under the minimum share, which ends the run.
+function finishFinale(state, result) {
+  state.finales.push(result);
+  if (state.mode === 'infinite' && result.score * 100 >= LOOP_MIN_FINALE_PERCENT * MAX_FINALE_SCORE) {
+    state.pastSorties.push(...state.sorties);
+    state.sorties = [];
+    state.cycle += 1;
+    return;
+  }
+  state.finale = result;
+  if (state.mode === 'infinite') state.failure = 'FINALE_SCORE';
+}
+
 // The last track releases the sortie. An album and a concert use a turn, an
 // album also wins fans; the finale ends the career.
 function finishLiveTrack(state, foundAtStage, songId) {
@@ -437,10 +628,10 @@ function finishLiveTrack(state, foundAtStage, songId) {
   const { size, maxScore } = LIVES[kind];
   recordTrack(tracks, foundAtStage, songId);
   if (tracks.length < size) return;
-  const result = summarize(tracks, maxScore, kind === 'finale' ? FINAL_TURN : state.turn);
+  const result = summarize(tracks, maxScore, kind === 'finale' ? finalTurnOf(state) : state.turn);
   state.live = null;
   if (kind === 'finale') {
-    state.finale = result;
+    finishFinale(state, result);
     return;
   }
   state.sorties.push({ kind, ...result });
@@ -464,12 +655,8 @@ function pickStat(random = Math.random) {
   return STATS[Math.floor(random() * STATS.length)];
 }
 
-// Prefers a title the player has not found yet; once the whole pool is found
-// it draws again from the full pool rather than failing.
-function pickSongId(pool, foundIds, random = Math.random) {
-  const candidates = pool.filter((id) => !foundIds.includes(id));
-  const source = candidates.length > 0 ? candidates : pool;
-  return source[Math.floor(random() * source.length)];
+function pickSongId(pool, random = Math.random) {
+  return pool[Math.floor(random() * pool.length)];
 }
 
 // Half of the tracks of an album, a concert or a finale (rounded up) come from the
@@ -490,6 +677,9 @@ function pickPreparedSongId(pool, studiedIds, usedIds, total, random = Math.rand
 module.exports = {
   UNITS,
   isValidUnit,
+  GENERATIONS,
+  DEFAULT_GENERATION,
+  isValidGeneration,
   DIFFICULTIES,
   isValidDifficulty,
   settingsOf,
@@ -497,6 +687,12 @@ module.exports = {
   RELEASE_AFTER_TURN,
   CONCERT_AFTER_TURN,
   FINAL_TURN,
+  LOOP_TURNS,
+  finalTurnOf,
+  statGainFactor,
+  scaledGain,
+  isValidMode,
+  runGrade,
   MAX_ENERGY,
   STAT_MAX,
   STAT_STEP,

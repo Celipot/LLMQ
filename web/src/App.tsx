@@ -18,6 +18,7 @@ import Toast from './components/Toast';
 import ConfirmDialog from './components/ConfirmDialog';
 import { useGameState } from './hooks/useGameState';
 import { useCareer } from './hooks/useCareer';
+import { useLeaderboard } from './hooks/useLeaderboard';
 import { useGenerationOptions } from './hooks/useGenerationOptions';
 import { useSongHistory } from './hooks/useSongHistory';
 import { useProfile } from './hooks/useProfile';
@@ -30,6 +31,8 @@ import './App.css';
 const CAREER_ROUND_TITLES = { study: 'Étude', single: 'Se faire connaître', release: 'Album', concert: 'Concert', finale: 'SIF' };
 
 type Screen = 'home' | 'profile' | 'random-setup' | 'random' | 'career' | 'list' | 'join' | 'lobby';
+
+const CAREER_BETA_USERNAME = 'betatest-carrière';
 
 function parseGameIdFromPath(): string | null {
   const match = window.location.pathname.match(/^\/game\/([^/]+)$/);
@@ -49,6 +52,7 @@ export default function App() {
     return getPersistedPlayerId(urlGameId) ? 'lobby' : 'join';
   });
   const { profile, avatarError, saveUsername, chooseAvatar, removeAvatar } = useProfile();
+  const showCareer = profile.username === CAREER_BETA_USERNAME;
   const { message: toast, showToast } = useToast();
   const { history, adaptive, setAdaptive, recordResult, clearHistory } = useSongHistory();
   const { state, titles, activeSongId, error, guess, skip, reset, startRandom, selectSong, clearError } =
@@ -60,6 +64,8 @@ export default function App() {
   const selectedGenerations = randomGenerations ?? generationOptions.map((option) => option.generation);
 
   const careerState = useCareer();
+  // Read on the start screen of the career, where it is shown.
+  const leaderboards = useLeaderboard(screen === 'career' && !careerState.career);
   const careerRound = screen === 'career' ? careerState.round : null;
   // Only on the hub of a career still going on: a round in progress or a finished career has its own way out.
   const canRestartCareer =
@@ -276,6 +282,7 @@ export default function App() {
           onSelectCareer={handleSelectCareer}
           onSelectList={() => setScreen('list')}
           onGameCreated={handleGameCreated}
+          showCareer={showCareer}
         />
       )}
 
@@ -317,6 +324,8 @@ export default function App() {
         <CareerHub
           career={careerState.career}
           error={careerState.error}
+          username={profile.username}
+          leaderboards={leaderboards}
           onBegin={(choice) => startCareerRound(() => careerState.begin(choice))}
           onRestart={careerState.abandon}
           onRest={careerState.rest}

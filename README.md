@@ -72,13 +72,14 @@ Le frontend utilise [React Bits](https://reactbits.dev) pour l'habillage animé 
 | `/api/guess` | POST | `{ "title": "..." }` — soumet une tentative |
 | `/api/skip` | POST | Passe l'essai courant |
 | `/api/reset` | POST | Réinitialise la partie (dev uniquement, non authentifié) |
-| `/api/career` | POST / GET / DELETE | Démarre une carrière (corps optionnel `{ "unit": "azuna" \| "diverdiva" \| "qu4rtz" \| "r3birth", "difficulty": "normal" \| "hard" }`, `azuna` et `hard` par défaut) / la relit (`{ career, round }`) / l'abandonne (204, la suivante repart de l'écran de départ) |
+| `/api/career` | POST / GET / DELETE | Démarre une carrière (corps optionnel `{ "mode": "classic" \| "infinite", "username": "…" (obligatoire en Infini), "unit": "azuna" \| "diverdiva" \| "qu4rtz" \| "r3birth", "difficulty": "normal" \| "hard" }`, `azuna` et `hard` par défaut) / la relit (`{ career, round }`) / l'abandonne (204, la suivante repart de l'écran de départ) |
+| `/api/leaderboard` | GET | Sans session : les 10 meilleurs scores du mode Infini `{ leaderboard: [{ username, turn, score, grade }] }` |
 | `/api/career/rest` | POST | Se reposer (énergie au maximum), consomme un tour |
 | `/api/career/study` | POST | `{ "stat": "oreille" \| "memoire" \| "culture" }` — démarre un round d'étude (coûte 1 énergie, le titre trouvé entre dans le carnet) |
 | `/api/career/single` | POST | Démarre un round de single sur une stat tirée au hasard par le serveur (coûte 2 énergies, plus de stats qu'une étude, le titre n'entre pas dans le carnet) |
 | `/api/career/release` | POST | Après les 10 premiers tours : démarre le titre suivant de l'album de 6 (score et grade après le 6e), puis 10 nouveaux tours |
 | `/api/career/concert` | POST | Après les tours 11 à 20 : démarre le titre suivant du concert de 15 (score sur 1500 et grade après le 15e), qui ouvre la 3e phase ; ensuite, concert à la demande (4 énergies) |
-| `/api/career/finale` | POST | Après le tour 50, objectifs remplis (2 concerts et 3 albums, dont 2 et 2 de grade B+) : démarre le titre suivant du SIF de 50 (score sur 5000), qui termine la carrière |
+| `/api/career/finale` | POST | Après le tour 40, objectifs remplis (2 concerts et 3 albums, dont 2 et 2 de grade B+) : démarre le titre suivant du SIF de 50 (score sur 5000), qui termine la carrière |
 | `/api/career/event/choice` | POST | `{ "option": "stats" \| "energy" }` — choisit la récompense d'une série de 5 titres trouvés (bloque toute action tant qu'elle est en attente) |
 
 Les routes solo (dont `/api/career*`) exigent l'en-tête `X-Solo-Session` (id opaque de 16 à 64 caractères généré par le client). Un round de carrière se joue avec `/api/guess`, `/api/skip` et `/audio/track` ; sa spécification est dans [`us/carriere-v1.md`](us/carriere/carriere-v1.md) et [`us/carriere-v2.md`](us/carriere/carriere-v2.md) (single, deuxième phase, concert) et [`us/carriere-v3.md`](us/carriere/carriere-v3.md) (troisième phase, événements, SIF).

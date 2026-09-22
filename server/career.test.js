@@ -72,13 +72,77 @@ describe('the pool of each unit', () => {
 
   test('the pools of the real library are 82, 71, 89 and 68 titles, all enough for the finale', () => {
     const library = require('../data/songs.json');
-    const sizes = Object.fromEntries(Object.keys(career.UNITS).map((unit) => [unit, career.discographyIds(library, unit).length]));
+    const sizes = Object.fromEntries(
+      ['azuna', 'diverdiva', 'qu4rtz', 'r3birth'].map((unit) => [unit, career.discographyIds(library, unit).length]),
+    );
     assert.deepEqual(sizes, { azuna: 82, diverdiva: 71, qu4rtz: 89, r3birth: 68 });
+    Object.values(sizes).forEach((size) => assert.ok(size >= career.FINALE_SIZE));
+  });
+
+  test('every unit of every franchise has a pool large enough for the finale, on the real library', () => {
+    const library = require('../data/songs.json');
+    Object.keys(career.UNITS).forEach((unit) => {
+      assert.ok(career.discographyIds(library, unit).length >= career.FINALE_SIZE, unit);
+    });
+  });
+
+  test("µ's, Aqours and Hasunosora units draw from their own franchise's group, not Nijigasaki's", () => {
+    const songs = [
+      { id: 1, artist: 'Printemps' },
+      { id: 2, artist: "µ's" },
+      { id: 3, artist: 'Nijigasaki High School Idol Club' },
+      { id: 4, artist: 'CYaRon!' },
+      { id: 5, artist: 'Aqours' },
+      { id: 6, artist: 'DOLLCHESTRA' },
+      { id: 7, artist: "Hasunosora Girls' High School Idol Club" },
+      { id: 8, artist: 'Hasunosora High School Idol Club' },
+    ];
+    assert.deepEqual(career.discographyIds(songs, 'printemps'), [1, 2]);
+    assert.deepEqual(career.discographyIds(songs, 'cyaron'), [4, 5]);
+    assert.deepEqual(career.discographyIds(songs, 'dollchestra'), [6, 7, 8]);
+  });
+
+  test('CatChu!, 5yncri5e! and KALEIDOSCORE: the solos of their members, their own unit and the Liella! group', () => {
+    const CHISATO = 'Chisato Arashi (CV: Nako Misaki)';
+    const KANON = 'Kanon Shibuya (CV: Sayuri Date)';
+    const WIEN = 'Wien Margarete (CV: Yuina)';
+    const songs = [
+      { id: 1, artist: CHISATO },
+      { id: 2, artist: 'CatChu!' },
+      { id: 3, artist: 'Liella!' },
+      { id: 4, artist: KANON },
+      { id: 5, artist: '5yncri5e!' },
+      { id: 6, artist: WIEN },
+      { id: 7, artist: 'KALEIDOSCORE' },
+      { id: 8, artist: 'Sunny Passion' },
+    ];
+    assert.deepEqual(career.discographyIds(songs, 'catchu'), [1, 2, 3]);
+    assert.deepEqual(career.discographyIds(songs, 'syncrise'), [3, 4, 5]);
+    assert.deepEqual(career.discographyIds(songs, 'kaleidoscore'), [3, 6, 7]);
+  });
+
+  test('Ikizurai-Bu!: every soloist plus the group, the whole Ikizulive discography', () => {
+    const songs = [
+      { id: 1, artist: 'Akira Goto (CV: Seri Miyano)' },
+      { id: 2, artist: 'Ikizurai-Bu!' },
+      { id: 3, artist: 'Mai Azabu (CV: Rina Endo)' },
+      { id: 4, artist: 'Liella!' },
+    ];
+    assert.deepEqual(career.discographyIds(songs, 'ikizuraibu'), [1, 2, 3]);
+  });
+
+  test('the real library gives the Liella and Ikizulive units pools well above the finale size', () => {
+    const library = require('../data/songs.json');
+    const sizes = Object.fromEntries(
+      ['catchu', 'syncrise', 'kaleidoscore', 'ikizuraibu'].map((unit) => [unit, career.discographyIds(library, unit).length]),
+    );
+    assert.deepEqual(sizes, { catchu: 101, syncrise: 109, kaleidoscore: 101, ikizuraibu: 32 });
     Object.values(sizes).forEach((size) => assert.ok(size >= career.FINALE_SIZE));
   });
 
   test('isValidUnit only accepts a known unit', () => {
     assert.equal(career.isValidUnit('qu4rtz'), true);
+    assert.equal(career.isValidUnit('cyaron'), true);
     assert.equal(career.isValidUnit('aqours'), false);
     assert.equal(career.isValidUnit('toString'), false);
     assert.equal(career.isValidUnit(undefined), false);
@@ -88,6 +152,25 @@ describe('the pool of each unit', () => {
     assert.equal(career.createCareer().unit, 'azuna');
     assert.equal(career.createCareer('normal', 'r3birth').unit, 'r3birth');
     assert.equal(career.createCareer('normal', 'r3birth').difficulty, 'normal');
+  });
+});
+
+describe('isValidGeneration', () => {
+  test('accepts the 6 franchises and "all", nothing else', () => {
+    assert.equal(career.isValidGeneration('nijigasaki'), true);
+    assert.equal(career.isValidGeneration('mus'), true);
+    assert.equal(career.isValidGeneration('aqours'), true);
+    assert.equal(career.isValidGeneration('hasunosora'), true);
+    assert.equal(career.isValidGeneration('liella'), true);
+    assert.equal(career.isValidGeneration('ikizulive'), true);
+    assert.equal(career.isValidGeneration('all'), true);
+    assert.equal(career.isValidGeneration('azuna'), false);
+    assert.equal(career.isValidGeneration(undefined), false);
+  });
+
+  test('a career follows the Nijigasaki franchise unless told otherwise', () => {
+    assert.equal(career.createCareer().generation, 'nijigasaki');
+    assert.equal(career.createCareer('hard', 'azuna', 'infinite', 'aqours').generation, 'aqours');
   });
 });
 
@@ -176,6 +259,20 @@ describe('a career', () => {
     const state = career.createCareer();
     career.study(state, 'memoire', 2, 42);
     career.study(state, 'memoire', null, 43);
+    assert.deepEqual(state.notebook, [42]);
+  });
+
+  test('finding a title of the notebook again takes it out of the notebook', () => {
+    const state = career.createCareer();
+    state.notebook = [42, 43];
+    career.study(state, 'memoire', 3, 42);
+    assert.deepEqual(state.notebook, [43]);
+  });
+
+  test('failing a title of the notebook keeps it in the notebook', () => {
+    const state = career.createCareer();
+    state.notebook = [42];
+    career.study(state, 'memoire', null, 42);
     assert.deepEqual(state.notebook, [42]);
   });
 
@@ -446,6 +543,7 @@ describe('careerScore', () => {
       stats: 170,
       fans: 200,
       total: 1790,
+      grade: 'D',
     });
   });
 
@@ -459,6 +557,7 @@ describe('careerScore', () => {
       stats: 0,
       fans: 0,
       total: 0,
+      grade: 'D',
     });
   });
 
@@ -588,8 +687,8 @@ function playLive(state, kind, stages) {
 }
 
 describe('the third phase', () => {
-  test('lasts from turn 21 to turn 50', () => {
-    assert.equal(career.FINAL_TURN, 50);
+  test('lasts from turn 21 to turn 40', () => {
+    assert.equal(career.FINAL_TURN, 40);
     assert.equal(career.isPhase3(careerInPhase3()), true);
     assert.equal(career.isPhase3(career.createCareer()), false);
   });
@@ -698,15 +797,15 @@ describe('the third phase', () => {
     assert.deepEqual(career.finaleGoals(state).concerts, { done: 3, good: 2, required: 2, requiredGood: 2 });
   });
 
-  test('the finale is not due before turn 51 and cannot be started', () => {
+  test('the finale is not due before turn 41 and cannot be started', () => {
     const state = careerInPhase3();
     assert.equal(career.isFinaleDue(state), false);
     assert.throws(() => career.startLive(state, 'finale'), { message: 'FINALE_NOT_DUE' });
   });
 
-  test('turn 51 without the goals fails the career', () => {
+  test('turn 41 without the goals fails the career', () => {
     const state = careerInPhase3();
-    state.turn = 50;
+    state.turn = 40;
     career.rest(state);
     assert.equal(state.failure, 'FINALE_GOALS');
     assert.equal(career.isFinaleDue(state), false);
@@ -722,12 +821,12 @@ describe('the third phase', () => {
       { kind: 'album', score: 400, grade: 'B' },
       { kind: 'album', score: 0, grade: 'D' },
     ];
-    state.turn = 50;
+    state.turn = 40;
     career.rest(state);
     return state;
   }
 
-  test('turn 51 with the goals makes the finale due, and nothing else is possible', () => {
+  test('turn 41 with the goals makes the finale due, and nothing else is possible', () => {
     const state = careerAtFinale();
     assert.equal(state.failure, null);
     assert.equal(career.isFinaleDue(state), true);
@@ -735,13 +834,13 @@ describe('the third phase', () => {
     assert.throws(() => career.startLive(state, 'album'), { message: 'FINALE_DUE' });
   });
 
-  test('the finale has 50 tracks for 5000 points, costs no energy and ends the career', () => {
-    assert.equal(career.FINALE_SIZE, 50);
-    assert.equal(career.MAX_FINALE_SCORE, 5000);
+  test('the finale has 30 tracks for 3000 points, costs no energy and ends the career', () => {
+    assert.equal(career.FINALE_SIZE, 30);
+    assert.equal(career.MAX_FINALE_SCORE, 3000);
     const state = careerAtFinale();
     state.energy = 0;
-    playLive(state, 'finale', [...Array(49).fill(1), null]);
-    assert.equal(state.finale.score, 4900);
+    playLive(state, 'finale', [...Array(29).fill(1), null]);
+    assert.equal(state.finale.score, 2900);
     assert.equal(state.finale.grade, 'S');
     assert.equal(state.live, null);
     assert.equal(career.isOver(state), true);
@@ -750,16 +849,165 @@ describe('the third phase', () => {
 
   test('the career score adds the sorties of the third phase and the finale', () => {
     const state = careerAtFinale();
-    playLive(state, 'finale', Array(50).fill(1));
+    playLive(state, 'finale', Array(30).fill(1));
     assert.deepEqual(career.careerScore(state), {
       album: 600,
       concert: 1500,
       sorties: 2400,
-      finale: 5000,
+      finale: 3000,
       stats: 0,
       fans: career.DIFFICULTIES.hard.fansRequired,
-      total: 9850,
+      total: 7850,
+      grade: 'B',
     });
+  });
+});
+
+describe('the infinite mode', () => {
+  function atFinale(cycle = 1) {
+    const state = careerInPhase3();
+    state.mode = 'infinite';
+    state.cycle = cycle;
+    state.sorties = [
+      { kind: 'concert', score: 800, grade: 'B' },
+      { kind: 'concert', score: 800, grade: 'B' },
+      { kind: 'album', score: 400, grade: 'B' },
+      { kind: 'album', score: 400, grade: 'B' },
+      { kind: 'album', score: 0, grade: 'D' },
+    ];
+    state.turn = career.finalTurnOf(state);
+    career.rest(state);
+    return state;
+  }
+
+  test('a career is classic by default and starts at the first cycle', () => {
+    const state = career.createCareer();
+    assert.equal(state.mode, 'classic');
+    assert.equal(state.cycle, 1);
+    assert.deepEqual(state.finales, []);
+    assert.equal(career.createCareer('hard', 'azuna', 'infinite').mode, 'infinite');
+    assert.equal(career.isValidMode('infinite'), true);
+    assert.equal(career.isValidMode('endless'), false);
+  });
+
+  test('each cycle lasts 20 turns: the finale comes at turn 40, 60, 80...', () => {
+    const state = career.createCareer('hard', 'azuna', 'infinite');
+    assert.equal(career.finalTurnOf(state), 40);
+    state.cycle = 3;
+    assert.equal(career.finalTurnOf(state), 80);
+  });
+
+  test('a finale at half of the maximum or more starts the next cycle', () => {
+    const state = atFinale();
+    playLive(state, 'finale', [...Array(15).fill(1), ...Array(15).fill(null)]);
+    assert.equal(career.isOver(state), false);
+    assert.equal(state.cycle, 2);
+    assert.equal(state.finale, null);
+    assert.equal(state.finales.length, 1);
+    assert.equal(state.finales[0].score, 1500);
+    assert.deepEqual(state.sorties, []);
+    assert.equal(state.pastSorties.length, 5);
+    assert.equal(state.turn, 41);
+    assert.equal(career.isFinaleDue(state), false);
+    assert.equal(career.finalTurnOf(state), 60);
+  });
+
+  test('a finale under half of the maximum ends the career', () => {
+    const state = atFinale();
+    playLive(state, 'finale', [...Array(14).fill(1), ...Array(16).fill(null)]);
+    assert.equal(state.failure, 'FINALE_SCORE');
+    assert.equal(career.isOver(state), true);
+    assert.equal(career.careerScore(state).finale, 1400);
+  });
+
+  test('the goals of a cycle only count the sorties of that cycle', () => {
+    const state = atFinale();
+    playLive(state, 'finale', Array(30).fill(1));
+    assert.equal(career.finaleGoals(state).met, false);
+    state.turn = 60;
+    career.rest(state);
+    assert.equal(state.failure, 'FINALE_GOALS');
+  });
+
+  test('a sortie of the next cycle is dated and counted in its cycle', () => {
+    const state = atFinale();
+    playLive(state, 'finale', Array(30).fill(1));
+    state.energy = 4;
+    playLive(state, 'album', Array(6).fill(1));
+    assert.equal(state.sorties.length, 1);
+    assert.equal(state.sorties[0].turn, 41);
+    assert.equal(career.finaleGoals(state).albums.done, 1);
+  });
+
+  test('the score adds every finale and the sorties of the past cycles', () => {
+    const state = atFinale();
+    playLive(state, 'finale', Array(30).fill(1));
+    state.energy = 4;
+    playLive(state, 'album', Array(6).fill(1));
+    const score = career.careerScore(state);
+    assert.equal(score.finale, 3000);
+    assert.equal(score.sorties, 2400 + 600);
+  });
+
+  test('a classic finale still ends the career', () => {
+    const state = careerInPhase3();
+    state.sorties = [
+      { kind: 'concert', score: 800, grade: 'B' },
+      { kind: 'concert', score: 800, grade: 'B' },
+      { kind: 'album', score: 400, grade: 'B' },
+      { kind: 'album', score: 400, grade: 'B' },
+      { kind: 'album', score: 0, grade: 'D' },
+    ];
+    state.turn = 40;
+    career.rest(state);
+    playLive(state, 'finale', Array(30).fill(null));
+    assert.equal(state.failure, null);
+    assert.equal(career.isOver(state), true);
+    assert.equal(state.finales.length, 1);
+  });
+
+  test('the stat gains weaken with the cycle, down to a fifth', () => {
+    const gained = (cycle) => {
+      const state = career.createCareer('hard', 'azuna', 'infinite');
+      state.cycle = cycle;
+      career.study(state, 'oreille', 1, 42);
+      return state.stats.oreille;
+    };
+    assert.equal(gained(1), 40);
+    assert.equal(gained(2), 34);
+    assert.equal(gained(9), 8);
+  });
+
+  test('the gains of a classic career never weaken', () => {
+    const state = career.createCareer();
+    state.cycle = 5;
+    career.study(state, 'oreille', 1, 42);
+    assert.equal(state.stats.oreille, 40);
+  });
+});
+
+describe('runGrade', () => {
+  test('a classic career is graded on its own scale', () => {
+    assert.equal(career.runGrade(11000, 'classic'), 'S');
+    assert.equal(career.runGrade(10999, 'classic'), 'A');
+    assert.equal(career.runGrade(6000, 'classic'), 'B');
+    assert.equal(career.runGrade(3500, 'classic'), 'C');
+    assert.equal(career.runGrade(3499, 'classic'), 'D');
+  });
+
+  test('an infinite career is graded on a higher scale', () => {
+    assert.equal(career.runGrade(40000, 'infinite'), 'S');
+    assert.equal(career.runGrade(25000, 'infinite'), 'A');
+    assert.equal(career.runGrade(11999, 'infinite'), 'C');
+    assert.equal(career.runGrade(0, 'infinite'), 'D');
+  });
+
+  test('the career score carries the grade of its total', () => {
+    const state = career.createCareer();
+    state.release = { score: 600, grade: 'S', tracks: [] };
+    assert.equal(career.careerScore(state).grade, 'D');
+    state.fans = 11000;
+    assert.equal(career.careerScore(state).grade, 'S');
   });
 });
 
@@ -858,14 +1106,9 @@ describe('releaseRank', () => {
 });
 
 describe('pickSongId', () => {
-  test('never returns an already found title while others remain', () => {
-    const picked = new Set();
-    for (let i = 0; i < 50; i += 1) picked.add(career.pickSongId([1, 2, 3], [1, 2]));
-    assert.deepEqual([...picked], [3]);
-  });
-
-  test('falls back to the whole pool once every title is found', () => {
-    assert.equal(career.pickSongId([7], [7]), 7);
+  test('draws from the whole pool, the notebook titles included', () => {
+    assert.equal(career.pickSongId([1, 2, 3], () => 0), 1);
+    assert.equal(career.pickSongId([1, 2, 3], () => 0.999), 3);
   });
 });
 
@@ -885,7 +1128,7 @@ describe('the turn of a release', () => {
     assert.equal(state.turn, 34);
   });
 
-  test('the finale is dated 50', () => {
+  test('the finale is dated 40', () => {
     const state = careerInPhase3();
     state.sorties = [
       { kind: 'concert', score: 800, grade: 'B' },
@@ -894,10 +1137,10 @@ describe('the turn of a release', () => {
       { kind: 'album', score: 400, grade: 'B' },
       { kind: 'album', score: 0, grade: 'D' },
     ];
-    state.turn = 50;
+    state.turn = 40;
     career.rest(state);
-    playLive(state, 'finale', Array(50).fill(1));
-    assert.equal(state.finale.turn, 50);
+    playLive(state, 'finale', Array(30).fill(1));
+    assert.equal(state.finale.turn, 40);
   });
 });
 

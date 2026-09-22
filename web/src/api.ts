@@ -1,10 +1,9 @@
 import type {
   ApiErrorBody,
   AnswerWindowResponse,
+  CareerChoice,
   CareerResponse,
   CareerStat,
-  Difficulty,
-  Unit,
   RewardOption,
   CreateGameResponse,
   GameState,
@@ -13,6 +12,7 @@ import type {
   GenerationsResponse,
   GuessResponse,
   JoinGameResponse,
+  Leaderboards,
   PlayableSong,
   SkipResponse,
   SongCountResponse,
@@ -119,16 +119,22 @@ export function selectSong(id: number): Promise<GameState> {
   return soloFetch(`/api/songs/${id}/select`, { method: 'POST' }).then((res) => parseOrThrow<GameState>(res));
 }
 
-export function startCareer({ unit, difficulty }: { unit: Unit; difficulty: Difficulty }): Promise<CareerResponse> {
+export function startCareer(choice: CareerChoice): Promise<CareerResponse> {
   return soloFetch(
     '/api/career',
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ unit, difficulty }),
+      body: JSON.stringify(choice),
     },
     'career',
   ).then((res) => parseOrThrow<CareerResponse>(res));
+}
+
+export function fetchLeaderboards(): Promise<Leaderboards> {
+  return fetch('/api/leaderboard')
+    .then((res) => parseOrThrow<{ leaderboards: Leaderboards }>(res))
+    .then((body) => body.leaderboards);
 }
 
 export function fetchCareer(): Promise<CareerResponse> {

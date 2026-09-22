@@ -8,3 +8,6 @@ data/audio/*.wav
 !data/audio/placeholder.wav
 data/covers/*.png
 prompt/
+
+data/leaderboard.json
+data/leaderboard.json.tmp

@@ -10,6 +10,7 @@ const songs = require('./songs');
 const songPicker = require('./songPicker');
 const soloSessions = require('./soloSessions');
 const career = require('./career');
+const leaderboard = require('./leaderboard');
 const careerRounds = require('./careerRounds');
 const avatars = require('./avatars');
 const { truncateWavFile } = require('./wavTruncate');
@@ -269,15 +270,31 @@ function careerAction(action) {
 }
 
 app.post('/api/career', requireSession, (req, res) => {
-  const { difficulty, unit } = req.body || {};
+  const { difficulty, unit, mode, username, generation } = req.body || {};
+  if (mode !== undefined && !career.isValidMode(mode)) {
+    return res.status(400).json({ error: 'INVALID_MODE' });
+  }
+  if (mode === 'infinite') {
+    if (!leaderboard.isValidUsername(username)) return res.status(400).json({ error: 'INVALID_USERNAME' });
+    if (generation !== undefined && !career.isValidGeneration(generation)) {
+      return res.status(400).json({ error: 'INVALID_GENERATION' });
+    }
+    careerRounds.createCareer(req.solo, { mode, username, generation });
+    return res.json(careerResponse(req.solo));
+  }
   if (difficulty !== undefined && !career.isValidDifficulty(difficulty)) {
     return res.status(400).json({ error: 'INVALID_DIFFICULTY' });
   }
   if (unit !== undefined && !career.isValidUnit(unit)) {
     return res.status(400).json({ error: 'INVALID_UNIT' });
   }
-  careerRounds.createCareer(req.solo, difficulty, unit);
+  careerRounds.createCareer(req.solo, { difficulty, unit });
   res.json(careerResponse(req.solo));
+});
+
+// Public: the leaderboard belongs to the whole app, not to a solo session.
+app.get('/api/leaderboard', (req, res) => {
+  res.json({ leaderboards: leaderboard.topByGeneration() });
 });
 
 app.delete('/api/career', requireSession, (req, res) => {

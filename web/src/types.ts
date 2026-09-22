@@ -50,6 +50,11 @@ export interface Career {
   concertAt: number;
   finalTurn: number;
   releaseAt: number;
+  mode: CareerMode;
+  // The infinite mode repeats the third phase: 1 for the first one, then 2, 3...
+  cycle: number;
+  // Every finale played, the last of a classic career included.
+  finales: CareerResult[];
   energy: number;
   maxEnergy: number;
   // Effective stats: a temporary penalty can push one under 0.
@@ -59,6 +64,9 @@ export interface Career {
   modifiers: CareerModifier[];
   suggestionCount: number;
   unit: Unit;
+  // The franchise being followed: derived from the unit in a classic career, chosen
+  // directly (or 'all', the whole library) in the infinite mode.
+  generation: Generation;
   difficulty: Difficulty;
   // The clip length in seconds of each try, and the search suggestions, before any stat bonus.
   baseTiers: number[];
@@ -145,9 +153,10 @@ export interface CareerScore {
   stats: number;
   fans: number;
   total: number;
+  grade: CareerGrade;
 }
 
-export type CareerFailure = 'ALBUM_GRADE' | 'FANS' | 'FINALE_GOALS';
+export type CareerFailure = 'ALBUM_GRADE' | 'FANS' | 'FINALE_GOALS' | 'FINALE_SCORE';
 
 export type CareerGrade = 'S' | 'A' | 'B' | 'C' | 'D';
 
@@ -170,7 +179,46 @@ export interface CareerResult {
 
 export type Difficulty = 'normal' | 'hard';
 
-export type Unit = 'azuna' | 'diverdiva' | 'qu4rtz' | 'r3birth';
+export type CareerMode = 'classic' | 'infinite';
+
+// A classic career follows a unit at a difficulty; an infinite one needs a username for the
+// leaderboard and follows a franchise ('all' is the whole library, nijigasaki the default).
+export type CareerChoice =
+  | { unit: Unit; difficulty: Difficulty }
+  | { mode: 'infinite'; username: string; generation?: Generation };
+
+export interface LeaderboardEntry {
+  username: string;
+  turn: number;
+  score: number;
+  grade: CareerGrade;
+}
+
+// One leaderboard per franchise, plus 'all' for the whole library.
+export type Leaderboards = Record<Generation, LeaderboardEntry[]>;
+
+export type Unit =
+  | 'azuna'
+  | 'diverdiva'
+  | 'qu4rtz'
+  | 'r3birth'
+  | 'printemps'
+  | 'lilywhite'
+  | 'bibi'
+  | 'cyaron'
+  | 'azalea'
+  | 'guiltykiss'
+  | 'cerisebouquet'
+  | 'dollchestra'
+  | 'miracrapark'
+  | 'edelnote'
+  | 'catchu'
+  | 'syncrise'
+  | 'kaleidoscore'
+  | 'ikizuraibu';
+
+// The 6 franchises playable in career, plus 'all' (only valid for the infinite mode).
+export type Generation = 'nijigasaki' | 'mus' | 'aqours' | 'hasunosora' | 'liella' | 'ikizulive' | 'all';
 
 // The kind of title to guess; a unit or a group has no singer.
 export interface TitleHint {

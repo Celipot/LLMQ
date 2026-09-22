@@ -28,6 +28,9 @@ const career: Career = {
   turn: 1,
   concertAt: 20,
   finalTurn: 50,
+  mode: 'classic',
+  cycle: 1,
+  finales: [],
   statMax: { oreille: 300, memoire: 300, culture: 200 },
   modifiers: [],
   phase3: false,
@@ -112,6 +115,17 @@ describe('useCareer', () => {
     expect(api.startCareer).toHaveBeenCalledWith({ unit: 'diverdiva', difficulty: 'normal' });
     expect(result.current.career).toEqual(career);
     expect(result.current.round).toBeNull();
+  });
+
+  test('begin() starts an infinite career with the username', async () => {
+    vi.mocked(api.startCareer).mockResolvedValue({ career, round: null });
+    const { result } = renderHook(() => useCareer());
+
+    await act(async () => {
+      await result.current.begin({ mode: 'infinite', username: 'Ayumu' });
+    });
+
+    expect(api.startCareer).toHaveBeenCalledWith({ mode: 'infinite', username: 'Ayumu' });
   });
 
   test('study() starts the round for the chosen stat', async () => {

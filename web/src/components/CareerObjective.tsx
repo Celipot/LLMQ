@@ -37,14 +37,19 @@ function objectiveOf(career: Career): Objective {
   if (failure === 'FINALE_GOALS') {
     return { text: "Objectif raté : pas assez de concerts et d'albums réussis pour le SIF" };
   }
+  if (failure === 'FINALE_SCORE') {
+    return { text: "Objectif raté : le SIF n'a pas atteint la moitié du score maximum" };
+  }
   if (finaleResult) return { text: 'Carrière terminée' };
   if (finaleDue) return { text: 'Donner le SIF' };
   if (concertResult) {
     const { concerts, albums } = finaleGoals;
     return {
       text: '',
-      lines: [`Obtenir au moins ${albumGoalGrade} au Concert : ${concerts.good} / ${concerts.requiredGood}`,
-        `Obtenir au moins ${albumGoalGrade} à l'Album : ${albums.good} / ${albums.requiredGood}`],
+      lines: [
+        `Concerts : ${concerts.done} / ${concerts.required} joués, dont ${concerts.good} / ${concerts.requiredGood} au moins ${albumGoalGrade}`,
+        `Albums : ${albums.done} / ${albums.required} joués, dont ${albums.good} / ${albums.requiredGood} au moins ${albumGoalGrade}`,
+      ],
       turnsLeft: finalTurn - turn + 1,
     };
   }

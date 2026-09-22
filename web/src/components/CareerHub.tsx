@@ -3,7 +3,18 @@ import { CAREER_STATS } from '../careerStats';
 import { useState } from 'react';
 import { illustrationFor } from '../careerIllustrations';
 import { CAREER_UNITS } from '../careerUnits';
-import type { Career, CareerEvent as CareerEventData, CareerStat, Difficulty, RewardOption, Unit } from '../types';
+import { CAREER_GENERATIONS } from '../careerGenerations';
+import type {
+  Career,
+  CareerChoice,
+  CareerEvent as CareerEventData,
+  CareerStat,
+  Difficulty,
+  Generation,
+  Leaderboards,
+  RewardOption,
+  Unit,
+} from '../types';
 import ActionButton from './ActionButton';
 import CareerEvent from './CareerEvent';
 import CareerNotebook from './CareerNotebook';
@@ -11,12 +22,16 @@ import CareerObjective from './CareerObjective';
 import CareerResult from './CareerResult';
 import CareerScore from './CareerScore';
 import ChangeBadge from './ChangeBadge';
+import Leaderboard from './Leaderboard';
 import StatBars from './StatBars';
 
 interface CareerHubProps {
   career: Career | null;
   error: string | null;
-  onBegin: (choice: { unit: Unit; difficulty: Difficulty }) => void;
+  onBegin: (choice: CareerChoice) => void;
+  // The username of the profile, needed by the infinite mode, and its best runs.
+  username: string;
+  leaderboards: Leaderboards;
   // Back to the choice of the difficulty, once the career is over.
   onRestart: () => void;
   onRest: () => void;
@@ -54,10 +69,16 @@ const DIFFICULTY_CHOICES: { difficulty: Difficulty; label: string; tooltip: stri
 
 const LIVE_LABELS = { album: "l'album", concert: 'le concert', finale: 'le SIF' };
 
+// The 4 franchises a unit can belong to; 'all' (the whole library) only exists for the
+// infinite mode, which follows no single unit.
+const UNIT_GENERATIONS = CAREER_GENERATIONS.filter(({ generation }) => generation !== 'all');
+
 export default function CareerHub({
   career,
   error,
   onBegin,
+  username,
+  leaderboards,
   onRestart,
   onRest,
   onStudy,
@@ -71,24 +92,28 @@ export default function CareerHub({
   changes,
 }: CareerHubProps) {
   const [unit, setUnit] = useState<Unit>(CAREER_UNITS[0].unit);
+  const [infiniteGeneration, setInfiniteGeneration] = useState<Generation>('nijigasaki');
 
   if (!career) {
     const { label: unitLabel } = CAREER_UNITS.find((choice) => choice.unit === unit) ?? CAREER_UNITS[0];
+    const infiniteLabel = CAREER_GENERATIONS.find((choice) => choice.generation === infiniteGeneration)?.label;
     return (
       <section className="career-hub">
-        <div className="actions" role="group" aria-label="Unité">
-          {CAREER_UNITS.map((choice) => (
-            <button
-              key={choice.unit}
-              type="button"
-              className={choice.unit === unit ? undefined : 'secondary'}
-              aria-pressed={choice.unit === unit}
-              onClick={() => setUnit(choice.unit)}
-            >
-              {choice.label}
-            </button>
-          ))}
-        </div>
+        {UNIT_GENERATIONS.map(({ generation, label }) => (
+          <div key={generation} className="actions" role="group" aria-label={`Unités ${label}`}>
+            {CAREER_UNITS.filter((choice) => choice.generation === generation).map((choice) => (
+              <button
+                key={choice.unit}
+                type="button"
+                className={choice.unit === unit ? undefined : 'secondary'}
+                aria-pressed={choice.unit === unit}
+                onClick={() => setUnit(choice.unit)}
+              >
+                {choice.label}
+              </button>
+            ))}
+          </div>
+        ))}
         <p className="subtitle">{`Suivre la carrière de ${unitLabel}`}</p>
         <div className="actions">
           {DIFFICULTY_CHOICES.map(({ difficulty, label, tooltip }) => (
@@ -97,11 +122,35 @@ export default function CareerHub({
             </ActionButton>
           ))}
         </div>
+        <div className="actions" role="group" aria-label="Franchise (Mode Infini)">
+          {CAREER_GENERATIONS.map(({ generation, label }) => (
+            <button
+              key={generation}
+              type="button"
+              className={generation === infiniteGeneration ? undefined : 'secondary'}
+              aria-pressed={generation === infiniteGeneration}
+              onClick={() => setInfiniteGeneration(generation)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="actions">
+          <ActionButton
+            tooltip={`Une carrière sans fin sur toute la discographie de ${infiniteLabel} : après chaque SIF la dernière phase recommence, de plus en plus dure, jusqu'à l'échec. Le score entre dans le classement.`}
+            disabled={!username}
+            onClick={() => onBegin({ mode: 'infinite', username, generation: infiniteGeneration })}
+          >
+            Mode Infini
+          </ActionButton>
+        </div>
+        {!username && <p className="subtitle">Choisir un pseudo dans le profil pour jouer en mode Infini.</p>}
         {error && (
           <p className="error-msg" role="alert">
             {error}
           </p>
         )}
+        <Leaderboard leaderboards={leaderboards} />
       </section>
     );
   }
@@ -115,7 +164,7 @@ export default function CareerHub({
     career.release && { label: 'Album', turn: career.release.turn },
     career.concertResult && { label: 'Concert', turn: career.concertResult.turn },
     ...career.sorties.map(({ kind, turn: releasedAt }) => ({ label: kind === 'album' ? 'Album' : 'Concert', turn: releasedAt })),
-    career.finaleResult && { label: 'SIF', turn: career.finaleResult.turn },
+    ...career.finales.map(({ turn: releasedAt }) => ({ label: 'SIF', turn: releasedAt })),
   ].filter((release) => release !== null);
 
   return (
@@ -130,8 +179,18 @@ export default function CareerHub({
       <aside className="career-column" aria-label="Statistiques">
         <div className="career-status">
           <span>{`Tour ${turn}`}</span>
-          <span>{CAREER_UNITS.find((choice) => choice.unit === career.unit)?.label}</span>
-          <span>{DIFFICULTY_LABELS[career.difficulty]}</span>
+          {career.mode === 'infinite' ? (
+            <>
+              <span>Mode Infini</span>
+              <span>{CAREER_GENERATIONS.find((choice) => choice.generation === career.generation)?.label}</span>
+              <span>{`Boucle ${career.cycle}`}</span>
+            </>
+          ) : (
+            <>
+              <span>{CAREER_UNITS.find((choice) => choice.unit === career.unit)?.label}</span>
+              <span>{DIFFICULTY_LABELS[career.difficulty]}</span>
+            </>
+          )}
           <span className="career-status-item">
             {`Énergie ${career.energy} / ${career.maxEnergy}`}
             {changes?.energy ? <ChangeBadge label="Énergie" amount={changes.energy} /> : null}

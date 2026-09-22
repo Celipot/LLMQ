@@ -7,7 +7,10 @@ import type { Career, CareerResult } from '../types';
 const career: Career = {
   turn: 3,
   concertAt: 20,
-  finalTurn: 50,
+  finalTurn: 40,
+  mode: 'classic',
+  cycle: 1,
+  finales: [],
   statMax: { oreille: 300, memoire: 300, culture: 200 },
   modifiers: [],
   phase3: false,
@@ -46,7 +49,10 @@ const career: Career = {
   failure: null,
   albumGoalGrade: 'B',
   finalScore: null,
+  generation: 'nijigasaki',
 };
+
+const emptyBoards = { nijigasaki: [], mus: [], aqours: [], hasunosora: [], liella: [], ikizulive: [], all: [] };
 
 const albumResult: CareerResult = {
   score: 420,
@@ -85,6 +91,8 @@ function renderHub(overrides: Partial<Career> | null = {}, props: Partial<Parame
       career={overrides === null ? null : { ...career, ...overrides }}
       error={null}
       events={[]}
+      username="Ayumu"
+      leaderboards={emptyBoards}
       {...handlers}
       {...props}
     />,
@@ -101,6 +109,57 @@ describe('CareerHub', () => {
 
     expect(onBegin).toHaveBeenNthCalledWith(1, { unit: 'azuna', difficulty: 'normal' });
     expect(onBegin).toHaveBeenNthCalledWith(2, { unit: 'azuna', difficulty: 'hard' });
+  });
+
+  test('offers the infinite mode, which starts with the username of the profile and the Nijigasaki franchise by default', async () => {
+    const { onBegin } = renderHub(null);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mode Infini' }));
+
+    expect(onBegin).toHaveBeenCalledWith({ mode: 'infinite', username: 'Ayumu', generation: 'nijigasaki' });
+  });
+
+  test('the infinite mode follows the franchise chosen before starting it', async () => {
+    const { onBegin } = renderHub(null);
+
+    await userEvent.click(within(screen.getByRole('group', { name: 'Franchise (Mode Infini)' })).getByRole('button', { name: 'Aqours' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Mode Infini' }));
+
+    expect(onBegin).toHaveBeenCalledWith({ mode: 'infinite', username: 'Ayumu', generation: 'aqours' });
+  });
+
+  test('the infinite mode is unavailable without a username, with the reason', async () => {
+    const { onBegin } = renderHub(null, { username: '' });
+
+    const button = screen.getByRole('button', { name: 'Mode Infini' });
+    expect(button).toBeDisabled();
+    await userEvent.click(button);
+    expect(onBegin).not.toHaveBeenCalled();
+    expect(screen.getByText('Choisir un pseudo dans le profil pour jouer en mode Infini.')).toBeInTheDocument();
+  });
+
+  test('shows the leaderboard of the infinite mode on the start screen', () => {
+    renderHub(null, {
+      leaderboards: {
+        ...emptyBoards,
+        nijigasaki: [
+          { username: 'Ayumu', turn: 63, score: 18240, grade: 'A' },
+          { username: 'Kasumi', turn: 41, score: 9000, grade: 'B' },
+        ],
+      },
+    });
+
+    const board = screen.getByRole('region', { name: 'Classement du mode Infini' });
+    expect(within(board).getByText('Ayumu')).toBeInTheDocument();
+    expect(within(board).getByText('18240')).toBeInTheDocument();
+  });
+
+  test('the infinite career in progress shows its mode and its loop instead of the unit', () => {
+    renderHub({ mode: 'infinite', cycle: 3 });
+
+    expect(screen.getByText('Mode Infini')).toBeInTheDocument();
+    expect(screen.getByText('Boucle 3')).toBeInTheDocument();
+    expect(screen.queryByText('Mode Difficile')).not.toBeInTheDocument();
   });
 
   test('the four units can be chosen, A・ZU・NA being selected first', () => {
@@ -380,13 +439,13 @@ describe('CareerHub', () => {
     test('once the concert is over the goals of the finale are shown', () => {
       renderHub({ turn: 21, release: albumResult, phase3: true, concertResult });
 
-      expect(within(objective()).getByText('Obtenir au moins B au Concert : 0 / 2')).toBeInTheDocument();
-      expect(within(objective()).getByText((text) => text.startsWith("Obtenir au moins B à l'Album : 0 / 2"))).toBeInTheDocument();
-      expect(objective()).toHaveTextContent('(dans 30 tours)');
+      expect(within(objective()).getByText('Concerts : 0 / 2 joués, dont 0 / 2 au moins B')).toBeInTheDocument();
+      expect(within(objective()).getByText((text) => text.startsWith('Albums : 0 / 3 joués, dont 0 / 2 au moins B'))).toBeInTheDocument();
+      expect(objective()).toHaveTextContent('(dans 20 tours)');
     });
 
     test('once the finale is over the career is complete', () => {
-      renderHub({ turn: 51, release: albumResult, concertResult, finaleResult: concertResult });
+      renderHub({ turn: 41, release: albumResult, concertResult, finaleResult: concertResult });
 
       expect(objective()).toHaveTextContent('Carrière terminée');
       expect(objective()).not.toHaveTextContent('(dans');
@@ -406,7 +465,7 @@ describe('CareerHub', () => {
   });
 
   describe('the final score', () => {
-    const finalScore = { album: 420, concert: 1000, sorties: 0, finale: 0, stats: 170, fans: 200, total: 1790 };
+    const finalScore = { album: 420, concert: 1000, sorties: 0, finale: 0, stats: 170, fans: 200, total: 1790, grade: 'C' as const };
     const over = { turn: 21, release: albumResult, concertResult, finaleResult: concertResult, finalScore };
 
     test('is shown at the end, with what it is made of', () => {
@@ -422,6 +481,12 @@ describe('CareerHub', () => {
         'Stats : 170',
         'Fans : 200',
       ]);
+    });
+
+    test('shows the grade of the career', () => {
+      renderHub(over);
+
+      expect(within(screen.getByRole('region', { name: 'Score de carrière' })).getByText('Grade C')).toBeInTheDocument();
     });
 
     test('is also shown when the career failed', () => {
@@ -543,7 +608,7 @@ describe('CareerHub third phase', () => {
   });
 
   test('once the finale is due, only the SIF can be launched', async () => {
-    const { onFinale } = renderHub({ ...phase3, turn: 51, finaleDue: true });
+    const { onFinale } = renderHub({ ...phase3, turn: 41, finaleDue: true });
 
     await userEvent.click(screen.getByRole('button', { name: 'Lancer le SIF' }));
 
@@ -552,15 +617,15 @@ describe('CareerHub third phase', () => {
   });
 
   test('a finale in progress can be continued', () => {
-    renderHub({ ...phase3, turn: 51, finaleDue: true, live: { kind: 'finale', done: 10, total: 50 } });
+    renderHub({ ...phase3, turn: 41, finaleDue: true, live: { kind: 'finale', done: 10, total: 50 } });
 
     expect(screen.getByRole('button', { name: 'Poursuivre le SIF (10 / 50)' })).toBeInTheDocument();
   });
 
   test('keeps the turn at the last one once the third phase is over', () => {
-    renderHub({ ...phase3, turn: 51, finaleDue: true });
+    renderHub({ ...phase3, turn: 41, finaleDue: true });
 
-    expect(screen.getByText('Tour 50')).toBeInTheDocument();
+    expect(screen.getByText('Tour 40')).toBeInTheDocument();
   });
 
   test('lists every sortie of the third phase on the right, with its grade', () => {
@@ -580,7 +645,7 @@ describe('CareerHub third phase', () => {
     renderHub({
       ...phase3,
       finaleResult: { ...concertResult, maxScore: 5000 },
-      finalScore: { album: 1, concert: 1, sorties: 1, finale: 1, stats: 1, fans: 1, total: 6 },
+      finalScore: { album: 1, concert: 1, sorties: 1, finale: 1, stats: 1, fans: 1, total: 6, grade: 'D' },
     });
 
     expect(screen.getByRole('button', { name: 'Nouvelle carrière' })).toBeInTheDocument();
@@ -594,12 +659,12 @@ describe('CareerHub third phase', () => {
         { kind: 'album', ...albumResult, turn: 24 },
         { kind: 'concert', ...concertResult, turn: 27 },
       ],
-      finaleResult: { ...concertResult, turn: 50 },
+      finales: [{ ...concertResult, turn: 40 }],
     });
 
     const left = screen.getByRole('complementary', { name: 'Statistiques' });
     expect(within(left).getAllByRole('listitem').map((item) => item.textContent)).toEqual(
-      expect.arrayContaining(['Album : tour 10', 'Concert : tour 20', 'Album : tour 24', 'Concert : tour 27', 'SIF : tour 50']),
+      expect.arrayContaining(['Album : tour 10', 'Concert : tour 20', 'Album : tour 24', 'Concert : tour 27', 'SIF : tour 40']),
     );
   });
 
