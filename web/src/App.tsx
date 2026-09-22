@@ -425,7 +425,12 @@ export default function App() {
       )}
 
       {showAnswer && state && (
-        <Result state={state} onNextSong={handleReset} onHome={() => setScreen('home')} />
+        <Result
+          state={state}
+          stats={adaptive && state.correctSongId !== undefined ? (history[state.correctSongId] ?? null) : null}
+          onNextSong={handleReset}
+          onHome={() => setScreen('home')}
+        />
       )}
 
       {(screen === 'list' || (screen === 'random' && !showAnswer)) && (

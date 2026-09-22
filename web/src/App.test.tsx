@@ -201,6 +201,29 @@ describe('App — solo answer screen', () => {
     ]);
   });
 
+  test('shows the song stats once the round is over while the adaptive draw is enabled', async () => {
+    localStorage.setItem('songHistory', JSON.stringify({ 5: { plays: 1, wins: 1, stageSum: 3, lastPlayedAt: 1 } }));
+    await finishARandomRound();
+
+    expect(await screen.findByText('Réussite sur cette chanson : 50% (1/2)')).toBeInTheDocument();
+    expect(screen.getByText('Étape moyenne de découverte : 3.0')).toBeInTheDocument();
+    expect(screen.getByText('Passée 1 fois')).toBeInTheDocument();
+  });
+
+  test('hides the song stats once the adaptive draw is unchecked', async () => {
+    localStorage.setItem('songHistory', JSON.stringify({ 5: { plays: 1, wins: 1, stageSum: 3, lastPlayedAt: 1 } }));
+    vi.mocked(api.startRandomMode).mockResolvedValue(playingState);
+    vi.mocked(api.submitSkip).mockResolvedValue({ state: lostState });
+    render(<App />);
+    await userEvent.click(await screen.findByText('Mode Solo'));
+    await userEvent.click(await screen.findByRole('checkbox', { name: /Tirage adaptatif/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Lancer' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Passer' }));
+
+    await screen.findByRole('heading', { name: 'Perdu' });
+    expect(screen.queryByText(/Réussite/)).not.toBeInTheDocument();
+  });
+
   test('"Musique suivante" draws another song and brings the quiz back', async () => {
     vi.mocked(api.resetGame).mockResolvedValue(playingState);
     await finishARandomRound();

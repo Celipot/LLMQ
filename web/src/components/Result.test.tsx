@@ -55,4 +55,26 @@ describe('Result', () => {
 
     expect(onHome).toHaveBeenCalledTimes(1);
   });
+
+  test('shows no stats when none are provided', () => {
+    render(<Result state={WON} />);
+
+    expect(screen.queryByText(/Réussite/)).not.toBeInTheDocument();
+  });
+
+  test('shows the success rate, the average step and the loss count when stats are provided', () => {
+    render(<Result state={WON} stats={{ plays: 4, wins: 2, stageSum: 5, lastPlayedAt: 0 }} />);
+
+    expect(screen.getByText('Réussite sur cette chanson : 50% (2/4)')).toBeInTheDocument();
+    expect(screen.getByText('Étape moyenne de découverte : 2.5')).toBeInTheDocument();
+    expect(screen.getByText('Passée 2 fois')).toBeInTheDocument();
+  });
+
+  test('omits the average step when the song was never won', () => {
+    render(<Result state={WON} stats={{ plays: 3, wins: 0, stageSum: 0, lastPlayedAt: 0 }} />);
+
+    expect(screen.getByText('Réussite sur cette chanson : 0% (0/3)')).toBeInTheDocument();
+    expect(screen.queryByText(/Étape moyenne de découverte/)).not.toBeInTheDocument();
+    expect(screen.getByText('Passée 3 fois')).toBeInTheDocument();
+  });
 });
