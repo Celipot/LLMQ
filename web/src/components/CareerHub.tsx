@@ -101,60 +101,73 @@ export default function CareerHub({
     const { label: unitLabel } = CAREER_UNITS.find((choice) => choice.unit === unit) ?? CAREER_UNITS[0];
     const infiniteLabel = CAREER_GENERATIONS.find((choice) => choice.generation === infiniteGeneration)?.label;
     return (
-      <section className="career-hub">
-        {UNIT_GENERATIONS.map(({ generation, label }) => (
-          <div key={generation} className="actions" role="group" aria-label={`Unités ${label}`}>
-            {CAREER_UNITS.filter((choice) => choice.generation === generation).map((choice) => (
-              <button
-                key={choice.unit}
-                type="button"
-                className={choice.unit === unit ? undefined : 'secondary'}
-                aria-pressed={choice.unit === unit}
-                onClick={() => setUnit(choice.unit)}
-              >
-                {choice.label}
-              </button>
+      <div className="career-select">
+        <aside className="career-column" aria-label="Classement">
+          <Leaderboard leaderboards={leaderboards} />
+        </aside>
+
+        <div className="career-select-content">
+          <section className="career-select-section">
+            <h2>Carrière classique</h2>
+            {UNIT_GENERATIONS.map(({ generation, label }) => (
+              <div key={generation} className="actions" role="group" aria-label={`Unités ${label}`}>
+                {CAREER_UNITS.filter((choice) => choice.generation === generation).map((choice) => (
+                  <button
+                    key={choice.unit}
+                    type="button"
+                    className={choice.unit === unit ? undefined : 'secondary'}
+                    aria-pressed={choice.unit === unit}
+                    onClick={() => setUnit(choice.unit)}
+                  >
+                    {choice.label}
+                  </button>
+                ))}
+              </div>
             ))}
-          </div>
-        ))}
-        <p className="subtitle">{`Suivre la carrière de ${unitLabel}`}</p>
-        <div className="actions">
-          {DIFFICULTY_CHOICES.map(({ difficulty, label, tooltip }) => (
-            <ActionButton key={difficulty} tooltip={tooltip} onClick={() => onBegin({ unit, difficulty })}>
-              {label}
-            </ActionButton>
-          ))}
+            <p className="subtitle">{`Suivre la carrière de ${unitLabel}`}</p>
+            <div className="actions">
+              {DIFFICULTY_CHOICES.map(({ difficulty, label, tooltip }) => (
+                <ActionButton key={difficulty} tooltip={tooltip} onClick={() => onBegin({ unit, difficulty })}>
+                  {label}
+                </ActionButton>
+              ))}
+            </div>
+          </section>
+
+          <section className="career-select-section">
+            <h2>Mode Infini</h2>
+            <div className="actions" role="group" aria-label="Franchise (Mode Infini)">
+              {CAREER_GENERATIONS.map(({ generation, label }) => (
+                <button
+                  key={generation}
+                  type="button"
+                  className={generation === infiniteGeneration ? undefined : 'secondary'}
+                  aria-pressed={generation === infiniteGeneration}
+                  onClick={() => setInfiniteGeneration(generation)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="actions">
+              <ActionButton
+                tooltip={`Une carrière sans fin sur toute la discographie de ${infiniteLabel} : après chaque SIF la dernière phase recommence, de plus en plus dure, jusqu'à l'échec. Le score entre dans le classement.`}
+                disabled={!username}
+                onClick={() => onBegin({ mode: 'infinite', username, generation: infiniteGeneration })}
+              >
+                Mode Infini
+              </ActionButton>
+            </div>
+            {!username && <p className="subtitle">Choisir un pseudo dans le profil pour jouer en mode Infini.</p>}
+          </section>
+
+          {error && (
+            <p className="error-msg" role="alert">
+              {error}
+            </p>
+          )}
         </div>
-        <div className="actions" role="group" aria-label="Franchise (Mode Infini)">
-          {CAREER_GENERATIONS.map(({ generation, label }) => (
-            <button
-              key={generation}
-              type="button"
-              className={generation === infiniteGeneration ? undefined : 'secondary'}
-              aria-pressed={generation === infiniteGeneration}
-              onClick={() => setInfiniteGeneration(generation)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <div className="actions">
-          <ActionButton
-            tooltip={`Une carrière sans fin sur toute la discographie de ${infiniteLabel} : après chaque SIF la dernière phase recommence, de plus en plus dure, jusqu'à l'échec. Le score entre dans le classement.`}
-            disabled={!username}
-            onClick={() => onBegin({ mode: 'infinite', username, generation: infiniteGeneration })}
-          >
-            Mode Infini
-          </ActionButton>
-        </div>
-        {!username && <p className="subtitle">Choisir un pseudo dans le profil pour jouer en mode Infini.</p>}
-        {error && (
-          <p className="error-msg" role="alert">
-            {error}
-          </p>
-        )}
-        <Leaderboard leaderboards={leaderboards} />
-      </section>
+      </div>
     );
   }
 

@@ -723,6 +723,43 @@ button:disabled {
   max-width: none;
 }
 
+.app:has(.career-select) {
+  max-width: 960px;
+}
+
+.career-select {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  align-items: start;
+  gap: 1.5rem;
+}
+
+.career-select-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.career-select-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.career-select-section h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.career-select-section .actions,
+.career-leaderboard .actions {
+  flex-wrap: wrap;
+}
+
 .career-layout {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr) 220px;
@@ -869,6 +906,10 @@ button:disabled {
 
   .career-layout > div.career-column {
     max-width: none;
+  }
+
+  .career-select {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

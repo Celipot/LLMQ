@@ -154,6 +154,29 @@ describe('CareerHub', () => {
     expect(within(board).getByText('18240')).toBeInTheDocument();
   });
 
+  test('the leaderboard sits to the side of the two career sections', () => {
+    renderHub(null);
+
+    const board = screen.getByRole('complementary', { name: 'Classement' });
+    expect(within(board).getByRole('region', { name: 'Classement du mode Infini' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Carrière classique' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Mode Infini' })).toBeInTheDocument();
+  });
+
+  test('the unit and difficulty controls live under Carrière classique, the franchise and start button under Mode Infini', () => {
+    renderHub(null);
+
+    const classic = screen.getByRole('heading', { name: 'Carrière classique' }).closest('section');
+    const infinite = screen.getByRole('heading', { name: 'Mode Infini' }).closest('section');
+    expect(classic).not.toBeNull();
+    expect(infinite).not.toBeNull();
+
+    expect(within(classic!).getByRole('group', { name: 'Unités Nijigasaki' })).toBeInTheDocument();
+    expect(within(classic!).getByRole('button', { name: 'Difficile' })).toBeInTheDocument();
+    expect(within(infinite!).getByRole('group', { name: 'Franchise (Mode Infini)' })).toBeInTheDocument();
+    expect(within(infinite!).getByRole('button', { name: 'Mode Infini' })).toBeInTheDocument();
+  });
+
   test('the infinite career in progress shows its mode and its loop instead of the unit', () => {
     renderHub({ mode: 'infinite', cycle: 3 });
 
