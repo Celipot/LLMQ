@@ -53,6 +53,7 @@ const career: Career = {
   stats: { oreille: 0, memoire: 0, culture: 0 },
   suggestionCount: 1,
   unit: 'azuna',
+  generation: 'nijigasaki',
   difficulty: 'hard',
   baseTiers: [1, 2, 3],
   baseSuggestions: 1,
